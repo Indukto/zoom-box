@@ -64,11 +64,10 @@ enum class FilmPreset(
     val defaultExposure: Float = 0f,
     /**
      * Film-grain strength added on top of the LUT at save time, in [0, 1].
-     * 0 = no grain (color negatives / polaroids where the LUT is the look).
-     * Non-zero is reserved for stocks with a distinctive silver-halide tooth.
-     * Currently only the KODAK_BW chromogenic B&W negative gets it — its
-     * mono output is famously grainy and the missing texture is what makes
-     * shots look "digitally desaturated" without this knob set.
+     * Real film stocks have visible silver-halide / dye-cloud grain that
+     * varies with ISO and emulsion type — higher for instant / fast films,
+     * lower for slow color negatives. Creative presets get a subtle dose
+     * for a cohesive analog feel.
      */
     val defaultGrainStrength: Float = 0f,
     /**
@@ -80,19 +79,54 @@ enum class FilmPreset(
      */
     val defaultGrainChroma: Float = 0f
 ) {
-    KODAK_PORTRA("Kodak Portra 160", "luts/kodak_portra_160_vc.cube"),
+    KODAK_PORTRA(
+        "Kodak Portra 160",
+        "luts/kodak_portra_160_vc.cube",
+        defaultGrainStrength = 0.05f,
+        defaultGrainChroma = 0.3f   // dye-cloud grain from color emulsion layers
+    ),
     KODAK_BW(
         "Kodak BW 400 CN",
         "luts/kodak_bw_400_cn.cube",
         defaultGrainStrength = 0.32f,
-        defaultGrainChroma = 0f  // strict mono — chroma speckles would look wrong on B&W
+        defaultGrainChroma = 0f     // strict mono — chroma speckles would look wrong on B&W
     ),
-    POLAROID("Polaroid PX-680", "luts/polaroid_px-680.cube"),
-    KODAK_ELITE_100_XPRO("Kodak Elite 100 XPro", "luts/kodak_elite_100_xpro.cube"),
-    POLAROID_669("Polaroid 669 ++", "luts/polaroid_669_++.cube"),
-    MOODY("Moody", "luts/moody.cube"),
-    MUTED_MEADOW("Muted Meadow", "luts/Muted Meadow.cube"),
-    SUNLIT_SPILL("Sunlit Spill", "luts/Sunlit Spill.cube");
+    POLAROID(
+        "Polaroid PX-680",
+        "luts/polaroid_px-680.cube",
+        defaultGrainStrength = 0.18f,
+        defaultGrainChroma = 0.35f  // high-ISO instant film has chunky dye clouds
+    ),
+    KODAK_ELITE_100_XPRO(
+        "Kodak Elite 100 XPro",
+        "luts/kodak_elite_100_xpro.cube",
+        defaultGrainStrength = 0.08f,
+        defaultGrainChroma = 0.20f  // cross-processing accentuates color grain
+    ),
+    POLAROID_669(
+        "Polaroid 669 ++",
+        "luts/polaroid_669_++.cube",
+        defaultGrainStrength = 0.10f,
+        defaultGrainChroma = 0.25f  // peel-apart film with visible dye specks
+    ),
+    MOODY(
+        "Moody",
+        "luts/moody.cube",
+        defaultGrainStrength = 0.12f,
+        defaultGrainChroma = 0.15f  // light grain adds to the moody aesthetic
+    ),
+    MUTED_MEADOW(
+        "Muted Meadow",
+        "luts/Muted Meadow.cube",
+        defaultGrainStrength = 0.06f,
+        defaultGrainChroma = 0.20f
+    ),
+    SUNLIT_SPILL(
+        "Sunlit Spill",
+        "luts/Sunlit Spill.cube",
+        defaultGrainStrength = 0.08f,
+        defaultGrainChroma = 0.25f  // warm halation-style chroma grain
+    );
 }
 
 class CameraViewModel(application: Application) : AndroidViewModel(application) {
