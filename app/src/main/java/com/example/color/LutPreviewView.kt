@@ -108,6 +108,28 @@ class LutPreviewView(
         renderer.setWhiteBalance(temp, tint, exposure)
     }
 
+    fun setFilmEffects(
+        filmCurve: Float,
+        contrast: Float,
+        saturation: Float,
+        bloomStrength: Float,
+        fringing: Float,
+        shadowTintR: Float,
+        shadowTintG: Float,
+        shadowTintB: Float,
+        shadowTintStrength: Float,
+        highlightTintR: Float,
+        highlightTintG: Float,
+        highlightTintB: Float,
+        highlightTintStrength: Float
+    ) {
+        renderer.setFilmEffects(
+            filmCurve, contrast, saturation, bloomStrength, fringing,
+            shadowTintR, shadowTintG, shadowTintB, shadowTintStrength,
+            highlightTintR, highlightTintG, highlightTintB, highlightTintStrength
+        )
+    }
+
     fun setLut(lut: CubeLut?) {
         renderer.setLut(lut)
     }

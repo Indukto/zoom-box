@@ -51,6 +51,21 @@ class LutPreviewRenderer(
     private var uTexCropLoc = 0
     private var uViewSizeLoc = 0
 
+    // ── New effect uniforms ──
+    private var uFilmCurveLoc = 0
+    private var uContrastLoc = 0
+    private var uSaturationLoc = 0
+    private var uBloomStrengthLoc = 0
+    private var uFringingLoc = 0
+    private var uShadowTintRLoc = 0
+    private var uShadowTintGLoc = 0
+    private var uShadowTintBLoc = 0
+    private var uShadowTintStrengthLoc = 0
+    private var uHighlightTintRLoc = 0
+    private var uHighlightTintGLoc = 0
+    private var uHighlightTintBLoc = 0
+    private var uHighlightTintStrengthLoc = 0
+
     private var inputTexture = 0
     private var lutTexture = 0
     private var lutWidth = 0  // 0 == no LUT uploaded yet
@@ -65,6 +80,21 @@ class LutPreviewRenderer(
     @Volatile private var exposure = 0f
     @Volatile private var flipH = false
     @Volatile private var lutEnabled = false
+
+    // ── New per-frame effect inputs ──
+    @Volatile private var filmCurve = 0f
+    @Volatile private var contrast = 1.0f
+    @Volatile private var saturation = 1.0f
+    @Volatile private var bloomStrength = 0f
+    @Volatile private var fringing = 0f
+    @Volatile private var shadowTintR = 0f
+    @Volatile private var shadowTintG = 0f
+    @Volatile private var shadowTintB = 0f
+    @Volatile private var shadowTintStrength = 0f
+    @Volatile private var highlightTintR = 0f
+    @Volatile private var highlightTintG = 0f
+    @Volatile private var highlightTintB = 0f
+    @Volatile private var highlightTintStrength = 0f
 
     // Pending LUT (set from UI thread, consumed on GL thread).
     @Volatile private var pendingLut: CubeLut? = null
@@ -83,6 +113,41 @@ class LutPreviewRenderer(
         temperature = temp
         tint = tintVal
         exposure = exposureVal
+        glSurfaceView.requestRender()
+    }
+
+    /**
+     * Set all film effect parameters for the current preset.
+     * These are applied in the shader between exposure and vignette.
+     */
+    fun setFilmEffects(
+        filmCurveVal: Float,
+        contrastVal: Float,
+        saturationVal: Float,
+        bloomStrengthVal: Float,
+        fringingVal: Float,
+        shadowTintRVal: Float,
+        shadowTintGVal: Float,
+        shadowTintBVal: Float,
+        shadowTintStrengthVal: Float,
+        highlightTintRVal: Float,
+        highlightTintGVal: Float,
+        highlightTintBVal: Float,
+        highlightTintStrengthVal: Float
+    ) {
+        filmCurve = filmCurveVal
+        contrast = contrastVal
+        saturation = saturationVal
+        bloomStrength = bloomStrengthVal
+        fringing = fringingVal
+        shadowTintR = shadowTintRVal
+        shadowTintG = shadowTintGVal
+        shadowTintB = shadowTintBVal
+        shadowTintStrength = shadowTintStrengthVal
+        highlightTintR = highlightTintRVal
+        highlightTintG = highlightTintGVal
+        highlightTintB = highlightTintBVal
+        highlightTintStrength = highlightTintStrengthVal
         glSurfaceView.requestRender()
     }
 
@@ -148,6 +213,21 @@ class LutPreviewRenderer(
         uLutLoc = GLES20.glGetUniformLocation(program, "uLut")
         uTexCropLoc = GLES20.glGetUniformLocation(program, "uTexCrop")
         uViewSizeLoc = GLES20.glGetUniformLocation(program, "uViewSize")
+
+        // ── New effect uniform locations ──
+        uFilmCurveLoc = GLES20.glGetUniformLocation(program, "uFilmCurve")
+        uContrastLoc = GLES20.glGetUniformLocation(program, "uContrast")
+        uSaturationLoc = GLES20.glGetUniformLocation(program, "uSaturation")
+        uBloomStrengthLoc = GLES20.glGetUniformLocation(program, "uBloomStrength")
+        uFringingLoc = GLES20.glGetUniformLocation(program, "uFringing")
+        uShadowTintRLoc = GLES20.glGetUniformLocation(program, "uShadowTintR")
+        uShadowTintGLoc = GLES20.glGetUniformLocation(program, "uShadowTintG")
+        uShadowTintBLoc = GLES20.glGetUniformLocation(program, "uShadowTintB")
+        uShadowTintStrengthLoc = GLES20.glGetUniformLocation(program, "uShadowTintStrength")
+        uHighlightTintRLoc = GLES20.glGetUniformLocation(program, "uHighlightTintR")
+        uHighlightTintGLoc = GLES20.glGetUniformLocation(program, "uHighlightTintG")
+        uHighlightTintBLoc = GLES20.glGetUniformLocation(program, "uHighlightTintB")
+        uHighlightTintStrengthLoc = GLES20.glGetUniformLocation(program, "uHighlightTintStrength")
 
         // Input (camera) texture.
         val tex = IntArray(1)
@@ -220,6 +300,21 @@ class LutPreviewRenderer(
         GLES20.glUniform1f(uTintLoc, tint)
         GLES20.glUniform1f(uExposureLoc, exposure)
         GLES20.glUniform2f(uViewSizeLoc, viewWidth.toFloat(), viewHeight.toFloat())
+
+        // ── Upload new effect uniforms ──
+        GLES20.glUniform1f(uFilmCurveLoc, filmCurve)
+        GLES20.glUniform1f(uContrastLoc, contrast)
+        GLES20.glUniform1f(uSaturationLoc, saturation)
+        GLES20.glUniform1f(uBloomStrengthLoc, bloomStrength)
+        GLES20.glUniform1f(uFringingLoc, fringing)
+        GLES20.glUniform1f(uShadowTintRLoc, shadowTintR)
+        GLES20.glUniform1f(uShadowTintGLoc, shadowTintG)
+        GLES20.glUniform1f(uShadowTintBLoc, shadowTintB)
+        GLES20.glUniform1f(uShadowTintStrengthLoc, shadowTintStrength)
+        GLES20.glUniform1f(uHighlightTintRLoc, highlightTintR)
+        GLES20.glUniform1f(uHighlightTintGLoc, highlightTintG)
+        GLES20.glUniform1f(uHighlightTintBLoc, highlightTintB)
+        GLES20.glUniform1f(uHighlightTintStrengthLoc, highlightTintStrength)
 
         if (has3dTextures && lutEnabled && lutWidth > 0) {
             GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
@@ -432,7 +527,8 @@ class LutPreviewRenderer(
             }
         """
 
-        // Fragment shader: sample camera → apply WB + exposure + vignette + optional LUT.
+        // Fragment shader: sample camera → apply WB + exposure + film effects
+        // + vignette + optional LUT.
         // Uses GL_OES_EGL_image_external for the camera texture and
         // GL_OES_texture_3D for the LUT. Vignette math matches the CPU
         // applyRetroFilter RadialGradient.
@@ -448,12 +544,39 @@ class LutPreviewRenderer(
             uniform float uExposure;
             uniform int uLutEnabled;
             uniform vec2 uViewSize;
+
+            // ── New effect uniforms ──
+            uniform float uFilmCurve;
+            uniform float uContrast;
+            uniform float uSaturation;
+            uniform float uBloomStrength;
+            uniform float uFringing;
+            uniform float uShadowTintR;
+            uniform float uShadowTintG;
+            uniform float uShadowTintB;
+            uniform float uShadowTintStrength;
+            uniform float uHighlightTintR;
+            uniform float uHighlightTintG;
+            uniform float uHighlightTintB;
+            uniform float uHighlightTintStrength;
+
             varying vec2 vTexCoord;
+
+            // ── Filmic S-curve ──
+            float filmScurve(float x, float strength) {
+                float s = strength * 0.5;
+                float toe = (1.0 - exp(-x * 5.0)) * s * 0.12;
+                float shoulder = (1.0 - exp(-(1.0 - x) * 5.0)) * s * 0.20;
+                float result = x + toe - shoulder;
+                float midPush = (x - 0.5) * s * 0.15;
+                result += midPush;
+                return clamp(result, 0.0, 1.0);
+            }
 
             void main() {
                 vec3 c = texture2D(uTexture, vTexCoord).rgb;
 
-                // White balance — temp (warm/cool) and tint (green/magenta).
+                // ── 1. White balance ──
                 c.r += uTemperature * 0.04;
                 c.b -= uTemperature * 0.04;
                 c.g -= uTint * 0.04;
@@ -461,13 +584,40 @@ class LutPreviewRenderer(
                 c.b += uTint * 0.02;
                 c = clamp(c, 0.0, 1.0);
 
-                // Exposure — stops-ish scaling.
+                // ── 2. Exposure ──
                 c *= pow(2.0, uExposure * 0.4);
                 c = clamp(c, 0.0, 1.0);
 
-                // Vignette — matches CPU RadialGradient (TRANSPARENT → argb(135,12,12,12)
-                // at stops 0.55 and 1.0 of 0.72*max(w,h)). Uses gl_FragCoord pixel
-                // position so the effect is viewport-scaled, same as the CPU path.
+                // ── 3. Chromatic Fringing ──
+                // Shift R and B channels relative to G to simulate color
+                // channel misregistration in instant/Polaroid films.
+                if (uFringing > 0.0) {
+                    vec2 fringingOff = vec2(uFringing * 0.004, 0.0);
+                    float rFringe = texture2D(uTexture, vTexCoord + fringingOff).r;
+                    float bFringe = texture2D(uTexture, vTexCoord - fringingOff).b;
+                    c.r = mix(c.r, rFringe, uFringing * 5.0);
+                    c.b = mix(c.b, bFringe, uFringing * 5.0);
+                }
+
+                // ── 4. Film S-Curve ──
+                // Smooth shoulder/toe replaces hard clipping on highlights/shadows.
+                if (uFilmCurve > 0.0) {
+                    c.r = filmScurve(c.r, uFilmCurve);
+                    c.g = filmScurve(c.g, uFilmCurve);
+                    c.b = filmScurve(c.b, uFilmCurve);
+                }
+
+                // ── 5. Halation / Bloom ──
+                // Warm glow around bright highlights (Portra glow, etc.)
+                if (uBloomStrength > 0.0) {
+                    float luma = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+                    float brightMask = smoothstep(0.3, 0.8, luma);
+                    vec3 warmGlow = brightMask * uBloomStrength * luma * vec3(1.0, 0.7, 0.3);
+                    c.rgb += warmGlow;
+                    c = clamp(c, 0.0, 1.0);
+                }
+
+                // ── 6. Vignette ──
                 vec2 center = uViewSize * 0.5;
                 float dist = distance(gl_FragCoord.xy, center);
                 float maxRadius = 0.72 * max(uViewSize.x, uViewSize.y);
@@ -478,8 +628,37 @@ class LutPreviewRenderer(
                 float cornerContrib = t * (12.0 / 255.0) * shaderA;
                 c.rgb = c.rgb * invA + vec3(cornerContrib);
 
-                // 3D LUT. texture3D coords are normalized to [0,1]; the GPU's
-                // linear filtering gives trilinear interpolation for free.
+                // ── 7. Contrast & Saturation ──
+                float lumaCS = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+                if (uContrast != 1.0) {
+                    c.r = (c.r - 0.5) * uContrast + 0.5;
+                    c.g = (c.g - 0.5) * uContrast + 0.5;
+                    c.b = (c.b - 0.5) * uContrast + 0.5;
+                }
+                if (uSaturation != 1.0) {
+                    c.r = lumaCS + (c.r - lumaCS) * uSaturation;
+                    c.g = lumaCS + (c.g - lumaCS) * uSaturation;
+                    c.b = lumaCS + (c.b - lumaCS) * uSaturation;
+                }
+                c = clamp(c, 0.0, 1.0);
+
+                // ── 8. Split Toning ──
+                float lumaST = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+                float shadowW = 1.0 - lumaST;
+                float highlightW = lumaST;
+                if (uShadowTintStrength > 0.0) {
+                    c.r += uShadowTintR * shadowW * uShadowTintStrength;
+                    c.g += uShadowTintG * shadowW * uShadowTintStrength;
+                    c.b += uShadowTintB * shadowW * uShadowTintStrength;
+                }
+                if (uHighlightTintStrength > 0.0) {
+                    c.r += uHighlightTintR * highlightW * uHighlightTintStrength;
+                    c.g += uHighlightTintG * highlightW * uHighlightTintStrength;
+                    c.b += uHighlightTintB * highlightW * uHighlightTintStrength;
+                }
+                c = clamp(c, 0.0, 1.0);
+
+                // ── 9. 3D LUT ──
                 if (uLutEnabled == 1) {
                     c = texture3D(uLut, c).rgb;
                 }
@@ -490,7 +669,7 @@ class LutPreviewRenderer(
         // Fallback fragment shader for GPUs that lack GL_OES_texture_3D
         // (e.g. some Android Emulator GPU profiles). Identical to
         // FRAG_SHADER except the 3D LUT stage is removed entirely —
-        // only WB + exposure + vignette are applied.
+        // only WB + exposure + film effects + vignette are applied.
         private const val FRAG_SHADER_NO_3D = """
             #extension GL_OES_EGL_image_external : require
             precision mediump float;
@@ -499,12 +678,39 @@ class LutPreviewRenderer(
             uniform float uTint;
             uniform float uExposure;
             uniform vec2 uViewSize;
+
+            // ── New effect uniforms ──
+            uniform float uFilmCurve;
+            uniform float uContrast;
+            uniform float uSaturation;
+            uniform float uBloomStrength;
+            uniform float uFringing;
+            uniform float uShadowTintR;
+            uniform float uShadowTintG;
+            uniform float uShadowTintB;
+            uniform float uShadowTintStrength;
+            uniform float uHighlightTintR;
+            uniform float uHighlightTintG;
+            uniform float uHighlightTintB;
+            uniform float uHighlightTintStrength;
+
             varying vec2 vTexCoord;
+
+            // ── Filmic S-curve ──
+            float filmScurve(float x, float strength) {
+                float s = strength * 0.5;
+                float toe = (1.0 - exp(-x * 5.0)) * s * 0.12;
+                float shoulder = (1.0 - exp(-(1.0 - x) * 5.0)) * s * 0.20;
+                float result = x + toe - shoulder;
+                float midPush = (x - 0.5) * s * 0.15;
+                result += midPush;
+                return clamp(result, 0.0, 1.0);
+            }
 
             void main() {
                 vec3 c = texture2D(uTexture, vTexCoord).rgb;
 
-                // White balance — temp (warm/cool) and tint (green/magenta).
+                // ── 1. White balance ──
                 c.r += uTemperature * 0.04;
                 c.b -= uTemperature * 0.04;
                 c.g -= uTint * 0.04;
@@ -512,11 +718,36 @@ class LutPreviewRenderer(
                 c.b += uTint * 0.02;
                 c = clamp(c, 0.0, 1.0);
 
-                // Exposure — stops-ish scaling.
+                // ── 2. Exposure ──
                 c *= pow(2.0, uExposure * 0.4);
                 c = clamp(c, 0.0, 1.0);
 
-                // Vignette — matches CPU RadialGradient.
+                // ── 3. Chromatic Fringing ──
+                if (uFringing > 0.0) {
+                    vec2 fringingOff = vec2(uFringing * 0.004, 0.0);
+                    float rFringe = texture2D(uTexture, vTexCoord + fringingOff).r;
+                    float bFringe = texture2D(uTexture, vTexCoord - fringingOff).b;
+                    c.r = mix(c.r, rFringe, uFringing * 5.0);
+                    c.b = mix(c.b, bFringe, uFringing * 5.0);
+                }
+
+                // ── 4. Film S-Curve ──
+                if (uFilmCurve > 0.0) {
+                    c.r = filmScurve(c.r, uFilmCurve);
+                    c.g = filmScurve(c.g, uFilmCurve);
+                    c.b = filmScurve(c.b, uFilmCurve);
+                }
+
+                // ── 5. Halation / Bloom ──
+                if (uBloomStrength > 0.0) {
+                    float luma = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+                    float brightMask = smoothstep(0.3, 0.8, luma);
+                    vec3 warmGlow = brightMask * uBloomStrength * luma * vec3(1.0, 0.7, 0.3);
+                    c.rgb += warmGlow;
+                    c = clamp(c, 0.0, 1.0);
+                }
+
+                // ── 6. Vignette ──
                 vec2 center = uViewSize * 0.5;
                 float dist = distance(gl_FragCoord.xy, center);
                 float maxRadius = 0.72 * max(uViewSize.x, uViewSize.y);
@@ -526,6 +757,36 @@ class LutPreviewRenderer(
                 float invA = 1.0 - shaderA;
                 float cornerContrib = t * (12.0 / 255.0) * shaderA;
                 c.rgb = c.rgb * invA + vec3(cornerContrib);
+
+                // ── 7. Contrast & Saturation ──
+                float lumaCS = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+                if (uContrast != 1.0) {
+                    c.r = (c.r - 0.5) * uContrast + 0.5;
+                    c.g = (c.g - 0.5) * uContrast + 0.5;
+                    c.b = (c.b - 0.5) * uContrast + 0.5;
+                }
+                if (uSaturation != 1.0) {
+                    c.r = lumaCS + (c.r - lumaCS) * uSaturation;
+                    c.g = lumaCS + (c.g - lumaCS) * uSaturation;
+                    c.b = lumaCS + (c.b - lumaCS) * uSaturation;
+                }
+                c = clamp(c, 0.0, 1.0);
+
+                // ── 8. Split Toning ──
+                float lumaST = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+                float shadowW = 1.0 - lumaST;
+                float highlightW = lumaST;
+                if (uShadowTintStrength > 0.0) {
+                    c.r += uShadowTintR * shadowW * uShadowTintStrength;
+                    c.g += uShadowTintG * shadowW * uShadowTintStrength;
+                    c.b += uShadowTintB * shadowW * uShadowTintStrength;
+                }
+                if (uHighlightTintStrength > 0.0) {
+                    c.r += uHighlightTintR * highlightW * uHighlightTintStrength;
+                    c.g += uHighlightTintG * highlightW * uHighlightTintStrength;
+                    c.b += uHighlightTintB * highlightW * uHighlightTintStrength;
+                }
+                c = clamp(c, 0.0, 1.0);
 
                 gl_FragColor = vec4(c, 1.0);
             }

@@ -1364,6 +1364,7 @@ fun CameraActiveScreen(
             temperature = temperature,
             tint = tint,
             activeLut = previewLut,
+            activePreset = activePreset,
             onZoomChanged = { viewModel.setZoom(it) },
             onZoomTick = {
                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)

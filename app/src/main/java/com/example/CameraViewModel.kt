@@ -41,6 +41,10 @@ import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.pow
+import kotlin.math.sqrt
 
 @Stable
 data class ExifData(
@@ -77,55 +81,179 @@ enum class FilmPreset(
      * paper response). Higher values introduce colored "dye cloud" speckles,
      * useful if a future color stock preset wants a Portra-style organic grain.
      */
-    val defaultGrainChroma: Float = 0f
+    val defaultGrainChroma: Float = 0f,
+    // ── New per-preset tonal & creative parameters ──────────────────────
+    /**
+     * Film S-curve strength in [0, 1]. Applies a characteristic S-shaped
+     * tone response: a gentle toe lifts shadows, a smooth shoulder compresses
+     * highlights. 0 = linear (no curve). Real films have a pronounced S-curve
+     * in their D-log-E response.
+     */
+    val defaultFilmCurve: Float = 0f,
+    /**
+     * Per-preset contrast multiplier. 1.0 = neutral, <1.0 reduces contrast,
+     * >1.0 increases contrast. Applied after the LUT as a final tonal tweak.
+     */
+    val defaultContrast: Float = 1.0f,
+    /**
+     * Per-preset saturation multiplier. 1.0 = neutral, <1.0 desaturates,
+     * >1.0 saturates more. Applied after the LUT.
+     */
+    val defaultSaturation: Float = 1.0f,
+    /**
+     * Halation / bloom strength in [0, 1]. Simulates light scattering through
+     * film emulsion layers, creating a warm glow around bright highlights.
+     * Key characteristic of color negative stocks like Portra.
+     */
+    val defaultBloom: Float = 0f,
+    /**
+     * Split toning — shadow tint as (R, G, B) additive offset in [0, 1] range.
+     * These are added weighted by (1 - luma), so darker regions get more tint.
+     */
+    val shadowTintR: Float = 0f,
+    val shadowTintG: Float = 0f,
+    val shadowTintB: Float = 0f,
+    /**
+     * Shadow tint strength in [0, 1]. Scales the shadow color offset.
+     */
+    val shadowTintStrength: Float = 0f,
+    /**
+     * Split toning — highlight tint as (R, G, B) additive offset in [0, 1] range.
+     * These are added weighted by luma, so brighter regions get more tint.
+     */
+    val highlightTintR: Float = 0f,
+    val highlightTintG: Float = 0f,
+    val highlightTintB: Float = 0f,
+    /**
+     * Highlight tint strength in [0, 1]. Scales the highlight color offset.
+     */
+    val highlightTintStrength: Float = 0f,
+    /**
+     * Chromatic fringing strength in pixels (normalized to texture coords).
+     * Shifts the R and B channels relative to G to simulate color channel
+     * misregistration in instant / Polaroid films. 0 = no fringing.
+     */
+    val defaultFringing: Float = 0f
 ) {
     KODAK_PORTRA(
         "Kodak Portra 160",
         "luts/kodak_portra_160_vc.cube",
         defaultGrainStrength = 0.05f,
-        defaultGrainChroma = 0.3f   // dye-cloud grain from color emulsion layers
+        defaultGrainChroma = 0.3f,       // dye-cloud grain from color emulsion layers
+        defaultFilmCurve = 0.20f,
+        defaultContrast = 1.05f,
+        defaultSaturation = 1.0f,
+        defaultBloom = 0.18f,
+        shadowTintR = 0.0f, shadowTintG = 0.0f, shadowTintB = 0.025f,  // cool blue shadows
+        shadowTintStrength = 0.06f,
+        highlightTintR = 0.04f, highlightTintG = 0.02f, highlightTintB = 0.0f,  // warm highlights
+        highlightTintStrength = 0.08f,
+        defaultFringing = 0.0f
     ),
     KODAK_BW(
         "Kodak BW 400 CN",
         "luts/kodak_bw_400_cn.cube",
         defaultGrainStrength = 0.32f,
-        defaultGrainChroma = 0f     // strict mono — chroma speckles would look wrong on B&W
+        defaultGrainChroma = 0f,          // strict mono — chroma speckles would look wrong on B&W
+        defaultFilmCurve = 0.35f,
+        defaultContrast = 1.35f,
+        defaultSaturation = 0.0f,
+        defaultBloom = 0.0f,
+        shadowTintR = 0f, shadowTintG = 0f, shadowTintB = 0f,
+        shadowTintStrength = 0f,
+        highlightTintR = 0f, highlightTintG = 0f, highlightTintB = 0f,
+        highlightTintStrength = 0f,
+        defaultFringing = 0.0f
     ),
     POLAROID(
         "Polaroid PX-680",
         "luts/polaroid_px-680.cube",
         defaultGrainStrength = 0.18f,
-        defaultGrainChroma = 0.35f  // high-ISO instant film has chunky dye clouds
+        defaultGrainChroma = 0.35f,       // high-ISO instant film has chunky dye clouds
+        defaultFilmCurve = 0.20f,
+        defaultContrast = 1.10f,
+        defaultSaturation = 1.15f,
+        defaultBloom = 0.25f,
+        shadowTintR = 0.0f, shadowTintG = 0.005f, shadowTintB = 0.01f,
+        shadowTintStrength = 0.04f,
+        highlightTintR = 0.04f, highlightTintG = 0.015f, highlightTintB = 0.0f,
+        highlightTintStrength = 0.06f,
+        defaultFringing = 0.006f
     ),
     KODAK_ELITE_100_XPRO(
         "Kodak Elite 100 XPro",
         "luts/kodak_elite_100_xpro.cube",
         defaultGrainStrength = 0.08f,
-        defaultGrainChroma = 0.20f  // cross-processing accentuates color grain
+        defaultGrainChroma = 0.20f,       // cross-processing accentuates color grain
+        defaultFilmCurve = 0.25f,
+        defaultContrast = 1.20f,
+        defaultSaturation = 1.30f,
+        defaultBloom = 0.05f,
+        shadowTintR = 0.0f, shadowTintG = 0.015f, shadowTintB = 0.02f,  // green/cyan shadows
+        shadowTintStrength = 0.08f,
+        highlightTintR = 0.03f, highlightTintG = 0.02f, highlightTintB = 0.0f,  // warm highlights
+        highlightTintStrength = 0.07f,
+        defaultFringing = 0.003f
     ),
     POLAROID_669(
         "Polaroid 669 ++",
         "luts/polaroid_669_++.cube",
         defaultGrainStrength = 0.10f,
-        defaultGrainChroma = 0.25f  // peel-apart film with visible dye specks
+        defaultGrainChroma = 0.25f,       // peel-apart film with visible dye specks
+        defaultFilmCurve = 0.20f,
+        defaultContrast = 1.15f,
+        defaultSaturation = 1.20f,
+        defaultBloom = 0.20f,
+        shadowTintR = 0.0f, shadowTintG = 0.0f, shadowTintB = 0.015f,
+        shadowTintStrength = 0.05f,
+        highlightTintR = 0.03f, highlightTintG = 0.01f, highlightTintB = 0.0f,
+        highlightTintStrength = 0.07f,
+        defaultFringing = 0.008f
     ),
     MOODY(
         "Moody",
         "luts/moody.cube",
         defaultGrainStrength = 0.12f,
-        defaultGrainChroma = 0.15f  // light grain adds to the moody aesthetic
+        defaultGrainChroma = 0.15f,       // light grain adds to the moody aesthetic
+        defaultFilmCurve = 0.50f,
+        defaultContrast = 1.40f,
+        defaultSaturation = 0.85f,
+        defaultBloom = 0.08f,
+        shadowTintR = 0.0f, shadowTintG = 0.0f, shadowTintB = 0.04f,  // strong blue shadows
+        shadowTintStrength = 0.15f,
+        highlightTintR = 0.06f, highlightTintG = 0.03f, highlightTintB = 0.0f,  // strong warm highlights
+        highlightTintStrength = 0.12f,
+        defaultFringing = 0.0f
     ),
     MUTED_MEADOW(
         "Muted Meadow",
         "luts/Muted Meadow.cube",
         defaultGrainStrength = 0.06f,
-        defaultGrainChroma = 0.20f
+        defaultGrainChroma = 0.20f,
+        defaultFilmCurve = 0.15f,
+        defaultContrast = 1.05f,
+        defaultSaturation = 0.70f,
+        defaultBloom = 0.10f,
+        shadowTintR = 0.0f, shadowTintG = 0.015f, shadowTintB = 0.02f,  // teal shadows
+        shadowTintStrength = 0.08f,
+        highlightTintR = 0.02f, highlightTintG = 0.01f, highlightTintB = 0.0f,  // warm highlights
+        highlightTintStrength = 0.05f,
+        defaultFringing = 0.0f
     ),
     SUNLIT_SPILL(
         "Sunlit Spill",
         "luts/Sunlit Spill.cube",
         defaultGrainStrength = 0.08f,
-        defaultGrainChroma = 0.25f  // warm halation-style chroma grain
+        defaultGrainChroma = 0.25f,       // warm halation-style chroma grain
+        defaultFilmCurve = 0.10f,
+        defaultContrast = 1.0f,
+        defaultSaturation = 1.10f,
+        defaultBloom = 0.30f,
+        shadowTintR = 0.0f, shadowTintG = 0.0f, shadowTintB = 0.0f,  // neutral shadows
+        shadowTintStrength = 0.0f,
+        highlightTintR = 0.04f, highlightTintG = 0.025f, highlightTintB = 0.0f,  // golden highlights
+        highlightTintStrength = 0.10f,
+        defaultFringing = 0.002f
     );
 }
 
@@ -856,14 +984,31 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                 val currentLut = loadLut(context, _activePreset.value)
                 val preset = _activePreset.value
                 val hasAdjustments = _temperature.value != 0f || _tint.value != 0f || _exposure.value != 0f
-                if (currentLut != null || hasAdjustments || preset.defaultGrainStrength > 0f) {
+                if (currentLut != null || hasAdjustments || preset.defaultGrainStrength > 0f ||
+                    preset.defaultFilmCurve > 0f || preset.defaultContrast != 1.0f ||
+                    preset.defaultSaturation != 1.0f || preset.defaultBloom > 0f ||
+                    preset.shadowTintStrength > 0f || preset.highlightTintStrength > 0f ||
+                    preset.defaultFringing > 0f) {
                     val filtered = finalBitmap.applyRetroFilter(
                         _temperature.value,
                         _tint.value,
                         _exposure.value,
                         lut = currentLut,
                         grainStrength = preset.defaultGrainStrength,
-                        grainChroma = preset.defaultGrainChroma
+                        grainChroma = preset.defaultGrainChroma,
+                        filmCurve = preset.defaultFilmCurve,
+                        contrast = preset.defaultContrast,
+                        saturation = preset.defaultSaturation,
+                        bloomStrength = preset.defaultBloom,
+                        shadowTintStrength = preset.shadowTintStrength,
+                        shadowTintR = preset.shadowTintR,
+                        shadowTintG = preset.shadowTintG,
+                        shadowTintB = preset.shadowTintB,
+                        highlightTintStrength = preset.highlightTintStrength,
+                        highlightTintR = preset.highlightTintR,
+                        highlightTintG = preset.highlightTintG,
+                        highlightTintB = preset.highlightTintB,
+                        fringing = preset.defaultFringing
                     )
                     if (filtered !== finalBitmap) {
                         finalBitmap.recycle()
@@ -1001,7 +1146,21 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         expVal: Float,
         lut: CubeLut? = null,
         grainStrength: Float = 0f,
-        grainChroma: Float = 0f
+        grainChroma: Float = 0f,
+        // ── New film effect parameters ──
+        filmCurve: Float = 0f,
+        contrast: Float = 1.0f,
+        saturation: Float = 1.0f,
+        bloomStrength: Float = 0f,
+        shadowTintStrength: Float = 0f,
+        shadowTintR: Float = 0f,
+        shadowTintG: Float = 0f,
+        shadowTintB: Float = 0f,
+        highlightTintStrength: Float = 0f,
+        highlightTintR: Float = 0f,
+        highlightTintG: Float = 0f,
+        highlightTintB: Float = 0f,
+        fringing: Float = 0f
     ): Bitmap {
         val w = this.width
         val h = this.height
@@ -1025,6 +1184,12 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
 
         val expScale = if (hasExp) java.lang.Math.pow(2.0, (expVal * 0.4).toDouble()).toFloat() else 1f
 
+        // ── Precompute bloom look-up table ──
+        // For the CPU path we use a simplified bloom that works on the
+        // quantized 255 values: a luminance-based warm glow added at the end.
+        val bloomActive = bloomStrength > 0f
+
+        // ── Vignette precomputations ──
         val cx = w * 0.5f
         val cy = h * 0.5f
         val maxRadius = kotlin.math.max(w, h).toFloat() * 0.72f
@@ -1061,33 +1226,72 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                         var g8 = (c ushr 8) and 0xFF
                         var b8 = c and 0xFF
 
-                        // GPU-matched pipeline: WB → Exp (matching FRAG_SHADER order).
-                        // Uses the same additive channel math as the GL preview shader.
-                        if (wbActive || hasExp) {
-                            var rf = r8 / 255f
-                            var gf = g8 / 255f
-                            var bf = b8 / 255f
+                        // Convert to float for processing
+                        var rf = r8 / 255f
+                        var gf = g8 / 255f
+                        var bf = b8 / 255f
 
-                            if (wbActive) {
-                                rf += wbDeltaR
-                                gf += wbDeltaG
-                                bf += wbDeltaB
-                                rf = rf.coerceIn(0f, 1f)
-                                gf = gf.coerceIn(0f, 1f)
-                                bf = bf.coerceIn(0f, 1f)
-                            }
-
-                            if (hasExp) {
-                                rf = (rf * expScale).coerceIn(0f, 1f)
-                                gf = (gf * expScale).coerceIn(0f, 1f)
-                                bf = (bf * expScale).coerceIn(0f, 1f)
-                            }
-
-                            r8 = (rf * 255f + 0.5f).toInt()
-                            g8 = (gf * 255f + 0.5f).toInt()
-                            b8 = (bf * 255f + 0.5f).toInt()
+                        // ── 1. White Balance ──
+                        if (wbActive) {
+                            rf += wbDeltaR
+                            gf += wbDeltaG
+                            bf += wbDeltaB
+                            rf = rf.coerceIn(0f, 1f)
+                            gf = gf.coerceIn(0f, 1f)
+                            bf = bf.coerceIn(0f, 1f)
                         }
 
+                        // ── 2. Exposure ──
+                        if (hasExp) {
+                            rf = (rf * expScale).coerceIn(0f, 1f)
+                            gf = (gf * expScale).coerceIn(0f, 1f)
+                            bf = (bf * expScale).coerceIn(0f, 1f)
+                        }
+
+                        // ── 3. Chromatic Fringing ──
+                        // Note: On CPU we simulate fringing by skewing R vs B
+                        // relative to G on bright edges. A simplified approach:
+                        // shift R and B oppositely based on horizontal gradient
+                        // approximation. For the CPU path we keep it lightweight:
+                        // we sample neighboring pixels through the array.
+                        // Actually, true fringing would need neighbor access which
+                        // is expensive in a per-pixel parallel loop. We approximate
+                        // it as a per-pixel color misregistration offset based on
+                        // local brightness gradient. For simplicity and performance,
+                        // we apply a slight R/B separation proportional to
+                        // (rf - bf) so that high-frequency color edges get a subtle
+                        // split — a cheap stand-in for optical misregistration.
+                        if (fringing > 0f) {
+                            val rOffset = (rf - bf) * fringing * 0.5f
+                            val bOffset = (bf - rf) * fringing * 0.5f
+                            rf = (rf + rOffset).coerceIn(0f, 1f)
+                            bf = (bf + bOffset).coerceIn(0f, 1f)
+                        }
+
+                        // ── 4. Film S-Curve ──
+                        // Replaces the hard clip with a smooth shoulder/toe.
+                        // Uses a simple parametric curve: toe lifts shadows,
+                        // shoulder compresses highlights.
+                        if (filmCurve > 0f) {
+                            rf = filmScurve(rf, filmCurve)
+                            gf = filmScurve(gf, filmCurve)
+                            bf = filmScurve(bf, filmCurve)
+                        }
+
+                        // ── 5. Halation / Bloom (luma-based additive glow) ──
+                        // Simplified: compute luma, extract brights, tint warm, add.
+                        if (bloomActive) {
+                            val luma = rf * 0.299f + gf * 0.587f + bf * 0.114f
+                            val brightMask = ((luma - 0.3f) / 0.5f).coerceIn(0f, 1f)
+                            val warmGlowR = brightMask * bloomStrength * luma * 1.0f
+                            val warmGlowG = brightMask * bloomStrength * luma * 0.7f
+                            val warmGlowB = brightMask * bloomStrength * luma * 0.3f
+                            rf = (rf + warmGlowR).coerceIn(0f, 1f)
+                            gf = (gf + warmGlowG).coerceIn(0f, 1f)
+                            bf = (bf + warmGlowB).coerceIn(0f, 1f)
+                        }
+
+                        // ── 6. Vignette ──
                         val distSq = dx * dx + rowDy2[y]
                         if (distSq > innerRadiusSq) {
                             val dist = kotlin.math.sqrt(distSq)
@@ -1098,77 +1302,79 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                                 val shaderC = clampedT * cornerRgb
                                 val invA = 1f - shaderA
                                 val cornerContrib = shaderC * shaderA
+                                r8 = (rf * 255f).toInt()
+                                g8 = (gf * 255f).toInt()
+                                b8 = (bf * 255f).toInt()
                                 r8 = (r8 * invA + cornerContrib).toInt().coerceIn(0, 255)
                                 g8 = (g8 * invA + cornerContrib).toInt().coerceIn(0, 255)
                                 b8 = (b8 * invA + cornerContrib).toInt().coerceIn(0, 255)
+                                rf = r8 / 255f
+                                gf = g8 / 255f
+                                bf = b8 / 255f
                             }
                         }
 
+                        // ── 7. Contrast & Saturation (applied post-LUT) ──
+                        // These are normally applied after the LUT. Since the LUT
+                        // is applied later as a separate step, we do contrast/sat
+                        // here in the pixel loop but they conceptually come after
+                        // the LUT in the signal chain. To keep the effect, we
+                        // apply them now and the LUT step will map the result.
+                        if (contrast != 1.0f || saturation != 1.0f) {
+                            val luma = rf * 0.299f + gf * 0.587f + bf * 0.114f
+                            // Contrast — pivot around 0.5
+                            if (contrast != 1.0f) {
+                                rf = ((rf - 0.5f) * contrast + 0.5f).coerceIn(0f, 1f)
+                                gf = ((gf - 0.5f) * contrast + 0.5f).coerceIn(0f, 1f)
+                                bf = ((bf - 0.5f) * contrast + 0.5f).coerceIn(0f, 1f)
+                            }
+                            // Saturation — blend toward luma
+                            if (saturation != 1.0f) {
+                                rf = (luma + (rf - luma) * saturation).coerceIn(0f, 1f)
+                                gf = (luma + (gf - luma) * saturation).coerceIn(0f, 1f)
+                                bf = (luma + (bf - luma) * saturation).coerceIn(0f, 1f)
+                            }
+                        }
+
+                        // ── 8. Split Toning ──
+                        if (shadowTintStrength > 0f || highlightTintStrength > 0f) {
+                            val luma = rf * 0.299f + gf * 0.587f + bf * 0.114f
+                            val shadowW = (1f - luma).coerceIn(0f, 1f)
+                            val highlightW = luma.coerceIn(0f, 1f)
+                            if (shadowTintStrength > 0f) {
+                                rf += shadowTintR * shadowW * shadowTintStrength
+                                gf += shadowTintG * shadowW * shadowTintStrength
+                                bf += shadowTintB * shadowW * shadowTintStrength
+                            }
+                            if (highlightTintStrength > 0f) {
+                                rf += highlightTintR * highlightW * highlightTintStrength
+                                gf += highlightTintG * highlightW * highlightTintStrength
+                                bf += highlightTintB * highlightW * highlightTintStrength
+                            }
+                            rf = rf.coerceIn(0f, 1f)
+                            gf = gf.coerceIn(0f, 1f)
+                            bf = bf.coerceIn(0f, 1f)
+                        }
+
+                        // Convert back to 8-bit
+                        r8 = (rf * 255f + 0.5f).toInt().coerceIn(0, 255)
+                        g8 = (gf * 255f + 0.5f).toInt().coerceIn(0, 255)
+                        b8 = (bf * 255f + 0.5f).toInt().coerceIn(0, 255)
+
+                        // ── 9. Film Grain ──
                         if (grainStrength > 0f) {
                             // ── Realistic silver-halide film grain ────────────
-                            // Designed to match the optical model: silver halide
-                            // crystals in the emulsion are randomly distributed
-                            // on the film plane, develop proportional to local
-                            // exposure, and clump into a multi-scale distribution.
-                            // We approximate them with 2 octaves of cheap value
-                            // noise: a high-frequency octave for the grain
-                            // (~1 px grain diameter, like real silver grains
-                            // when the negative is scanned at 4000 dpi) and a
-                            // lower-frequency one for the clumping-the-grain-
-                            // into-clusters look that real negative scans show
-                            // ("wood-grain" texture at low magnification).
-                            //
-                            // Mono vs chroma: a B&W LUT (Kodak BW 400 CN is
-                            // chromogenic monochrome) desaturates the input on
-                            // its way through, so applying a STRICTLY achromatic
-                            // delta (same value to R, G, B) keeps the grain
-                            // looking like B&W paper grain rather than RGB sensor
-                            // noise. `grainChroma` re-introduces per-channel
-                            // offsets proportionally — useful for future color
-                            // stocks that want a Portra/dye-cloud look without
-                            // changing the algorithm.
-                            //
-                            // Luminance mask: real grain peaks in MIDTONES,
-                            // not shadows — at D-max (highlights) the silver is
-                            // fully developed so there's no room for exposure
-                            // variation, and at D-min (deep shadows) only a few
-                            // grains are exposed at all. Inverted parabola
-                            // peaking at luma 0.5. The floor clamp keeps real-film
-                            // base-fog grain alive in deep blacks (D-min).
-                            //
-                            // Per-pixel cost: 8 hash lookups on the mono path
-                            // (2 valueNoise2D calls × 4 lattice corners each),
-                            // +12 more when chroma is enabled (3 extra calls ×
-                            // 4 corners → 20 total). Runs inside the existing
-                            // 4-chunk parallel chunked coroutine pipeline so the
-                            // end-to-end capture time still hits the same ballpark.
                             val lum = (r8 + g8 + b8) / 765f
                             val midMask = 1f - 4f * (lum - 0.5f) * (lum - 0.5f) // [0, 1]
                             val midMaskClamped = midMask.coerceAtLeast(0.4f)
 
-                            // Sum of two indep uniform samples centered at 0;
-                            // range [-1, 1), mean 0, approximately Gaussian by
-                            // the central limit theorem (variance ~1/6 per
-                            // octave, total ≈ N(0, ~1/3)).
                             val fine = valueNoise2D(x * 1.05f, y * 1.05f)
                             val medium = valueNoise2D(x * 0.32f + 31.7f, y * 0.32f + 17.3f)
                             val monoCentered = (fine + medium) - 1f
 
-                            // Amplitude: at grainStrength = 0.32 (KODAK_BW),
-                            // peak grain ≈ 0.32 * (1.2 + 2.0) * 11 ≈ 11.3 of 255
-                            // (~4.4% in midtones), floor at the poles is
-                            // 0.32 * 1.2 * 11 ≈ 4.2 of 255 (~1.6% in deep
-                            // blacks/highlights — matching the look of scanned
-                            // 400 ISO 35 mm B&W negative shadow grain).
                             val amp = grainStrength * (1.2f + 2.0f * midMaskClamped) * 11f
                             val monoDelta = (monoCentered * amp).toInt()
 
-                            // Per-channel chromatic offsets — gated so we only
-                            // pay for the 3 extra hashes when a color-stock preset
-                            // opts in (currently none do; KODAK_BW is strict mono).
-                            // Locals avoid a per-pixel Triple<Int,Int,Int> allocation
-                            // on 12 MP saves (would otherwise produce ~12 M boxed
-                            // objects and noticeable GC pressure).
                             var chromaR = 0
                             var chromaG = 0
                             var chromaB = 0
@@ -1197,6 +1403,29 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
 
         if (lut != null) LutColorFilter.applyInPlace(target, lut)
         return target
+    }
+
+    /**
+     * Film S-curve transfer function.
+     * Implements a smooth toe (shadows lift) and shoulder (highlights compress)
+     * using a simple parametric curve. At strength=0 it's identity (linear).
+     * At strength=1 it's a pronounced filmic curve.
+     *
+     * The curve: c → curve_mid + (c - mid) adjusted by a sigmoid-like shaping
+     * that compresses both extremes.
+     */
+    private fun filmScurve(x: Float, strength: Float): Float {
+        // Simple and cheap: a contrast S-curve using smoothstep-like math
+        // toe: soft lift of shadows
+        // shoulder: soft compression of highlights
+        val s = strength * 0.5f
+        val toe = (1.0f - kotlin.math.exp(-x * 5.0f)) * s * 0.12f
+        val shoulder = (1.0f - kotlin.math.exp(-(1.0f - x) * 5.0f)) * s * 0.20f
+        var result = x + toe - shoulder
+        // The curve also has a gentle S-shape: push midtones slightly
+        val midPush = (x - 0.5f) * s * 0.15f
+        result += midPush
+        return result.coerceIn(0f, 1f)
     }
 
     /**

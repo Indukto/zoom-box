@@ -48,6 +48,7 @@ import kotlinx.coroutines.withContext
 import com.example.color.CubeLut
 import com.example.color.CubeLutParser
 import com.example.color.LutPreviewView
+import com.example.FilmPreset
 import com.example.zoom.CaptureExtension
 import com.example.zoom.LensCatalog
 import com.example.zoom.LensRole
@@ -209,6 +210,7 @@ fun CameraPreviewView(
     temperature: Float = 0f,
     tint: Float = 0f,
     activeLut: CubeLut? = null,
+    activePreset: FilmPreset = FilmPreset.KODAK_PORTRA,
     onZoomChanged: (Float) -> Unit,
     onZoomTick: () -> Unit = {},
     onAvailableFocalLengths: (List<Float>) -> Unit,
@@ -396,6 +398,27 @@ fun CameraPreviewView(
     // from assets on first use.
     LaunchedEffect(activeLut) {
         previewView.setLut(activeLut)
+    }
+
+    // Push per-preset film effect parameters to the GPU renderer whenever
+    // the preset changes. These include film curve, contrast, saturation,
+    // bloom/halation, chromatic fringing, and split toning values.
+    LaunchedEffect(activePreset) {
+        previewView.setFilmEffects(
+            filmCurve = activePreset.defaultFilmCurve,
+            contrast = activePreset.defaultContrast,
+            saturation = activePreset.defaultSaturation,
+            bloomStrength = activePreset.defaultBloom,
+            fringing = activePreset.defaultFringing,
+            shadowTintR = activePreset.shadowTintR,
+            shadowTintG = activePreset.shadowTintG,
+            shadowTintB = activePreset.shadowTintB,
+            shadowTintStrength = activePreset.shadowTintStrength,
+            highlightTintR = activePreset.highlightTintR,
+            highlightTintG = activePreset.highlightTintG,
+            highlightTintB = activePreset.highlightTintB,
+            highlightTintStrength = activePreset.highlightTintStrength
+        )
     }
 
     // Mirror the front-camera preview horizontally to match the stock
