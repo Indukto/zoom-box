@@ -99,10 +99,7 @@ Digital zoom on the PRIMARY lens is backed by a center crop from the full-resolu
    ```
 
 2. **Configure environment (optional):**
-   The project supports a `.env` file at the project root for an optional API key:
-   ```env
-   GEMINI_API_KEY=your_key_here
-   ```
+   The project supports a `.env` file at the project root for signing configs.
    *(See `.env.example` for the template.)*
 
 3. **Open in Android Studio:**

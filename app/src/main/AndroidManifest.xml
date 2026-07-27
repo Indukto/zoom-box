@@ -12,10 +12,6 @@
     <uses-feature android:name="android.hardware.camera2.raw" android:required="false" />
     <uses-feature android:name="android.hardware.camera2.full" android:required="false" />
 
-    <attribution
-        android:tag="CameraX"
-        android:label="@string/camerax_attribution_label" />
-
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
