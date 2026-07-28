@@ -33,7 +33,7 @@ class UserPreferencesRepository(private val context: Context) {
     data class Settings(
         val rawModeEnabled: Boolean = false,
         val aspectRatio: AspectRatio = AspectRatio.DEFAULT,
-        val activePreset: FilmPreset = FilmPreset.KODAK_PORTRA,
+        val activePreset: FilmPreset = FilmPreset.WARM_PORTRAIT,
         val flashMode: Int = 0,
         val showGridLines: Boolean = false,
         val selfTimerMode: Int = 0,
@@ -50,8 +50,8 @@ class UserPreferencesRepository(private val context: Context) {
                 try { AspectRatio.valueOf(name) } catch (_: Exception) { AspectRatio.DEFAULT }
             } ?: AspectRatio.DEFAULT,
             activePreset = prefs[ACTIVE_PRESET]?.let { name ->
-                try { FilmPreset.valueOf(name) } catch (_: Exception) { FilmPreset.KODAK_PORTRA }
-            } ?: FilmPreset.KODAK_PORTRA,
+                try { FilmPreset.valueOf(name) } catch (_: Exception) { FilmPreset.WARM_PORTRAIT }
+            } ?: FilmPreset.WARM_PORTRAIT,
             flashMode = prefs[FLASH_MODE] ?: 0,
             showGridLines = prefs[SHOW_GRID_LINES] ?: false,
             selfTimerMode = prefs[SELF_TIMER_MODE] ?: 0,

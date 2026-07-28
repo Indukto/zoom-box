@@ -210,7 +210,7 @@ fun CameraPreviewView(
     temperature: Float = 0f,
     tint: Float = 0f,
     activeLut: CubeLut? = null,
-    activePreset: FilmPreset = FilmPreset.KODAK_PORTRA,
+    activePreset: FilmPreset = FilmPreset.WARM_PORTRAIT,
     onZoomChanged: (Float) -> Unit,
     onZoomTick: () -> Unit = {},
     onAvailableFocalLengths: (List<Float>) -> Unit,

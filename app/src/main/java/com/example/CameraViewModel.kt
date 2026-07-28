@@ -79,7 +79,7 @@ enum class FilmPreset(
      * noise samples mixed into the monochrome delta). 0 = strictly achromatic
      * grain (B&W negatives, where any chroma speckle looks wrong against the
      * paper response). Higher values introduce colored "dye cloud" speckles,
-     * useful if a future color stock preset wants a Portra-style organic grain.
+     * useful if a future color stock preset wants a warm-toned organic grain.
      */
     val defaultGrainChroma: Float = 0f,
     // ── New per-preset tonal & creative parameters ──────────────────────
@@ -131,12 +131,12 @@ enum class FilmPreset(
     /**
      * Chromatic fringing strength in pixels (normalized to texture coords).
      * Shifts the R and B channels relative to G to simulate color channel
-     * misregistration in instant / Polaroid films. 0 = no fringing.
+     * misregistration in instant film. 0 = no fringing.
      */
     val defaultFringing: Float = 0f
 ) {
-    KODAK_PORTRA(
-        "Kodak Portra 160",
+    WARM_PORTRAIT(
+        "Warm Portrait",
         "luts/kodak_portra_160_vc.cube",
         defaultGrainStrength = 0.05f,
         defaultGrainChroma = 0.3f,       // dye-cloud grain from color emulsion layers
@@ -150,8 +150,8 @@ enum class FilmPreset(
         highlightTintStrength = 0.08f,
         defaultFringing = 0.0f
     ),
-    KODAK_BW(
-        "Kodak BW 400 CN",
+    MONOCHROME_400(
+        "Monochrome 400",
         "luts/kodak_bw_400_cn.cube",
         defaultGrainStrength = 0.32f,
         defaultGrainChroma = 0f,          // strict mono — chroma speckles would look wrong on B&W
@@ -165,8 +165,8 @@ enum class FilmPreset(
         highlightTintStrength = 0f,
         defaultFringing = 0.0f
     ),
-    POLAROID(
-        "Polaroid PX-680",
+    INSTANT_CLASSIC(
+        "Instant Classic",
         "luts/polaroid_px-680.cube",
         defaultGrainStrength = 0.18f,
         defaultGrainChroma = 0.35f,       // high-ISO instant film has chunky dye clouds
@@ -180,8 +180,8 @@ enum class FilmPreset(
         highlightTintStrength = 0.06f,
         defaultFringing = 0.006f
     ),
-    KODAK_ELITE_100_XPRO(
-        "Kodak Elite 100 XPro",
+    CROSS_PROCESS(
+        "Cross Process",
         "luts/kodak_elite_100_xpro.cube",
         defaultGrainStrength = 0.08f,
         defaultGrainChroma = 0.20f,       // cross-processing accentuates color grain
@@ -195,8 +195,8 @@ enum class FilmPreset(
         highlightTintStrength = 0.07f,
         defaultFringing = 0.003f
     ),
-    POLAROID_669(
-        "Polaroid 669 ++",
+    INSTANT_VINTAGE(
+        "Instant Vintage",
         "luts/polaroid_669_++.cube",
         defaultGrainStrength = 0.10f,
         defaultGrainChroma = 0.25f,       // peel-apart film with visible dye specks
@@ -294,7 +294,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     private val _tint = MutableStateFlow(0f)
     val tint: StateFlow<Float> = _tint.asStateFlow()
 
-    private val _activePreset = MutableStateFlow(FilmPreset.KODAK_PORTRA)
+    private val _activePreset = MutableStateFlow(FilmPreset.WARM_PORTRAIT)
     val activePreset: StateFlow<FilmPreset> = _activePreset.asStateFlow()
 
     // Lazily-parsed LUTs keyed by asset path. Parsed once on first use and

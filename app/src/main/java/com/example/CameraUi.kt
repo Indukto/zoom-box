@@ -203,22 +203,22 @@ private fun DrawScope.drawThirdsGrid(
 }
 
 private fun filmPresetColor(preset: FilmPreset): Color = when (preset) {
-    FilmPreset.KODAK_PORTRA       -> Color(0xFFD4A56A)
-    FilmPreset.KODAK_BW           -> Color(0xFF6B6B6B)
-    FilmPreset.POLAROID           -> Color(0xFF4A90B0)
-    FilmPreset.KODAK_ELITE_100_XPRO -> Color(0xFFC04040)
-    FilmPreset.POLAROID_669       -> Color(0xFF8B5E8B)
+    FilmPreset.WARM_PORTRAIT       -> Color(0xFFD4A56A)
+    FilmPreset.MONOCHROME_400      -> Color(0xFF6B6B6B)
+    FilmPreset.INSTANT_CLASSIC     -> Color(0xFF4A90B0)
+    FilmPreset.CROSS_PROCESS       -> Color(0xFFC04040)
+    FilmPreset.INSTANT_VINTAGE     -> Color(0xFF8B5E8B)
     FilmPreset.MOODY              -> Color(0xFF2C3E50)
     FilmPreset.MUTED_MEADOW       -> Color(0xFF7DCEA0)
     FilmPreset.SUNLIT_SPILL       -> Color(0xFFF39C12)
 }
 
 private fun filmPresetEmoji(preset: FilmPreset): String = when (preset) {
-    FilmPreset.KODAK_PORTRA       -> "🌅"
-    FilmPreset.KODAK_BW           -> "🌑"
-    FilmPreset.POLAROID           -> "📸"
-    FilmPreset.KODAK_ELITE_100_XPRO -> "🎞️"
-    FilmPreset.POLAROID_669       -> "🌆"
+    FilmPreset.WARM_PORTRAIT       -> "🌅"
+    FilmPreset.MONOCHROME_400      -> "🌑"
+    FilmPreset.INSTANT_CLASSIC     -> "📸"
+    FilmPreset.CROSS_PROCESS       -> "🎞️"
+    FilmPreset.INSTANT_VINTAGE     -> "🌆"
     FilmPreset.MOODY              -> "🌧️"
     FilmPreset.MUTED_MEADOW       -> "🌿"
     FilmPreset.SUNLIT_SPILL       -> "☀️"

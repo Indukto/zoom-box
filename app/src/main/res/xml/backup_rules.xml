@@ -1,13 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?><!--
-   Sample backup rules file; uncomment and customize as necessary.
-   See https://developer.android.com/guide/topics/data/autobackup
-   for details.
-   Note: This file is ignored for devices older than API 31
+   Auto-backup rules (Android 6-11). Captured photos are excluded so they
+   don't upload to the user's Google Drive backup. DataStore preferences
+   are included so user settings survive reinstall.
+   Note: This file is ignored for devices older than API 31.
    See https://developer.android.com/about/versions/12/backup-restore
 -->
 <full-backup-content>
-    <!--
-   <include domain="sharedpref" path="."/>
-   <exclude domain="sharedpref" path="device.xml"/>
--->
+    <!-- Keep user preferences (DataStore + sharedpref). -->
+    <include domain="file" path="datastore" />
+    <include domain="sharedpref" path="." />
+
+    <!-- Exclude captured photos: app-private copies under
+         /sdcard/Android/data/<pkg>/files/Pictures/ -->
+    <exclude domain="external-files-path" path="Pictures" />
+
+    <!-- Exclude captured photos: public MediaStore copies under
+         /sdcard/Pictures/ZoomBoxCamera/ (pre-Q paths; on Q+ scoped storage
+         uses MediaStore which is independently excluded). -->
+    <exclude domain="external" path="Pictures/ZoomBoxCamera" />
 </full-backup-content>

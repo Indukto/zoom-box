@@ -1,5 +1,5 @@
 [versions]
-agp = "9.3.0"
+agp = "9.3.1"
 coreKtx = "1.18.0"
 junit = "4.13.2"
 junitVersion = "1.3.0"
@@ -9,7 +9,7 @@ lifecycleViewmodelCompose = "2.8.7"
 lifecycleRuntimeCompose = "2.8.7"
 activityCompose = "1.10.1"
 kotlin = "2.2.10"
-composeBom = "2024.09.00"
+composeBom = "2025.02.00"
 googleDevtoolsKsp = "2.3.5"
 navigationCompose = "2.8.9"
 roomRuntime = "2.7.0"
@@ -19,29 +19,18 @@ kotlinxCoroutinesTest = "1.10.2"
 core = "1.6.1"
 runner = "1.6.2"
 coilCompose = "2.7.0"
-retrofit = "2.12.0"
-converterMoshi = "2.12.0"
 kotlinxCoroutinesAndroid = "1.10.2"
 kotlinxCoroutinesCore = "1.10.2"
 accompanistPermissions = "0.37.3"
-playServicesLocation = "21.3.0"
 cameraCamera2 = "1.5.0"
 cameraLifecycle = "1.5.0"
 cameraView = "1.5.0"
 cameraCore = "1.5.0"
 cameraExtensions = "1.5.0"
-loggingInterceptor = "4.10.0"
-okhttp = "4.10.0"
-moshiKotlin = "1.15.2"
-moshiKotlinCodegen = "1.15.2"
 datastorePreferences = "1.1.7"
 robolectric = "4.16.1"
 roborazzi = "1.59.0"
-firebaseBom = "34.15.0"
 secretsGradlePlugin = "2.0.1"
-googleServices = "4.5.0"
-credentials = "1.5.0"
-googleid = "1.1.1"
 
 
 [libraries]
@@ -71,33 +60,19 @@ androidx-compose-material3 = { group = "androidx.compose.material3", name = "mat
 androidx-compose-material-icons-core = { group = "androidx.compose.material", name = "material-icons-core" }
 androidx-compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coilCompose" }
-retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
-converter-moshi = { group = "com.squareup.retrofit2", name = "converter-moshi", version.ref = "converterMoshi" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutinesAndroid" }
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinxCoroutinesCore" }
 accompanist-permissions = { group = "com.google.accompanist", name = "accompanist-permissions", version.ref = "accompanistPermissions" }
-play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
 androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "cameraCamera2" }
 androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "cameraLifecycle" }
 androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "cameraView" }
 androidx-camera-core = { group = "androidx.camera", name = "camera-core", version.ref = "cameraCore" }
 androidx-camera-extensions = { group = "androidx.camera", name = "camera-extensions", version.ref = "cameraExtensions" }
-logging-interceptor = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "loggingInterceptor" }
-okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
-moshi-kotlin = { group = "com.squareup.moshi", name = "moshi-kotlin", version.ref = "moshiKotlin" }
-moshi-kotlin-codegen = { group = "com.squareup.moshi", name = "moshi-kotlin-codegen", version.ref = "moshiKotlinCodegen" }
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastorePreferences" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 roborazzi = { group = "io.github.takahirom.roborazzi", name = "roborazzi", version.ref = "roborazzi" }
 roborazzi-compose = { group = "io.github.takahirom.roborazzi", name = "roborazzi-compose", version.ref = "roborazzi" }
 roborazzi-junit-rule = { group = "io.github.takahirom.roborazzi", name = "roborazzi-junit-rule", version.ref = "roborazzi" }
-firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
-firebase-appcheck-recaptcha = { group = "com.google.firebase", name = "firebase-appcheck-recaptcha" }
-firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore" }
-firebase-auth = { group = "com.google.firebase", name = "firebase-auth" }
-androidx-credentials = { group = "androidx.credentials", name = "credentials", version.ref = "credentials" }
-androidx-credentials-play-services = { group = "androidx.credentials", name = "credentials-play-services-auth", version.ref = "credentials" }
-googleid = { group = "com.google.android.libraries.identity.googleid", name = "googleid", version.ref = "googleid" }
 
 
 [plugins]
@@ -106,4 +81,3 @@ kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "ko
 google-devtools-ksp = { id = "com.google.devtools.ksp", version.ref = "googleDevtoolsKsp" }
 roborazzi = { id = "io.github.takahirom.roborazzi", version.ref = "roborazzi" }
 secrets = { id = "com.google.android.libraries.mapsplatform.secrets-gradle-plugin", version.ref = "secretsGradlePlugin" }
-google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }

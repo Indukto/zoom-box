@@ -16,3 +16,11 @@
 local.properties
 .env
 debug.keystore
+# Upload key for Play Store release builds — never commit.
+/my-upload-key.jks
+*.jks
+# Firebase/Google Services config has no purpose in this project any more
+# (Firebase stack removed), but ignored defensively in case it is ever
+# re-introduced or copied in by mistake.
+/google-services.json
+/app/google-services.json

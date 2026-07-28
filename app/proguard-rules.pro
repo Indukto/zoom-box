@@ -1,4 +1,4 @@
-# Preserve attributes needed by Moshi, Room, Retrofit, and Kotlin at runtime.
+# Preserve attributes needed by Room, Compose and Kotlin at runtime.
 # Removing any of these causes silent runtime failures in reflection-based libraries.
 -keepattributes *Annotation*
 -keepattributes Signature
@@ -13,16 +13,6 @@
 -keep,allowobfuscation class androidx.camera.** { *; }
 -dontwarn androidx.camera.**
 
-# Keep Moshi + generated adapters
--keep class com.squareup.moshi.** { *; }
--keep @com.squareup.moshi.JsonQualifier interface *
--keepclassmembers class * {
-    @com.squareup.moshi.FromJson *;
-    @com.squareup.moshi.ToJson *;
-}
--keep class * extends com.squareup.moshi.JsonAdapter { *; }
--keep class com.example.**JsonAdapter { *; }
-
 # Keep Room entities
 -keep class * extends androidx.room.RoomDatabase { *; }
 -keep @androidx.room.Entity class *
@@ -35,11 +25,8 @@
     volatile <fields>;
 }
 
-# Keep Firebase — narrow: allow obfuscation
--keep,allowobfuscation class com.google.firebase.** { *; }
--dontwarn com.google.firebase.**
-
-# Keep app data classes (Moshi reflective serialization targets)
+# Keep app data classes — Robolectric reflection + DataStore serialisation targets.
+# Removing any of these can break test reflection or runtime deserialisation.
 -keep class com.example.zoom.LensProfile { *; }
 -keep class com.example.zoom.LensRole { *; }
 -keep class com.example.zoom.CaptureExtension { *; }
@@ -53,12 +40,6 @@
 
 # Keep Compose runtime (reflection-heavy)
 -keep class androidx.compose.runtime.** { *; }
-
-# OkHttp / Retrofit — narrow: allow obfuscation
--keep,allowobfuscation class okhttp3.** { *; }
--keep,allowobfuscation class retrofit2.** { *; }
--dontwarn okhttp3.**
--dontwarn retrofit2.**
 
 # Keep enums
 -keepclassmembers enum * {

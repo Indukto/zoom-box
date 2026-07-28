@@ -1,19 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?><!--
-   Sample data extraction rules file; uncomment and customize as necessary.
+   Android 12+ backup rules. Mirrors backup_rules.xml: keep DataStore +
+   sharedpref, exclude captured photos from cloud backup and device-to-
+   device transfer.
    See https://developer.android.com/about/versions/12/backup-restore#xml-changes
-   for details.
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+        <include domain="file" path="datastore" />
+        <include domain="sharedpref" path="." />
+        <exclude domain="external" path="Pictures/ZoomBoxCamera" />
+        <exclude domain="external-files-path" path="Pictures" />
     </cloud-backup>
-    <!--
     <device-transfer>
-        <include .../>
-        <exclude .../>
+        <include domain="file" path="datastore" />
+        <include domain="sharedpref" path="." />
+        <exclude domain="external" path="Pictures/ZoomBoxCamera" />
+        <exclude domain="external-files-path" path="Pictures" />
     </device-transfer>
-    -->
 </data-extraction-rules>
