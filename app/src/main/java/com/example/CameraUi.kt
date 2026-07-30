@@ -42,6 +42,8 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -921,16 +923,62 @@ fun CameraUi(
         color = Color(0xFF121212)
     ) {
         if (cameraPermissionState.status.isGranted) {
-            if (showSettingsPage) {
-                SettingsScreen(
-                    viewModel = viewModel,
-                    onClose = { showSettingsPage = false }
-                )
-            } else {
+            // FIX: Black viewfinder after returning from settings. Previously this
+            // branch sibling-swapped SettingsScreen ↔ CameraActiveScreen via an
+            // `if (showSettingsPage)` conditional. Swapping un-mounted
+            // CameraPreviewView, which disposed its LutPreviewView AndroidView,
+            // its `remember`-ed PreviewSessionManager, and its CameraX
+            // bindings. CameraX `bindToLifecycle` was registered against the
+            // activity's LifecycleOwner (still RESUMED across settings nav),
+            // so the implicit unbind was not clean — the HAL reported
+            // `cancelRepeatingRequest() call failed: ILLEGAL_ARGUMENT`,
+            // `ConsumerBase abandoned`, and `CameraService::connect evicting
+            // conflicting client for camera ID 1` (logged in the bug report).
+            // On re-mount the new CameraPreviewView created a fresh
+            // PreviewSessionManager whose `currentPreview/currentImageCapture/
+            // currentLogicalCameraId` were null, so the recovery branch inside
+            // PreviewSessionManager.bindPreview() had nothing to restore from.
+            // The first rebind raced against the HAL's still-tearing-down
+            // device nodes, lost, and left the viewfinder black. The lens-switch
+            // workaround succeeded because by the next user-triggered bind
+            // (~hundreds of ms later) the HAL had finished settling.
+            //
+            // Keeping CameraActiveScreen perpetually mounted under the
+            // overlay means the camera session is never torn down across the
+            // settings navigation — there's no disposal/race to recover
+            // from, and the viewfinder is live the instant the overlay
+            // closes.
+            Box(modifier = Modifier.fillMaxSize()) {
                 CameraActiveScreen(
                     viewModel = viewModel,
                     onOpenSettings = { showSettingsPage = true }
                 )
+
+                // AnimatedVisibility REMOVES SettingsScreen from composition
+                // only after the exit animation completes; CameraActiveScreen
+                // sits in the Box OUTSIDE AnimatedVisibility so its lifecycle
+                // is never tied to `showSettingsPage`. Slide-from-right + a
+                // short fade matches the conventional Android "new screen
+                // entering" idiom; the camera underneath reads as a steady
+                // surface rather than a blink because the overlay is opaque.
+                AnimatedVisibility(
+                    visible = showSettingsPage,
+                    enter = fadeIn(tween(durationMillis = 220)) +
+                            slideInHorizontally(
+                                animationSpec = tween(durationMillis = 280),
+                                initialOffsetX = { it }
+                            ),
+                    exit = fadeOut(tween(durationMillis = 200)) +
+                           slideOutHorizontally(
+                               animationSpec = tween(durationMillis = 240),
+                               targetOffsetX = { it }
+                           )
+                ) {
+                    SettingsScreen(
+                        viewModel = viewModel,
+                        onClose = { showSettingsPage = false }
+                    )
+                }
             }
         } else {
             CameraPermissionOnboarding(

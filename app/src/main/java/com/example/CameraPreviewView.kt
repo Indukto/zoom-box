@@ -40,6 +40,7 @@ import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -278,6 +279,41 @@ fun CameraPreviewView(
     val previewManager = remember { PreviewSessionManager(context, lifecycleOwner) }
 
     LaunchedEffect(activeImageCapture) { imageCaptureProvider(activeImageCapture) }
+
+    // Defensive teardown: the CameraUi overlay fix keeps the camera session
+    // alive across the settings screen, but if anything ever re-introduces a
+    // sibling-swap (a Navigation compose graph, a quick-settings tab, a
+    // capture-review screen that swaps CameraActiveScreen out), make sure
+    // PreviewSessionManager.release() runs synchronously with the
+    // composable's leave-composition event so we don't leave an orphaned
+    // ProcessCameraProvider binding on the HAL — which is exactly what
+    // produced the original bug's `evicting conflicting client` logcat.
+    //
+    // CameraX binds against the activity LifecycleOwner, so when the
+    // activity is RESUMED (settings nav case) the implicit unbind is the
+    //   weak/half-state path. Calling release() forces a real `unbindAll()`
+    //   and clears our cached use cases, so the next remount sees the
+    //   provider in a clean state.
+    //
+    // SCOPE EXPLANATION: onDispose runs when this composable LEAVES the
+    // composition, not on every recomposition. While CameraUi keeps
+    // CameraActiveScreen perpetually mounted, the only realistic leave
+    // events are activity destruction or a future refactor that re-swaps
+    // screens — both of which benefit from this explicit cleanup.
+    DisposableEffect(Unit) {
+        onDispose {
+            try {
+                val cp = cameraProviderFuture.get()
+                previewManager.release(cp)
+            } catch (e: Exception) {
+                Log.w(
+                    "CameraPreviewView",
+                    "onDispose: previewManager.release failed (camera provider not yet available)",
+                    e
+                )
+            }
+        }
+    }
 
     // Enumerate cameras once. The catalog result is also surfaced to the
     // ViewModel via onLensCatalogReady so it can drive the focal-bubble
