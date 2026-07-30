@@ -99,8 +99,7 @@ fun captureWithCamera2(
 
         val imageReader = ImageReader.newInstance(size.width, size.height, ImageFormat.JPEG, 2)
 
-        val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-        val deviceRotation = when (windowManager.defaultDisplay.rotation) {
+        val deviceRotation = when (context.displayRotation) {
             Surface.ROTATION_90 -> 90
             Surface.ROTATION_180 -> 180
             Surface.ROTATION_270 -> 270
@@ -168,6 +167,12 @@ fun captureWithCamera2(
                         val sessionConfig = SessionConfiguration(SessionConfiguration.SESSION_REGULAR, listOf(outputConfig), executor, sessionCallback)
                         camera.createCaptureSession(sessionConfig)
                     } else {
+                        // API < 28 fallback. The 3-arg createCaptureSession(...) was
+                        // deprecated in CameraX 1.3 but SessionConfiguration requires
+                        // API 28+; there is no equivalent on Android 7/8. The project's
+                        // minSdk is 24, so we cannot route this branch through the
+                        // modern API without a minSdk bump to 28.
+                        @Suppress("DEPRECATION")
                         camera.createCaptureSession(listOf(imageReader.surface), sessionCallback, cameraHandler)
                     }
                 } catch (e: Exception) {
@@ -229,10 +234,9 @@ fun CameraPreviewView(
     val previewView = remember { LutPreviewView(context) }
 
     val imageCapture = remember {
-        val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
         ImageCapture.Builder()
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
-            .setTargetRotation(windowManager.defaultDisplay.rotation)
+            .setTargetRotation(context.displayRotation)
             .setFlashMode(ImageCapture.FLASH_MODE_AUTO)
             .build()
     }
@@ -509,3 +513,20 @@ fun triggerImageCapture(
             override fun onError(exception: ImageCaptureException) { onCaptureError(exception) }
         })
 }
+
+/**
+ * Returns the current display rotation in surface-rotation constants.
+ *
+ * `WindowManager.getDefaultDisplay()` was deprecated in API 30 in favour of
+ * the per-Context `Display` (`Context.getDisplay()`); we use the modern
+ * accessor where available and fall back to the deprecated one on older
+ * devices (project minSdk is 24). The fallback warning is scoped to the
+ * `else` branch and suppressed so it does not surface in the build log.
+ */
+private val Context.displayRotation: Int
+    get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        display?.rotation ?: 0
+    } else {
+        @Suppress("DEPRECATION")
+        (getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay.rotation
+    }

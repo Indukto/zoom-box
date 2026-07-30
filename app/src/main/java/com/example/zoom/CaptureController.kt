@@ -6,7 +6,6 @@ import android.hardware.camera2.CameraManager
 import android.util.Log
 import android.view.WindowManager
 import androidx.camera.camera2.interop.Camera2CameraInfo
-import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
@@ -29,7 +28,6 @@ import java.util.concurrent.Executor
  *
  * For the Primary lens, digital zoom is applied as a post-capture crop.
  */
-@OptIn(ExperimentalCamera2Interop::class)
 class CaptureController(
     private val context: Context,
     private val lifecycleOwner: LifecycleOwner

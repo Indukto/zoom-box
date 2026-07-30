@@ -2584,6 +2584,7 @@ fun SettingsScreen(viewModel: CameraViewModel, onClose: () -> Unit) {
     val availableExtensions by viewModel.availableExtensions.collectAsState()
     val extensionsProbeDone by viewModel.extensionsProbeDone.collectAsState()
     val aspectRatio by viewModel.aspectRatio.collectAsState()
+    val outputResolution by viewModel.outputResolution.collectAsState()
 
     // Intercept system back to dismiss the settings page back to the camera.
     BackHandler(onBack = onClose)
@@ -2678,6 +2679,19 @@ fun SettingsScreen(viewModel: CameraViewModel, onClose: () -> Unit) {
                     onSelect = { newRatio ->
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         viewModel.setAspectRatio(newRatio)
+                    }
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                SettingsRow(
+                    label = "Save at 12 MP",
+                    checked = outputResolution == OutputResolution.FULL,
+                    enabled = true,
+                    onCheckedChange = { wantFullRes ->
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        viewModel.setOutputResolution(
+                            if (wantFullRes) OutputResolution.FULL
+                            else OutputResolution.THREE_MEGAPIXEL
+                        )
                     }
                 )
                 Spacer(modifier = Modifier.height(10.dp))

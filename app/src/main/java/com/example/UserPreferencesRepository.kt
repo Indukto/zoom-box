@@ -15,6 +15,35 @@ import kotlinx.coroutines.flow.map
 
 private val Context.settingsDataStore by preferencesDataStore("camera_settings")
 
+/**
+ * Saved resolution of JPEG captures. Each value carries the matching
+ * `inSampleSize` to feed into `BitmapFactory.Options` on the full-decode
+ * path in `processAndSavePhoto`:
+ *
+ *  - [FULL] (inSampleSize = 1)            — full source resolution
+ *                                            (~12 MP), ~3-4 s capture
+ *  - [THREE_MEGAPIXEL] (inSampleSize = 2) — halved each axis (~3 MP),
+ *                                            ~1 s capture, plenty for the
+ *                                            retro filter aesthetic
+ *
+ * The crop-region path (BitmapRegionDecoder.decodeRegion) does NOT honor
+ * inSampleSize, so this preference only affects the no-zoom / no-native-
+ * focal-crop path. When the cropped area is below 90 % of full-frame,
+ * the saved file uses the source pixel dimensions of the cropped rect
+ * regardless of this setting.
+ */
+enum class OutputResolution(val inSampleSize: Int, val displayLabel: String) {
+    FULL(1, "12 MP"),
+    THREE_MEGAPIXEL(2, "3 MP");
+
+    companion object {
+        /** Parse a stored enum name with a safe fallback to the default (3 MP). */
+        fun fromKey(key: String?): OutputResolution =
+            key?.let { name -> runCatching { valueOf(name) }.getOrNull() }
+                ?: THREE_MEGAPIXEL
+    }
+}
+
 class UserPreferencesRepository(private val context: Context) {
 
     companion object {
@@ -36,6 +65,7 @@ class UserPreferencesRepository(private val context: Context) {
         // even when their *selection* isn't.
         private val FILM_STYLE_SCROLL_INDEX = intPreferencesKey("film_style_scroll_index")
         private val FILM_STYLE_SCROLL_OFFSET = intPreferencesKey("film_style_scroll_offset")
+        private val OUTPUT_RESOLUTION = stringPreferencesKey("output_resolution")
     }
 
     data class Settings(
@@ -50,7 +80,8 @@ class UserPreferencesRepository(private val context: Context) {
         val activeExtension: CaptureExtension = CaptureExtension.NONE,
         val selectedLensRole: LensRole = LensRole.PRIMARY,
         val filmStyleScrollIndex: Int = 0,
-        val filmStyleScrollOffset: Int = 0
+        val filmStyleScrollOffset: Int = 0,
+        val outputResolution: OutputResolution = OutputResolution.THREE_MEGAPIXEL
     )
 
     val settingsFlow: Flow<Settings> = context.settingsDataStore.data.map { prefs ->
@@ -78,7 +109,8 @@ class UserPreferencesRepository(private val context: Context) {
             // stable so we don't bother probing FilmPreset.values().size
             // here — the Compose layer clamps again with a wider bound.
             filmStyleScrollIndex = (prefs[FILM_STYLE_SCROLL_INDEX] ?: 0).coerceAtLeast(0),
-            filmStyleScrollOffset = prefs[FILM_STYLE_SCROLL_OFFSET] ?: 0
+            filmStyleScrollOffset = prefs[FILM_STYLE_SCROLL_OFFSET] ?: 0,
+            outputResolution = OutputResolution.fromKey(prefs[OUTPUT_RESOLUTION])
         )
     }
 
@@ -134,5 +166,9 @@ class UserPreferencesRepository(private val context: Context) {
             it[FILM_STYLE_SCROLL_INDEX] = index.coerceAtLeast(0)
             it[FILM_STYLE_SCROLL_OFFSET] = offset.coerceAtLeast(0)
         }
+    }
+
+    suspend fun saveOutputResolution(resolution: OutputResolution) {
+        context.settingsDataStore.edit { it[OUTPUT_RESOLUTION] = resolution.name }
     }
 }

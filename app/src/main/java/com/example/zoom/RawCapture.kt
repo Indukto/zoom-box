@@ -136,9 +136,7 @@ object RawCapture {
             imageReader = ImageReader.newInstance(size.width, size.height, ImageFormat.RAW_SENSOR, 2)
 
             val sensorOrientation = physicalChars.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
-            val deviceRotation = when (
-                (context.getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay.rotation
-            ) {
+            val deviceRotation = when (context.displayRotation) {
                 Surface.ROTATION_90 -> 90
                 Surface.ROTATION_180 -> 180
                 Surface.ROTATION_270 -> 270
@@ -237,6 +235,12 @@ object RawCapture {
                             )
                             device.createCaptureSession(sessionConfig)
                         } else {
+                            // API < 28 fallback. The 3-arg createCaptureSession(...) was
+                            // deprecated in CameraX 1.3 but SessionConfiguration requires
+                            // API 28+; there is no equivalent on Android 7/8. The project's
+                            // minSdk is 24, so we cannot route this branch through the
+                            // modern API without a minSdk bump to 28.
+                            @Suppress("DEPRECATION")
                             device.createCaptureSession(
                                 listOf(imageReader!!.surface), sessionCallback, cameraHandler)
                         }
@@ -389,3 +393,16 @@ object RawCapture {
         return out
     }
 }
+
+/**
+ * Returns the current display rotation in surface-rotation constants.
+ * Modern API (30+) on Context.display; deprecated WindowManager.defaultDisplay
+ * fallback for older devices (project minSdk is 24).
+ */
+private val Context.displayRotation: Int
+    get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        display?.rotation ?: 0
+    } else {
+        @Suppress("DEPRECATION")
+        (getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay.rotation
+    }

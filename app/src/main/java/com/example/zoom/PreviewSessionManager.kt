@@ -9,7 +9,6 @@ import android.util.Log
 import android.view.WindowManager
 import androidx.camera.camera2.interop.Camera2CameraInfo
 import androidx.camera.camera2.interop.Camera2Interop
-import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
@@ -63,7 +62,6 @@ enum class CaptureExtension(val mode: Int) {
     }
 }
 
-@OptIn(ExperimentalCamera2Interop::class)
 class PreviewSessionManager(
     private val context: Context,
     private val lifecycleOwner: LifecycleOwner
@@ -196,8 +194,7 @@ class PreviewSessionManager(
         flashMode: Int = 0,
         extension: CaptureExtension = CaptureExtension.NONE
     ): BindResult? {
-        val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-        val rotation = windowManager.defaultDisplay.rotation
+        val rotation = context.displayRotation
 
         val characteristics = getCharacteristics(physicalCameraId)
             ?: getCharacteristics(logicalCameraId)
@@ -613,8 +610,7 @@ class PreviewSessionManager(
         isFrontCamera: Boolean,
         flashMode: Int = 0
     ): Camera? {
-        val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-        val rotation = windowManager.defaultDisplay.rotation
+        val rotation = context.displayRotation
 
         val preview = Preview.Builder()
             .build()
@@ -737,3 +733,16 @@ class PreviewSessionManager(
         }
     }
 }
+
+/**
+ * Returns the current display rotation in surface-rotation constants.
+ * Modern API (30+) on Context.display; deprecated WindowManager.defaultDisplay
+ * fallback for older devices (project minSdk is 24).
+ */
+private val Context.displayRotation: Int
+    get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        display?.rotation ?: 0
+    } else {
+        @Suppress("DEPRECATION")
+        (getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay.rotation
+    }
