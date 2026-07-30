@@ -220,6 +220,10 @@ private fun filmPresetColor(preset: FilmPreset): Color = when (preset) {
     FilmPreset.MOODY              -> Color(0xFF2C3E50)
     FilmPreset.MUTED_MEADOW       -> Color(0xFF7DCEA0)
     FilmPreset.SUNLIT_SPILL       -> Color(0xFFF39C12)
+    // Slightly darker than the surrounding chrome so the "no grade"
+    // chip reads as a deliberate preset on the picker bar instead of
+    // visually disappearing into the dim chrome of the rest of the row.
+    FilmPreset.NORMAL              -> Color(0xFF9CA3AF)
 }
 
 private fun filmPresetEmoji(preset: FilmPreset): String = when (preset) {
@@ -231,6 +235,7 @@ private fun filmPresetEmoji(preset: FilmPreset): String = when (preset) {
     FilmPreset.MOODY              -> "🌧️"
     FilmPreset.MUTED_MEADOW       -> "🌿"
     FilmPreset.SUNLIT_SPILL       -> "☀️"
+    FilmPreset.NORMAL              -> "📷"
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

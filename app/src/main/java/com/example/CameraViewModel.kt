@@ -143,8 +143,8 @@ enum class FilmPreset(
      * Shifts the R and B channels relative to G to simulate color channel
      * misregistration in instant film. 0 = no fringing.
      */
-    val defaultFringing: Float = 0f
-) {
+    val defaultFringing: Float = 0f) {
+
     WARM_PORTRAIT(
         "Warm Portrait",
         "luts/kodak_portra_160_vc.cube",
@@ -264,6 +264,27 @@ enum class FilmPreset(
         highlightTintR = 0.04f, highlightTintG = 0.025f, highlightTintB = 0.0f,  // golden highlights
         highlightTintStrength = 0.10f,
         defaultFringing = 0.002f
+    ),
+
+    /**
+     * Pass-through preset — no LUT, no grain, no film curve, identity
+     * contrast/saturation, no bloom, no split toning, no fringing. Picking
+     * this profile is equivalent to a stock phone camera: the sensor
+     * image is captured with raw white-balance applied and zero
+     * film-grade processing on top.
+     *
+     * Placed LAST in the enum (rather than first) so that the existing
+     * DataStore-persisted `filmStyleScrollIndex` / `activePreset` keep
+     * their old mapping for upgraded installs: index 0 stays
+     * WARM_PORTRAIT instead of silently shifting to NORMAL on relaunch.
+     *
+     * The blank `assetPath` is the signal to `loadLut()` to skip the
+     * CubeLutParser entirely (it short-circuits on `isBlank()` rather
+     * than throwing an IOException each time the preset is selected).
+     */
+    NORMAL(
+        "Normal",
+        ""
     );
 }
 
@@ -695,6 +716,12 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
      * LUT step and falls back to the manual color filters only).
      */
     fun loadLut(context: Context, preset: FilmPreset): CubeLut? {
+        // Pass-through / no-grade preset (e.g. NORMAL): skip the parser
+        // and the asset I/O entirely. Returning null here is what tells
+        // both the live GL preview (`LutPreviewView.setLut(null)`) and
+        // the post-capture `applyRetroFilter` (the `currentLut != null`
+        // OR-chain guard) to skip the LUT step.
+        if (preset.assetPath.isBlank()) return null
         cachedLuts[preset.assetPath]?.let { return it }
         return try {
             val lut = CubeLutParser.parse(preset.assetPath, context)
