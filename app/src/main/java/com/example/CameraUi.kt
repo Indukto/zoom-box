@@ -41,6 +41,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
@@ -1400,48 +1401,70 @@ fun CameraActiveScreen(
                 .pointerInput(
                     selectedPhoto == null && !showExpSlider && !showTempSlider
                 ) {
-                    val swipeThresholdPx = size.width.toFloat() * 0.18f
-                    awaitEachGesture {
-                        val down = awaitFirstDown(requireUnconsumed = false)
-                        val start = down.position
-                        var maxAbsDx = 0f
-                        var maxAbsDy = 0f
-                        var firedPresetChange = false
-                        var ch = down
-                        do {
-                            val event = awaitPointerEvent(PointerEventPass.Main)
-                            val next = event.changes.firstOrNull { it.id == down.id } ?: break
-                            ch = next
-                            // Defensive: bail if another detector on this
-                            // modifier chain already claimed the move (a
-                            // pinch, for instance). Don't bail after we
-                            // already fired a cycle in this gesture — we
-                            // want the coroutine to terminate cleanly on
-                            // finger-lift, not half-way through.
-                            if (ch.isConsumed && !firedPresetChange) break
-                            val dx = ch.position.x - start.x
-                            val dy = ch.position.y - start.y
-                            val absDx = kotlin.math.abs(dx)
-                            val absDy = kotlin.math.abs(dy)
-                            if (absDx > maxAbsDx) maxAbsDx = absDx
-                            if (absDy > maxAbsDy) maxAbsDy = absDy
-                            if (!firedPresetChange &&
-                                maxAbsDx > swipeThresholdPx &&
-                                maxAbsDy < maxAbsDx * 0.6f
-                            ) {
-                                firedPresetChange = true
-                                // Convention: swipe LEFT = next item,
-                                // swipe RIGHT = previous item.
-                                val direction = if (dx < 0f) 1 else -1
-                                viewModel.cycleCameraPreset(direction)
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                toastPresetSnapshot = viewModel.activePreset.value
-                                showToast = true
-                                toastEpoch++
-                                ch.consume()
+                    // Compose's `detectHorizontalDragGestures` uses
+                    // `awaitTouchSlopOrCancellation` internally with
+                    // `Orientation.Horizontal`: it only activates when the
+                    // user crosses the slop (~24 dp via
+                    // `ViewConfiguration.touchSlop`) in a HORIZONTAL
+                    // direction FIRST. If vertical motion reaches touch
+                    // slop first (i.e. the user intends to zoom), the
+                    // gesture cancels and `CameraPreviewView`'s
+                    // `awaitFirstDown + calculatePan().y` loop owns the
+                    // gesture. Conversely, a clear horizontal swipe
+                    // claims here; `CameraPreviewView` then sees
+                    // `change.isConsumed = true` on subsequent moves — even
+                    // though it does not break on consume, its
+                    // `calculatePan().y` returns the Y delta since the
+                    // previous event which is near zero during a horizontal
+                    // sweep, so the zoom branch short-circuits via
+                    // `if (dragPx == 0f) null` and zoom stays put. Net
+                    // effect: cleanly separated horizontal vs vertical
+                    // swipe intent at the framework level, with no
+                    // percentage-based drift or jitter sensitivity bugs.
+                    var totalDrag = 0f
+                    var firedThisGesture = false
+                    detectHorizontalDragGestures(
+                        onDragStart = {
+                            totalDrag = 0f
+                            firedThisGesture = false
+                        },
+                        onDragEnd = { totalDrag = 0f },
+                        onDragCancel = { totalDrag = 0f },
+                        onHorizontalDrag = { change, dragAmount ->
+                            // Guard: once we fire one cycle on a given
+                            // gesture, do not fire another even if the
+                            // user keeps swiping. One gesture = one cycle.
+                            // Keeps a single finger-flick from jumping two
+                            // presets in a row.
+                            if (!firedThisGesture) {
+                                totalDrag += dragAmount
+                                val threshold = size.width.toFloat() * 0.22f
+                                // 0.22 instead of 0.18 + a real touch-slop
+                                // gate from Compose means the user has to
+                                // commit clearly to a horizontal sweep.
+                                // Slight bump from 0.18 because the slop
+                                // gate already filters short accidental
+                                // brushes; the wider threshold makes a
+                                // success feel more deliberate.
+                                if (kotlin.math.abs(totalDrag) > threshold) {
+                                    firedThisGesture = true
+                                    // Convention: swipe LEFT reveals the
+                                    // next preset; swipe RIGHT returns to
+                                    // the previous one.
+                                    val direction = if (totalDrag < 0f) 1 else -1
+                                    viewModel.cycleCameraPreset(direction)
+                                    haptic.performHapticFeedback(
+                                        HapticFeedbackType.LongPress
+                                    )
+                                    toastPresetSnapshot =
+                                        viewModel.activePreset.value
+                                    showToast = true
+                                    toastEpoch++
+                                    change.consume()
+                                }
                             }
-                        } while (ch.pressed)
-                    }
+                        }
+                    )
                 },
             selectedLensRole = selectedLensRole,
             digitalZoomRatio = digitalZoomRatio,
@@ -2162,38 +2185,24 @@ fun CameraActiveScreen(
                         fontSize = 18.sp,
                         modifier = Modifier.padding(bottom = 16.dp)
                     )
-                    // Capture the persisted scroll position once at sheet
-                    // open. Keying on `showPresetPicker` re-runs this read
-                    // every time the sheet toggles on, so each open sees
-                    // the latest value from the ViewModel / DataStore,
-                    // while mid-session scroll ticks do NOT re-snapshot
-                    // (those flow back via snapshotFlow + save below).
+                    // Seed the LazyRow with the *active* preset's index so
+                    // when the picker opens it lands on the current style.
+                    // Keying on `showPresetPicker` re-runs this read every
+                    // time the sheet toggles on so each open sees the
+                    // latest active preset.
                     val presetList = FilmPreset.values()
-                    val initialIndex = remember(showPresetPicker) {
-                        viewModel.filmStyleScrollIndex.value
+                    val safeInitialIndex = remember(showPresetPicker) {
+                        presetList.indexOf(activePreset).coerceAtLeast(0)
                     }
-                    val initialOffset = remember(showPresetPicker) {
-                        viewModel.filmStyleScrollOffset.value
-                    }
-                    // The index is clamped to the live preset count in case
-                    // the saved value is stale or the enum shrank between
-                    // app versions — `(size - 1).coerceAtLeast(0)`
-                    // gracefully handles the (theoretical) empty-enum case
-                    // so coerceIn's lower/upper bounds are still monotonic.
-                    val safeInitialIndex = initialIndex.coerceIn(
-                        0,
-                        (presetList.size - 1).coerceAtLeast(0)
-                    )
                     val filmStyleListState = rememberLazyListState(
                         initialFirstVisibleItemIndex = safeInitialIndex,
-                        initialFirstVisibleItemScrollOffset = initialOffset
+                        initialFirstVisibleItemScrollOffset = 0
                     )
-                    // Persist every visible-item change. `snapshotFlow`
-                    // observes the LazyListState on the Compose snapshot
-                    // scope so it sees the same transaction the
-                    // LazyListState mutated, giving us a clean downstream
-                    // Flow. distinctUntilChanged drops redundant emissions
-                    // so fling inertia doesn't spam DataStore.
+                    // Persist every visible-item change so the user's
+                    // in-picker browse position survives another sheet open
+                    // (this state is only used when the seed index match or
+                    // when active == preserved; otherwise the LaunchedEffect
+                    // below re-centers on active).
                     LaunchedEffect(filmStyleListState) {
                         snapshotFlow {
                             filmStyleListState.firstVisibleItemIndex to
@@ -2204,60 +2213,99 @@ fun CameraActiveScreen(
                                 viewModel.saveFilmStyleScrollPosition(idx, off)
                             }
                     }
-                    LazyRow(
-                        state = filmStyleListState,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp)
-                    ) {
-                        items(FilmPreset.values()) { preset ->
-                            val selected = preset == activePreset
-                            Column(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(
-                                        if (selected) Color(0xFFFBBF24).copy(alpha = 0.12f)
-                                        else Color(0xFF2C2C2E)
-                                    )
-                                    .border(
-                                        1.5.dp,
-                                        if (selected) Color(0xFFFBBF24) else Color.White.copy(alpha = 0.06f),
-                                        RoundedCornerShape(12.dp)
-                                    )
-                                    .clickable {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        viewModel.setCameraPreset(preset)
-                                        showPresetPicker = false
-                                    }
-                                    .padding(8.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Box(
+                    // Re-centre the active preset whenever the picker
+                    // opens OR activePreset changes — using a NON-CLAMPED
+                    // scroll by wrapping the LazyRow in symmetric
+                    // `contentPadding = (maxWidth - itemWidth) / 2`. Without
+                    // the symmetric padding, Compose's scroll clamp pinned
+                    // the leftmost and rightmost cards to the row edges,
+                    // so the user's reported "sometimes the active isn't
+                    // in bounds of the menu" behaviour showed the active
+                    // card off-axis when active was at index 0 or the
+                    // last item. With the symmetric padding, the row has
+                    // scroll headroom on both sides, and
+                    // `animateScrollToItem(N, 0)` lands the card at the
+                    // visual centre for every index.
+                    //
+                    // Item width is estimated: each preset card is
+                    // Box(60.dp) + Column.padding(8.dp) both sides = 76.dp
+                    // visual width. We round up to 80.dp + 8.dp safety to
+                    // absorb 2-line label widths ("Sunlit Spill", "Cross
+                    // Process") without the padding clipping the card.
+                    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                        val pickerWidth = maxWidth
+                        val estimatedItemWidth = 88.dp
+                        val symmetricPadding =
+                            ((pickerWidth - estimatedItemWidth) / 2).coerceAtLeast(0.dp)
+                        LazyRow(
+                            state = filmStyleListState,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            contentPadding = PaddingValues(horizontal = symmetricPadding)
+                        ) {
+                            items(FilmPreset.values()) { preset ->
+                                val selected = preset == activePreset
+                                Column(
                                     modifier = Modifier
-                                        .size(60.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(filmPresetColor(preset)),
-                                    contentAlignment = Alignment.Center
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(
+                                            if (selected) Color(0xFFFBBF24).copy(alpha = 0.12f)
+                                            else Color(0xFF2C2C2E)
+                                        )
+                                        .border(
+                                            1.5.dp,
+                                            if (selected) Color(0xFFFBBF24) else Color.White.copy(alpha = 0.06f),
+                                            RoundedCornerShape(12.dp)
+                                        )
+                                        .clickable {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            viewModel.setCameraPreset(preset)
+                                            showPresetPicker = false
+                                        }
+                                        .padding(8.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(60.dp)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(filmPresetColor(preset)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = filmPresetEmoji(preset),
+                                            fontSize = 24.sp
+                                        )
+                                    }
+                                    Spacer(Modifier.height(4.dp))
                                     Text(
-                                        text = filmPresetEmoji(preset),
-                                        fontSize = 24.sp
+                                        text = preset.displayName,
+                                        color = if (selected) Color(0xFFFBBF24) else Color.White.copy(alpha = 0.85f),
+                                        fontSize = 10.sp,
+                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                        maxLines = 2,
+                                        textAlign = TextAlign.Center,
+                                        lineHeight = 12.sp
                                     )
                                 }
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    text = preset.displayName,
-                                    color = if (selected) Color(0xFFFBBF24) else Color.White.copy(alpha = 0.85f),
-                                    fontSize = 10.sp,
-                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                                    maxLines = 2,
-                                    textAlign = TextAlign.Center,
-                                    lineHeight = 12.sp
-                                )
                             }
                         }
+                    }
+                    // Recentre on every activePreset change OR picker
+                    // open. The symmetric contentPadding above makes this
+                    // a one-liner: animateScrollToItem(N, 0) is now
+                    // equivalent to "put item N horizontally centred in the
+                    // viewport." Guard with `isScrollInProgress` so a
+                    // background change doesn't hijack an active fling.
+                    LaunchedEffect(activePreset, showPresetPicker) {
+                        if (!showPresetPicker) return@LaunchedEffect
+                        kotlinx.coroutines.delay(50)
+                        if (filmStyleListState.isScrollInProgress) return@LaunchedEffect
+                        val targetIndex =
+                            presetList.indexOf(activePreset).coerceAtLeast(0)
+                        filmStyleListState.animateScrollToItem(targetIndex, 0)
                     }
                 }
             }
