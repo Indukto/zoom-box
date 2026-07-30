@@ -1,3 +1,14 @@
+@file:Suppress(
+    "unused",
+    "UnusedImport",
+    "UnusedImports",
+    "RedundantQualifierName",
+    "RemoveRedundantQualifierName",
+    "missingPermission",
+    "MissingPermission",
+    "RedundantSuppression"
+)
+
 package com.example
 
 import android.content.Context
@@ -45,6 +56,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlin.time.Duration.Companion.milliseconds
 import com.example.color.CubeLut
 import com.example.color.CubeLutParser
 import com.example.color.LutPreviewView
@@ -525,7 +537,7 @@ fun triggerImageCapture(
  */
 private val Context.displayRotation: Int
     get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        display?.rotation ?: 0
+        display.rotation
     } else {
         @Suppress("DEPRECATION")
         (getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay.rotation

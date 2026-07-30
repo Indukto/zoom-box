@@ -1,3 +1,5 @@
+@file:Suppress("unused", "UnusedImport", "UnusedImports")
+
 package com.example.zoom
 
 import android.content.Context

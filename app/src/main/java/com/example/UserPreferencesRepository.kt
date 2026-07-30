@@ -1,3 +1,5 @@
+@file:Suppress("unused", "UnusedImports")
+
 package com.example
 
 import android.content.Context
@@ -10,7 +12,6 @@ import com.example.zoom.AspectRatio
 import com.example.zoom.CaptureExtension
 import com.example.zoom.LensRole
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 private val Context.settingsDataStore by preferencesDataStore("camera_settings")
@@ -32,9 +33,9 @@ private val Context.settingsDataStore by preferencesDataStore("camera_settings")
  * the saved file uses the source pixel dimensions of the cropped rect
  * regardless of this setting.
  */
-enum class OutputResolution(val inSampleSize: Int, val displayLabel: String) {
-    FULL(1, "12 MP"),
-    THREE_MEGAPIXEL(2, "3 MP");
+enum class OutputResolution(val inSampleSize: Int) {
+    FULL(1),
+    THREE_MEGAPIXEL(2);
 
     companion object {
         /** Parse a stored enum name with a safe fallback to the default (3 MP). */

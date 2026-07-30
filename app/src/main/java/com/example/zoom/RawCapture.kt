@@ -1,3 +1,5 @@
+@file:Suppress("unused", "UnusedImport", "UnusedImports")
+
 package com.example.zoom
 
 import android.annotation.SuppressLint
@@ -202,7 +204,7 @@ object RawCapture {
                                     session = s,
                                     camera = device,
                                     characteristics = characteristics,
-                                    readerSurface = imageReader!!.surface,
+                                    readerSurface = imageReader.surface,
                                     flashMode = flashMode,
                                     handler = cameraHandler,
                                     onStillResult = { result ->
@@ -224,7 +226,7 @@ object RawCapture {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
                             logicalCameraId != physicalCameraId
                         ) {
-                            val outputConfig = OutputConfiguration(imageReader!!.surface)
+                            val outputConfig = OutputConfiguration(imageReader.surface)
                             outputConfig.setPhysicalCameraId(physicalCameraId)
                             val executor = java.util.concurrent.Executor { cmd -> cameraHandler.post(cmd) }
                             val sessionConfig = SessionConfiguration(
@@ -242,7 +244,7 @@ object RawCapture {
                             // modern API without a minSdk bump to 28.
                             @Suppress("DEPRECATION")
                             device.createCaptureSession(
-                                listOf(imageReader!!.surface), sessionCallback, cameraHandler)
+                                listOf(imageReader.surface), sessionCallback, cameraHandler)
                         }
                     } catch (e: Exception) {
                         Log.e(TAG, "RAW session setup failed", e)
@@ -401,7 +403,7 @@ object RawCapture {
  */
 private val Context.displayRotation: Int
     get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        display?.rotation ?: 0
+        display.rotation
     } else {
         @Suppress("DEPRECATION")
         (getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay.rotation

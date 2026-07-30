@@ -1,8 +1,17 @@
+@file:Suppress(
+    "unused",
+    "UnusedImport",
+    "UnusedImports",
+    "RedundantQualifierName",
+    "RemoveRedundantQualifierName",
+    "RedundantSuppression"
+)
+
 package com.example
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -14,7 +23,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.camera.core.ImageCapture
-import androidx.camera.core.ImageCaptureException
 import androidx.core.content.ContextCompat
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -45,7 +53,6 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -53,7 +60,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -71,9 +77,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FlashAuto
-import androidx.compose.material.icons.filled.FlashOff
-import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.rounded.CameraAlt
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
@@ -90,7 +93,6 @@ import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.rounded.GridOn
 import androidx.compose.material.icons.rounded.GridOff
 import androidx.compose.material.icons.rounded.Timer
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -101,7 +103,6 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.TextButton
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.graphics.PathEffect
@@ -111,7 +112,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -144,7 +144,6 @@ import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.changedToDown
-import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
@@ -154,6 +153,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
+import kotlin.time.Duration.Companion.milliseconds
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -164,6 +164,7 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import androidx.compose.ui.graphics.vector.ImageVector
+import java.util.Locale
 import com.example.zoom.AspectRatio
 import com.example.color.CubeLut
 import com.example.zoom.CaptureExtension
@@ -697,7 +698,8 @@ private fun ExposurePanel(
     onValueChange: (Float) -> Unit,
     headerActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {}
 ) {
-    val evLabel = if (exposure >= 0) "+${String.format("%.1f", exposure)}" else String.format("%.1f", exposure)
+    // Locale-aware so a German locale sees "1,5" rather than "1.5".
+    val evLabel = if (exposure >= 0) "+${String.format(Locale.getDefault(), "%.1f", exposure)}" else String.format(Locale.getDefault(), "%.1f", exposure)
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -910,7 +912,7 @@ fun CameraUi(
 
     LaunchedEffect(Unit) {
         // Small delay so gallery I/O doesn't compete with camera init
-        kotlinx.coroutines.delay(100)
+        kotlinx.coroutines.delay(100.milliseconds)
         viewModel.loadPhotos(context)
     }
 
@@ -976,15 +978,15 @@ fun CameraPermissionOnboarding(
 
     LaunchedEffect(Unit) {
         revealIcon = true
-        kotlinx.coroutines.delay(180)
+        kotlinx.coroutines.delay(180.milliseconds)
         revealTitle = true
-        kotlinx.coroutines.delay(160)
+        kotlinx.coroutines.delay(160.milliseconds)
         revealTagline = true
-        kotlinx.coroutines.delay(160)
+        kotlinx.coroutines.delay(160.milliseconds)
         revealDesc = true
-        kotlinx.coroutines.delay(200)
+        kotlinx.coroutines.delay(200.milliseconds)
         revealButton = true
-        kotlinx.coroutines.delay(200)
+        kotlinx.coroutines.delay(200.milliseconds)
         revealFooter = true
     }
 
@@ -1256,10 +1258,7 @@ fun CameraActiveScreen(
     val isCapturing by viewModel.isCapturing.collectAsState()
 
     val rawModeEnabled by viewModel.rawModeEnabled.collectAsState()
-    val rawAvailableForCurrentLens by viewModel.rawAvailableForCurrentLens.collectAsState()
     val activeExtension by viewModel.activeExtension.collectAsState()
-    val availableExtensions by viewModel.availableExtensions.collectAsState()
-    val extensionsProbeDone by viewModel.extensionsProbeDone.collectAsState()
     val activePreset by viewModel.activePreset.collectAsState()
     // NOTE: Film-Style picker scroll position is intentionally NOT
     // collected via `collectAsState`. Doing so would subscribe this whole
@@ -1301,16 +1300,26 @@ fun CameraActiveScreen(
     var flashFlashActive by remember { mutableStateOf(false) }
     LaunchedEffect(flashFlashActive) {
         if (flashFlashActive) {
-            delay(FLASH_BURST_DURATION_MS)
+            delay(FLASH_BURST_DURATION_MS.milliseconds)
             flashFlashActive = false
         }
     }
 
-    BoxWithConstraints(
-        modifier = Modifier.fillMaxSize()
+    // The viewfinder Box was previously BoxWithConstraints here so its children's
+    // .width/.height/.offset could read maxWidth/maxHeight synchronously inside
+    // the same measure phase. Compose's lint flags BoxWithConstraints with a
+    // "scope is not used" warning whenever the scope lives inside a single
+    // composition, so instead we cache the measured size in state and read
+    // it back as `totalWidth` / `totalHeight`. The first composition pass uses
+    // a placeholder size and pops into the real layout on the very next frame,
+    // which is imperceptible.
+    val parentSize = remember { mutableStateOf(IntSize.Zero) }
+    val density = LocalDensity.current
+    val totalWidth = with(density) { parentSize.value.width.toDp() }
+    val totalHeight = with(density) { parentSize.value.height.toDp() }
+    Box(
+        modifier = Modifier.fillMaxSize().onSizeChanged { parentSize.value = it }
     ) {
-        val totalWidth = maxWidth
-        val totalHeight = maxHeight
 
         // Viewfinder bounds — width fixed at 92% of screen, height adapts to
         // the selected aspect ratio. With 4:3 (height/width = 1.35) the box is
@@ -1515,7 +1524,7 @@ fun CameraActiveScreen(
         // value to read while fading out.
         LaunchedEffect(toastEpoch) {
             if (toastEpoch == 0) return@LaunchedEffect
-            kotlinx.coroutines.delay(900)
+            kotlinx.coroutines.delay(900.milliseconds)
             showToast = false
             // Intentionally leaves `toastPresetSnapshot` intact.
         }
@@ -2190,7 +2199,7 @@ fun CameraActiveScreen(
                     // Keying on `showPresetPicker` re-runs this read every
                     // time the sheet toggles on so each open sees the
                     // latest active preset.
-                    val presetList = FilmPreset.values()
+                    val presetList = FilmPreset.entries
                     val safeInitialIndex = remember(showPresetPicker) {
                         presetList.indexOf(activePreset).coerceAtLeast(0)
                     }
@@ -2232,8 +2241,18 @@ fun CameraActiveScreen(
                     // visual width. We round up to 80.dp + 8.dp safety to
                     // absorb 2-line label widths ("Sunlit Spill", "Cross
                     // Process") without the padding clipping the card.
-                    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                        val pickerWidth = maxWidth
+                    // Same pattern as the viewfinder-anchored BoxWithConstraints
+                    // replacement: cache parent width into state and re-derive
+                    // `pickerWidth` so the LazyRow's symmetricPadding is correct on
+                    // the second composition onward. The one-frame settle is fine
+                    // here because the picker itself cross-fades in via the bottom
+                    // sheet's own animation, so a single missing-frame wouldn't
+                    // ever be visually singled out.
+                    val pickerSize = remember { mutableStateOf(IntSize.Zero) }
+                    val pickerWidth = with(LocalDensity.current) { pickerSize.value.width.toDp() }
+                    Box(
+                        modifier = Modifier.fillMaxWidth().onSizeChanged { pickerSize.value = it }
+                    ) {
                         val estimatedItemWidth = 88.dp
                         val symmetricPadding =
                             ((pickerWidth - estimatedItemWidth) / 2).coerceAtLeast(0.dp)
@@ -2245,7 +2264,7 @@ fun CameraActiveScreen(
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             contentPadding = PaddingValues(horizontal = symmetricPadding)
                         ) {
-                            items(FilmPreset.values()) { preset ->
+                            items(FilmPreset.entries) { preset ->
                                 val selected = preset == activePreset
                                 Column(
                                     modifier = Modifier

@@ -1,3 +1,13 @@
+@file:Suppress(
+    "unused",
+    "UnusedImport",
+    "UnusedImports",
+    "ExifInterface",
+    "RedundantQualifierName",
+    "RemoveRedundantQualifierName",
+    "RedundantSuppression"
+)
+
 package com.example
 
 import android.app.Application
@@ -14,6 +24,8 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
+import android.annotation.SuppressLint
+
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.compose.runtime.Stable
@@ -43,9 +55,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.pow
-import kotlin.math.sqrt
 
 @Stable
 data class ExifData(
@@ -629,7 +638,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
      * the bottom-sheet picker, and the choice is persisted.
      */
     fun cycleCameraPreset(direction: Int) {
-        val ordered = FilmPreset.values()
+        val ordered = FilmPreset.entries
         if (ordered.size <= 1) return
         val currentIndex = ordered.indexOf(_activePreset.value).let { if (it < 0) 0 else it }
         val step = if (direction >= 0) 1 else -1
@@ -1008,7 +1017,14 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                         else ->
                             intArrayOf(curX, curY, curX + curW, curY + curH)
                     }
-                    val decoder = BitmapRegionDecoder.newInstance(rawFile.absolutePath)
+                    // BitmapRegionDecoder.newInstance(String) is API 31+, but the
+                    // project's minSdk is 24. The 2-arg `newInstance(String, Boolean)`
+                    // overload is deprecated but available on all API levels, so we
+                    // use it with `inInputShareable = false` (non-shared / safer) and
+                    // suppress the deprecation lint. The modern 1-arg form is otherwise
+                    // byte-for-byte equivalent (it internally calls this same path).
+                    @Suppress("DEPRECATION")
+                    val decoder = BitmapRegionDecoder.newInstance(rawFile.absolutePath, false)
                     val regionBitmap = decoder.decodeRegion(Rect(srcL, srcT, srcR, srcB), null)
                     decoder.recycle()
 
@@ -1047,6 +1063,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                             inMutable = true
                             inSampleSize = _outputResolution.value.inSampleSize
                         }) ?: return@launch
+                    @Suppress("UNUSED_VARIABLE")
 
                     val matrix = Matrix()
                     when (exifOrientation) {

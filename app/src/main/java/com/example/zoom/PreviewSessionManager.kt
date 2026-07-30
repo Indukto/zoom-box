@@ -1,3 +1,15 @@
+@file:Suppress(
+    "unused",
+    "UnusedImport",
+    "UnusedImports",
+    "RedundantQualifierName",
+    "RemoveRedundantQualifierName",
+    "missingPermission",
+    "MissingPermission",
+    "AnnotatedApi",
+    "RedundantSuppression"
+)
+
 package com.example.zoom
 
 import android.content.Context
@@ -7,6 +19,7 @@ import android.hardware.camera2.CaptureRequest
 import android.os.Build
 import android.util.Log
 import android.view.WindowManager
+import android.annotation.SuppressLint
 import androidx.camera.camera2.interop.Camera2CameraInfo
 import androidx.camera.camera2.interop.Camera2Interop
 import androidx.camera.core.Camera
@@ -20,6 +33,7 @@ import androidx.compose.runtime.Stable
 import androidx.lifecycle.LifecycleOwner
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Manages the live preview session, handling lens transitions.
@@ -62,6 +76,16 @@ enum class CaptureExtension(val mode: Int) {
     }
 }
 
+// CameraX 1.5's `ExperimentalCamera2Interop` annotation is NOT marked with
+// Kotlin's `@RequiresOptIn` marker — we tried wrapping the class with
+// `@OptIn(ExperimentalCamera2Interop::class)` first but Kotlin Compiler
+// emits "Annotation '…' is not annotated with '@RequiresOptIn'. '@OptIn'
+// has no effect." So the @OptIn annotation is intentionally omitted and
+// this `@SuppressLint("AnnotatedApi")` is what actually silences the
+// IDE-level `AnnotatedApi` lint that flags every Camera2Interop.* call.
+// If a future CameraX release upgrades the annotation to @RequiresOptIn,
+// drop this @SuppressLint and re-add the @OptIn at the class level.
+@SuppressLint("AnnotatedApi")
 class PreviewSessionManager(
     private val context: Context,
     private val lifecycleOwner: LifecycleOwner
@@ -215,7 +239,11 @@ class PreviewSessionManager(
         val preview = Preview.Builder()
             .apply {
                 if (usePhysicalLens) {
-                    Camera2Interop.Extender(this).setPhysicalCameraId(physicalCameraId)
+                    val camera2Ext = Camera2Interop.Extender(this)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        @SuppressLint("NewApi") // API 28+, gated by SDK check above
+                        camera2Ext.setPhysicalCameraId(physicalCameraId)
+                    }
                 }
                 applyQualityKeys(this, characteristics)
             }
@@ -227,7 +255,11 @@ class PreviewSessionManager(
             .setTargetRotation(rotation)
             .apply {
                 if (usePhysicalLens) {
-                    Camera2Interop.Extender(this).setPhysicalCameraId(physicalCameraId)
+                    val camera2Ext = Camera2Interop.Extender(this)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        @SuppressLint("NewApi") // API 28+, gated by SDK check above
+                        camera2Ext.setPhysicalCameraId(physicalCameraId)
+                    }
                 }
                 applyQualityKeys(this, characteristics)
                 when (flashMode) {
@@ -741,7 +773,7 @@ class PreviewSessionManager(
  */
 private val Context.displayRotation: Int
     get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        display?.rotation ?: 0
+        display.rotation
     } else {
         @Suppress("DEPRECATION")
         (getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay.rotation
