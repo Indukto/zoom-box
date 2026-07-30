@@ -1261,7 +1261,11 @@ fun CameraPermissionOnboarding(
             enter = fadeIn(tween(800))
         ) {
             Text(
-                text = "Zoom Cam · v0.3",
+                // Sourced from `versionName` in app/build.gradle.kts via
+                // BuildConfig.VERSION_NAME. Bump the gradle line and the
+                // splash footer reacts — see AppVersion.kt for the single
+                // source-of-truth story.
+                text = "Zoom Cam · ${AppVersion.display}",
                 color = Color(0xFFF59E0B).copy(alpha = 0.25f),
                 fontSize = 10.sp,
                 letterSpacing = 2.sp,

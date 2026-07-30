@@ -12,10 +12,10 @@ android {
 
   defaultConfig {
     applicationId = "com.indukto.zoomboxcamera.qvtkpd"
-    minSdk = 24
+    minSdk = 29
     targetSdk = 36
     versionCode = 1
-    versionName = "1.9.0"
+    versionName = "1.1.9"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

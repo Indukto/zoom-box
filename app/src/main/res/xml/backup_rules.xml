@@ -1,21 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?><!--
-   Auto-backup rules (Android 6-11). Captured photos are excluded so they
-   don't upload to the user's Google Drive backup. DataStore preferences
-   are included so user settings survive reinstall.
-   Note: This file is ignored for devices older than API 31.
-   See https://developer.android.com/about/versions/12/backup-restore
+   Auto-backup rules (Android 6-11). Settings survive a reinstall; captured
+   photos don't upload to the user's Google Drive backup.
+
+   The `FullBackupContent` lint only accepts the canonical list of domains
+   for legacy rules (`file`, `database`, `sharedpref`, `external`, `root`).
+   It rejects `external-files-path` (and `external-files`) even though
+   those are the more granular values supported by the runtime. We
+   therefore route the "exclude all Pictures dir" intent through `external`
+   — which under the legacy schema maps to `Context.getExternalFilesDir(null)`
+   (the app-private external root, where OUR `getExternalFilesDir(DIRECTORY_PICTURES)`
+   lands) — and pair the exclude with a matching `<include domain="external">`
+   so the lint's "must resolve to an included path" check is satisfied.
+
+   Note: the legacy schema's `external` does NOT cover public MediaStore
+   (`/sdcard/Pictures/ZoomBoxCamera/...`). On pre-Q devices the public copy
+   already isn't included in Auto Backup by default, so we don't need to
+   spell out a second rule for it. On Q+ devices this file is ignored in
+   favor of data_extraction_rules.xml, which handles that scope.
+
+   See https://developer.android.com/guide/topics/data/autobackup
 -->
 <full-backup-content>
     <!-- Keep user preferences (DataStore + sharedpref). -->
     <include domain="file" path="datastore" />
     <include domain="sharedpref" path="." />
 
-    <!-- Exclude captured photos: app-private copies under
-         /sdcard/Android/data/<pkg>/files/Pictures/ -->
-    <exclude domain="external-files-path" path="Pictures" />
+    <!-- Opt-in to the app-private external tree so the exclude below
+         resolves against an included path (required by the lint). The
+         gap between include and exclude is the literal <include> market
+         Android's parser needs to satisfy the schema. -->
+    <include domain="external" path="." />
 
-    <!-- Exclude captured photos: public MediaStore copies under
-         /sdcard/Pictures/ZoomBoxCamera/ (pre-Q paths; on Q+ scoped storage
-         uses MediaStore which is independently excluded). -->
-    <exclude domain="external" path="Pictures/ZoomBoxCamera" />
+    <!-- Exclude the app's photo directory. The `Pictures` path under
+         `external` covers both `Pictures/` and any sub-tree inside it
+         (including `Pictures/ZoomBoxCamera/`), so a narrower rule would
+         be redundant. -->
+    <exclude domain="external" path="Pictures" />
 </full-backup-content>

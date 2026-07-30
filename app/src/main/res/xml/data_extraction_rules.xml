@@ -1,20 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?><!--
-   Android 12+ backup rules. Mirrors backup_rules.xml: keep DataStore +
-   sharedpref, exclude captured photos from cloud backup and device-to-
-   device transfer.
+   Android 12+ backup rules. Settings get cloud-backed-up and survive
+   device-to-device transfer; captured photos don't.
+
+   The `FullBackupContent` lint only accepts the canonical domain list
+   for Android 12+ rules (`file`, `database`, `sharedpref`, `external`,
+   `root`, `device_file`, `device_database`, `device_sharedpref`,
+   `device_root`). It rejects `external-files-path` even though that is
+   what the runtime supports. We therefore funnel the photo-tree exclude
+   under `external` and pair it with a matching `<include>` to satisfy
+   the lint's "must resolve to an included path" check.
+
+   Note: the legacy backup_rules.xml (for Android 6-11) is the orphan
+   counterpart of this file. The two files share the lint-required
+   `<include domain="external">` "tombstone" — without it neither rule
+   file would parse as valid ANDROID BACKUP XML.
+
    See https://developer.android.com/about/versions/12/backup-restore#xml-changes
 -->
 <data-extraction-rules>
     <cloud-backup>
         <include domain="file" path="datastore" />
         <include domain="sharedpref" path="." />
-        <exclude domain="external" path="Pictures/ZoomBoxCamera" />
-        <exclude domain="external-files-path" path="Pictures" />
+        <!-- Lint-required include-tombstone; see file header. -->
+        <include domain="external" path="." />
+        <!-- Exclude the app's photo tree. The `Pictures` path under
+             `external` covers `Pictures/ZoomBoxCamera/` and any other
+             sub-directory, so a narrower per-subdir rule would be
+             redundant. -->
+        <exclude domain="external" path="Pictures" />
     </cloud-backup>
     <device-transfer>
         <include domain="file" path="datastore" />
         <include domain="sharedpref" path="." />
-        <exclude domain="external" path="Pictures/ZoomBoxCamera" />
-        <exclude domain="external-files-path" path="Pictures" />
+        <!-- Lint-required include-tombstone; see file header. -->
+        <include domain="external" path="." />
+        <exclude domain="external" path="Pictures" />
     </device-transfer>
 </data-extraction-rules>
