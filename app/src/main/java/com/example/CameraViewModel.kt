@@ -352,6 +352,47 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     private val _isCapturing = MutableStateFlow(false)
     val isCapturing: StateFlow<Boolean> = _isCapturing.asStateFlow()
 
+    // ── Shutter-press state (decoupled from post-processing) ─────────────
+    // `_isCapturing` flips true at the start of `processAndSavePhoto`, which
+    // means it stays high for the entire bitmap-decode → EXIF → crop → LUT →
+    // JPEG-encode → save pipeline (~0.5–3 s on a Pixel). Driving the shutter
+    // button's visual scale off `_isCapturing` makes it look stuck-down for
+    // the whole pipeline ("press feels heavy"), which is exactly what the
+    // user reported. `_captureInFlight` is the narrower signal: it goes true
+    // when the capture is fired and false the moment the camera hardware
+    // hands back the image (BEFORE `processAndSavePhoto` even starts its
+    // background work). The shutter scale + click-debounce both read this,
+    // so the button visually snaps back the instant the picture is taken
+    // and the user can fire the next shot immediately. `_isCapturing` stays
+    // as an internal "post-processing busy" signal used by anything that
+    // needs to gate on the entire pipeline (e.g. concurrent probes).
+    private val _captureInFlight = MutableStateFlow(false)
+    val captureInFlight: StateFlow<Boolean> = _captureInFlight.asStateFlow()
+
+    /**
+     * Mark the start of a capture. Call this from the UI the moment the
+     * user clicks the shutter (just before the camera hardware is asked
+     * to expose) so the button visual flips to its pressed state without
+     * waiting on a recomposition round-trip through the view-model.
+     *
+     * Self-timer mode is the one exception — the click here starts a
+     * countdown, not a capture, so the caller is expected to invoke
+     * `beginCapture()` immediately before the real capture fires, not
+     * at click time (keeps the shutter from being un-clickable during
+     * the visible countdown).
+     */
+    fun beginCapture() { _captureInFlight.value = true }
+
+    /**
+     * Mark the end of a capture. Called inside the post-capture
+     * callbacks (onImageSaved for the JPEG path, `onCaptured` / `onError`
+     * for the Camera2 RAW path). Resetting synchronously inside the
+     * callback — not deferred to the post-processing pipeline — is
+     * what guarantees the shutter visually releases before the bitmap
+     * decode / LUT apply / JPEG encode / MediaStore save runs.
+     */
+    fun endCapture() { _captureInFlight.value = false }
+
     private val _lensSwitchTrigger = MutableStateFlow(0)
     val lensSwitchTrigger: StateFlow<Int> = _lensSwitchTrigger.asStateFlow()
 
@@ -866,6 +907,12 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         focalLengthMm: Int
     ) {
         _isCapturing.value = true
+        // Mirror the timer onto the shutter-press state so the button visuals
+        // (and `isRawCapturing` in CameraPreviewView) see "actively capturing"
+        // until the Camera2 hardware callback fires. `_isCapturing` covers the
+        // full pipeline including MediaStore save; `_captureInFlight` releases
+        // earlier so the button doesn't feel stuck after the DNG lands.
+        _captureInFlight.value = true
         RawCapture.captureDng(
             context = context,
             logicalCameraId = logicalCameraId,
@@ -873,13 +920,26 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
             focalLengthMm = focalLengthMm,
             flashMode = _flashMode.value,
             onCaptured = { dngFile ->
+                // Release the shutter visual the instant the DNG lands on
+                // disk (mirrors the JPEG path's semantics where
+                // processAndSavePhoto's first line calls endCapture()). The
+                // MediaStore copy + loadPhotos + toast below are "save to
+                // gallery" / "show toast" — they're post-capture bookkeeping
+                // and belong in the background, mirror'd to how the JPEG
+                // path's LUT/encode/save runs after endCapture().
+                _captureInFlight.value = false
                 saveDngToGallery(context, dngFile)
                 loadPhotos(context)
                 android.widget.Toast.makeText(context, "RAW saved: ${dngFile.name}", android.widget.Toast.LENGTH_SHORT).show()
                 _isCapturing.value = false
             },
             onError = { e ->
+                // Mirror: release the press on first line so a failure
+                // doesn't leave the shutter disabled. The `_isCapturing`
+                // reset is still last, after the toast/toast (existing
+                // behavior preserved).
                 Log.e("CameraViewModel", "RAW capture failed", e)
+                _captureInFlight.value = false
                 android.widget.Toast.makeText(
                     context,
                     "RAW capture failed: ${e.localizedMessage ?: "unknown error"}",
@@ -937,6 +997,13 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         captureFocalLength: Int,
         captureLensNativeFocalMm: Float? = null
     ) {
+        // Hardware has handed back the image (the caller was invoke from
+        // `ImageCapture.OnImageSavedCallback`). Release the shutter-visual
+        // state synchronously BEFORE flipping `_isCapturing` so the user
+        // sees the button snap back even though the bitmap decode → EXIF
+        // → crop → LUT → encode → save pipeline is still running in the
+        // IO dispatcher below.
+        endCapture()
         _isCapturing.value = true
         val tStart = System.currentTimeMillis()
         val currentAspectRatioMultiplier = _aspectRatio.value.heightToWidth

@@ -1304,6 +1304,17 @@ fun CameraActiveScreen(
     val showTempSlider by viewModel.showTemperatureSlider.collectAsState()
     val showExpSlider by viewModel.showExposureSlider.collectAsState()
     val isCapturing by viewModel.isCapturing.collectAsState()
+    // Drives ONLY the shutter button's visual scale and click-debounce.
+    // Distinct from `isCapturing` which covers the entire
+    // bitmap-decode → EXIF → crop → LUT → encode → save window — that's
+    // why the previous implementation felt "stuck down for 1–3 seconds
+    // after the click". `captureInFlight` flips back to false the moment
+    // the camera hardware hands back the image (synchronously, inside
+    // `processAndSavePhoto.top` for the JPEG path and inside the
+    // Camera2 callbacks for the RAW path), so the button releases the
+    // instant the picture is captured while the heavy work continues in
+    // the background.
+    val captureInFlight by viewModel.captureInFlight.collectAsState()
 
     val rawModeEnabled by viewModel.rawModeEnabled.collectAsState()
     val activeExtension by viewModel.activeExtension.collectAsState()
@@ -1957,7 +1968,14 @@ fun CameraActiveScreen(
         var showPresetPicker by remember { mutableStateOf(false) }
         var pendingDelete by remember { mutableStateOf<File?>(null) }
 
-        // Lambda that executes the actual capture, extracted so timer can call it
+        // Lambda that executes the actual capture, extracted so timer can call it.
+        // `beginCapture()` is called immediately before the hardware call (NOT
+        // at the top of this lambda) so a missing `captureDevice` or null
+        // `currentLens` doesn't strand `captureInFlight` in the "pressed" state.
+        // `endCapture()` is called in the JPEG `onCaptureError` branch to
+        // release the press if CameraX reports a failure — the capture flow
+        // for the success path is covered by `processAndSavePhoto`'s top,
+        // which calls `endCapture()` the moment OnImageSavedCallback fires.
         val doCapture: () -> Unit = {
             viewModel.playShutterSound()
             flashFlashActive = true
@@ -1965,6 +1983,7 @@ fun CameraActiveScreen(
             val nativeFocalForCrop = if (selectedLensRole == LensRole.PRIMARY)
                 viewModel.lensCatalogResult?.primary?.equivFocalMm else null
             if (rawModeEnabled && currentLens != null) {
+                viewModel.beginCapture()
                 viewModel.captureAndSaveRaw(
                     context = context,
                     logicalCameraId = currentLens.logicalCameraId,
@@ -1974,6 +1993,7 @@ fun CameraActiveScreen(
             } else {
                 val captureDevice = activeImageCapture
                 if (captureDevice != null) {
+                    viewModel.beginCapture()
                     triggerImageCapture(
                         context = context,
                         imageCapture = captureDevice,
@@ -1990,7 +2010,15 @@ fun CameraActiveScreen(
                             )
                         },
                         onCaptureError = { exc ->
+                            // Without this, a CameraX failure would leave
+                            // captureInFlight stuck true forever and lock the
+                            // shutter out until the next lens flip. The
+                            // success path doesn't need an explicit reset —
+                            // `processAndSavePhoto` does it as its first
+                            // line so the shutter snaps back the moment the
+                            // hardware delivers the image.
                             Log.e("CameraActiveScreen", "Capture failed", exc)
+                            viewModel.endCapture()
                         }
                     )
                 }
@@ -2154,7 +2182,7 @@ fun CameraActiveScreen(
                         .border(4.dp, Color.White, CircleShape)
                         .padding(5.dp)
                         .testTag("shutter_button")
-                        .clickable(enabled = !isCapturing && timerCountdown < 0) {
+                        .clickable(enabled = !captureInFlight && timerCountdown < 0) {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             if (selfTimerMode == 0) {
                                 doCapture()
@@ -2173,8 +2201,18 @@ fun CameraActiveScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     val s by animateFloatAsState(
-                        targetValue = if (isCapturing) 0.82f else 1.0f,
-                        animationSpec = spring(dampingRatio = 0.55f),
+                        // drive off the press-not-processing signal so the
+                        // button snaps back the instant the camera hands
+                        // back the image, not after the bitmap decode /
+                        // LUT pipeline finishes. See `captureInFlight` /
+                        // `viewModel.beginCapture()` for timing.
+                        targetValue = if (captureInFlight) 0.82f else 1.0f,
+                        // Snappier than the previous spring(dampingRatio
+                        // = 0.55f) which had a long settle that read as
+                        // "mushy press". A 120 ms tween (default easing
+                        // = FastOutSlowInEasing) feels closer to a real
+                        // shutter button: fast down, fast back.
+                        animationSpec = tween(durationMillis = 120),
                         label = "shutter_scale"
                     )
                     Box(
