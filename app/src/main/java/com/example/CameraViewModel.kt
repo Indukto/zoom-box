@@ -607,6 +607,29 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     /**
+     * Step the active film preset by [direction] slots in enum order,
+     * wrapping at the ends. Used by the viewfinder horizontal-swipe
+     * gesture so consecutive swipes ("next, next, next") walk through
+     * the full preset gallery then loop back to the start.
+     *
+     * @param direction +1 advances to the next preset (swipe left);
+     *                 -1 advances to the previous preset (swipe right).
+     * Delegates to [setCameraPreset] so the new preset's default
+     * exposure / temperature / tint are applied exactly like a tap in
+     * the bottom-sheet picker, and the choice is persisted.
+     */
+    fun cycleCameraPreset(direction: Int) {
+        val ordered = FilmPreset.values()
+        if (ordered.size <= 1) return
+        val currentIndex = ordered.indexOf(_activePreset.value).let { if (it < 0) 0 else it }
+        val step = if (direction >= 0) 1 else -1
+        val nextIndex = ((currentIndex + step) % ordered.size + ordered.size) % ordered.size
+        val nextPreset = ordered[nextIndex]
+        if (nextPreset == _activePreset.value) return
+        setCameraPreset(nextPreset)
+    }
+
+    /**
      * Returns the parsed LUT for [preset], loading and caching it on first use.
      * Returns null if the asset cannot be read (the pipeline then skips the
      * LUT step and falls back to the manual color filters only).

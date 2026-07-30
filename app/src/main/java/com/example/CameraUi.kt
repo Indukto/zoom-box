@@ -30,6 +30,8 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
@@ -1348,6 +1350,20 @@ fun CameraActiveScreen(
         }
         val vfX = (totalWidth - vfWidth) / 2f
 
+        // ─────────────────────────────────────────────────────────────────
+        // Preset-change toast state (declared ahead of the viewfinder Box
+        // because `CameraPreviewView`'s modifier-chain pointerInput below
+        // writes to these on a horizontal-fling fire).
+        // ─────────────────────────────────────────────────────────────────
+        // Invariant: `toastPresetSnapshot` is NEVER null. Driving
+        // visibility from a separate Boolean avoids the AnimatedVisibility-
+        // exit NPE a nullable + `!!` design hit earlier. A rapid
+        // "next, next, next" sequence bumps `toastEpoch` each time so
+        // the LaunchedEffect below restarts its 900 ms delay cleanly.
+        var toastPresetSnapshot by remember { mutableStateOf(FilmPreset.WARM_PORTRAIT) }
+        var showToast by remember { mutableStateOf(false) }
+        var toastEpoch by remember { mutableStateOf(0) }
+
         // 1. Black background
         Box(modifier = Modifier.fillMaxSize().background(Color.Black))
 
@@ -1361,7 +1377,72 @@ fun CameraActiveScreen(
                 .clip(RoundedCornerShape(16.dp))
         ) {
         CameraPreviewView(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                // Horizontal-fling preset cycler, chained onto the SAME
+                // modifier path as `CameraPreviewView`'s internal zoom
+                // pointerInput. Hitting on a sibling Box layered over the
+                // viewfinder (the previous approach) made the top Box win
+                // hit-testing and starved both `CameraPreviewView`'s zoom
+                // `pointerInput` AND its underlying native `AndroidView`
+                // of touches for the entire viewfinder rect — the user's
+                // report was that vertical-swipe zoom stopped working once
+                // the cycler landed. Putting the detector on this modifier
+                // chain puts both gestures on the same hit path so neither
+                // shadows the other, and matches the
+                // `awaitFirstDown(requireUnconsumed = false) +
+                // awaitPointerEvent(PointerEventPass.Main)` pattern that
+                // `CameraPreviewView` uses for its pan/zoom handler — so
+                // neither consume-semantic nor pass-order conflicts arise.
+                // Keying on the gating flags tears down / restarts the
+                // gesture coroutine cleanly when sliders open/close or the
+                // photo viewer state flips, matching the prior guard set.
+                .pointerInput(
+                    selectedPhoto == null && !showExpSlider && !showTempSlider
+                ) {
+                    val swipeThresholdPx = size.width.toFloat() * 0.18f
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        val start = down.position
+                        var maxAbsDx = 0f
+                        var maxAbsDy = 0f
+                        var firedPresetChange = false
+                        var ch = down
+                        do {
+                            val event = awaitPointerEvent(PointerEventPass.Main)
+                            val next = event.changes.firstOrNull { it.id == down.id } ?: break
+                            ch = next
+                            // Defensive: bail if another detector on this
+                            // modifier chain already claimed the move (a
+                            // pinch, for instance). Don't bail after we
+                            // already fired a cycle in this gesture — we
+                            // want the coroutine to terminate cleanly on
+                            // finger-lift, not half-way through.
+                            if (ch.isConsumed && !firedPresetChange) break
+                            val dx = ch.position.x - start.x
+                            val dy = ch.position.y - start.y
+                            val absDx = kotlin.math.abs(dx)
+                            val absDy = kotlin.math.abs(dy)
+                            if (absDx > maxAbsDx) maxAbsDx = absDx
+                            if (absDy > maxAbsDy) maxAbsDy = absDy
+                            if (!firedPresetChange &&
+                                maxAbsDx > swipeThresholdPx &&
+                                maxAbsDy < maxAbsDx * 0.6f
+                            ) {
+                                firedPresetChange = true
+                                // Convention: swipe LEFT = next item,
+                                // swipe RIGHT = previous item.
+                                val direction = if (dx < 0f) 1 else -1
+                                viewModel.cycleCameraPreset(direction)
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                toastPresetSnapshot = viewModel.activePreset.value
+                                showToast = true
+                                toastEpoch++
+                                ch.consume()
+                            }
+                        } while (ch.pressed)
+                    }
+                },
             selectedLensRole = selectedLensRole,
             digitalZoomRatio = digitalZoomRatio,
             exposure = exposure,
@@ -1399,6 +1480,60 @@ fun CameraActiveScreen(
             }
         }
         } // end viewfinder Box
+
+        // ─────────────────────────────────────────────────────────────────
+        // Preset-change toast (display + auto-dismiss timer)
+        // ─────────────────────────────────────────────────────────────────
+        // State vars are hoisted above the viewfinder Box so the
+        // `CameraPreviewView` modifier chain can mutate them on a
+        // horizontal-fling fire. The LaunchedEffect drives `showToast`
+        // back to false after 900 ms and leaves `toastPresetSnapshot`
+        // intact so the AnimatedVisibility exit animation has a stable
+        // value to read while fading out.
+        LaunchedEffect(toastEpoch) {
+            if (toastEpoch == 0) return@LaunchedEffect
+            kotlinx.coroutines.delay(900)
+            showToast = false
+            // Intentionally leaves `toastPresetSnapshot` intact.
+        }
+        AnimatedVisibility(
+            visible = showToast,
+            enter = fadeIn(tween(160)) + scaleIn(tween(220, easing = EaseInOutCubic), initialScale = 0.82f),
+            exit = fadeOut(tween(260)) + scaleOut(tween(260), targetScale = 0.82f),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = vfTop + 14.dp)
+        ) {
+            // Snapshot is non-null by construction (see invariant above),
+            // so a plain read here is safe across both enter and exit
+            // recompositions — no `!!` to crash mid-animation.
+            val toastPreset = toastPresetSnapshot
+            Row(
+                modifier = Modifier
+                    .background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(24.dp))
+                    .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(24.dp))
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(filmPresetColor(toastPreset)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = filmPresetEmoji(toastPreset), fontSize = 16.sp)
+                }
+                Text(
+                    text = toastPreset.displayName,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    fontFamily = FontFamily.Serif
+                )
+            }
+        }
 
         // Box scale animation
         val animatedBoxWidthFraction by animateFloatAsState(
