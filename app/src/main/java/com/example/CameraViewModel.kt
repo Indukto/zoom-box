@@ -264,6 +264,18 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     private val _selectedLensRole = MutableStateFlow(LensRole.PRIMARY)
     val selectedLensRole: StateFlow<LensRole> = _selectedLensRole.asStateFlow()
 
+    // ── Film-style picker scroll position ─────────────────────────────────
+    // Cached snapshot of the LazyListState's first-visible cell, exposed to
+    // the UI so `rememberLazyListState(...)` can seed its initial scroll on
+    // open. These mirror the DataStore copy but live in memory so the
+    // first composition can read them without an async hop.
+
+    private val _filmStyleScrollIndex = MutableStateFlow(0)
+    val filmStyleScrollIndex: StateFlow<Int> = _filmStyleScrollIndex.asStateFlow()
+
+    private val _filmStyleScrollOffset = MutableStateFlow(0)
+    val filmStyleScrollOffset: StateFlow<Int> = _filmStyleScrollOffset.asStateFlow()
+
     private val _previewLensRole = MutableStateFlow(LensRole.PRIMARY)
     val previewLensRole: StateFlow<LensRole> = _previewLensRole.asStateFlow()
 
@@ -379,6 +391,8 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                 _isFrontCamera.value = saved.isFrontCamera
                 _activeExtension.value = saved.activeExtension
                 _selectedLensRole.value = saved.selectedLensRole
+                _filmStyleScrollIndex.value = saved.filmStyleScrollIndex
+                _filmStyleScrollOffset.value = saved.filmStyleScrollOffset
             }
         }
     }
@@ -646,6 +660,25 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch { prefsRepo.saveAspectRatio(ratio) }
     }
     fun setSelectedPhoto(file: File?) { _selectedPhoto.value = file }
+
+    /**
+     * Called from a `snapshotFlow` collector in CameraUi every time the
+     * user's scroll inside the Film-Style picker LazyRow changes. Writes
+     * both to the in-memory cache (so a re-open before DataStore has
+     * finished its async write still sees the latest position) and to
+     * disk. Idempotent — no-op when the values haven't moved so we don't
+     * spam DataStore with redundant edits on touchpad inertia scroll.
+     */
+    fun saveFilmStyleScrollPosition(index: Int, offset: Int) {
+        val safeIndex = index.coerceAtLeast(0)
+        val safeOffset = offset.coerceAtLeast(0)
+        if (_filmStyleScrollIndex.value == safeIndex &&
+            _filmStyleScrollOffset.value == safeOffset
+        ) return
+        _filmStyleScrollIndex.value = safeIndex
+        _filmStyleScrollOffset.value = safeOffset
+        viewModelScope.launch { prefsRepo.saveFilmStyleScrollPosition(safeIndex, safeOffset) }
+    }
 
     fun toggleTemperatureSlider() {
         _showTemperatureSlider.value = !_showTemperatureSlider.value

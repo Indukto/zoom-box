@@ -28,6 +28,14 @@ class UserPreferencesRepository(private val context: Context) {
         private val IS_FRONT_CAMERA = booleanPreferencesKey("is_front_camera")
         private val ACTIVE_EXTENSION = stringPreferencesKey("active_extension")
         private val SELECTED_LENS_ROLE = stringPreferencesKey("selected_lens_role")
+        // Preserves the LazyRow's horizontal scroll position inside the
+        // "Film Style" bottom-sheet picker across sessions. Without these
+        // two keys the picker always resets to the leftmost preset when
+        // the sheet is re-opened, even though the active preset itself is
+        // already persisted — so the user's *browse* progress is lost
+        // even when their *selection* isn't.
+        private val FILM_STYLE_SCROLL_INDEX = intPreferencesKey("film_style_scroll_index")
+        private val FILM_STYLE_SCROLL_OFFSET = intPreferencesKey("film_style_scroll_offset")
     }
 
     data class Settings(
@@ -40,7 +48,9 @@ class UserPreferencesRepository(private val context: Context) {
         val doubleExposureActive: Boolean = false,
         val isFrontCamera: Boolean = false,
         val activeExtension: CaptureExtension = CaptureExtension.NONE,
-        val selectedLensRole: LensRole = LensRole.PRIMARY
+        val selectedLensRole: LensRole = LensRole.PRIMARY,
+        val filmStyleScrollIndex: Int = 0,
+        val filmStyleScrollOffset: Int = 0
     )
 
     val settingsFlow: Flow<Settings> = context.settingsDataStore.data.map { prefs ->
@@ -62,7 +72,13 @@ class UserPreferencesRepository(private val context: Context) {
             } ?: CaptureExtension.NONE,
             selectedLensRole = prefs[SELECTED_LENS_ROLE]?.let { name ->
                 try { LensRole.valueOf(name) } catch (_: Exception) { LensRole.PRIMARY }
-            } ?: LensRole.PRIMARY
+            } ?: LensRole.PRIMARY,
+            // Clamp to a sane non-negative index so a corrupted store can't
+            // crash the LazyListState. The number of presets is small and
+            // stable so we don't bother probing FilmPreset.values().size
+            // here — the Compose layer clamps again with a wider bound.
+            filmStyleScrollIndex = (prefs[FILM_STYLE_SCROLL_INDEX] ?: 0).coerceAtLeast(0),
+            filmStyleScrollOffset = prefs[FILM_STYLE_SCROLL_OFFSET] ?: 0
         )
     }
 
@@ -104,5 +120,19 @@ class UserPreferencesRepository(private val context: Context) {
 
     suspend fun saveSelectedLensRole(role: LensRole) {
         context.settingsDataStore.edit { it[SELECTED_LENS_ROLE] = role.name }
+    }
+
+    /**
+     * Persist the LazyRow scroll position of the "Film Style" picker so the
+     * browse position survives both closing the bottom sheet and fully
+     * relaunching the app. Negative offsets (which can come from edge-case
+     * overscroll on some OEMs) are clamped to 0 so the next session starts
+     * at the saved item without artefacts.
+     */
+    suspend fun saveFilmStyleScrollPosition(index: Int, offset: Int) {
+        context.settingsDataStore.edit {
+            it[FILM_STYLE_SCROLL_INDEX] = index.coerceAtLeast(0)
+            it[FILM_STYLE_SCROLL_OFFSET] = offset.coerceAtLeast(0)
+        }
     }
 }

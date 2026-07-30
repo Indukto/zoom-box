@@ -62,6 +62,7 @@ import androidx.compose.foundation.layout.displayCutoutPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -119,6 +120,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -1255,6 +1258,12 @@ fun CameraActiveScreen(
     val availableExtensions by viewModel.availableExtensions.collectAsState()
     val extensionsProbeDone by viewModel.extensionsProbeDone.collectAsState()
     val activePreset by viewModel.activePreset.collectAsState()
+    // NOTE: Film-Style picker scroll position is intentionally NOT
+    // collected via `collectAsState`. Doing so would subscribe this whole
+    // composable to a StateFlow that mutates on every scroll tick, which
+    // would re-launch the LazyRow on each frame of an inertia fling.
+    // The seed value is captured once per sheet open (see below) and the
+    // save path operates through `snapshotFlow`.
 
     // Load the active preset's LUT for the live viewfinder GL shader.
     var previewLut by remember { mutableStateOf<CubeLut?>(null) }
@@ -2018,7 +2027,50 @@ fun CameraActiveScreen(
                         fontSize = 18.sp,
                         modifier = Modifier.padding(bottom = 16.dp)
                     )
+                    // Capture the persisted scroll position once at sheet
+                    // open. Keying on `showPresetPicker` re-runs this read
+                    // every time the sheet toggles on, so each open sees
+                    // the latest value from the ViewModel / DataStore,
+                    // while mid-session scroll ticks do NOT re-snapshot
+                    // (those flow back via snapshotFlow + save below).
+                    val presetList = FilmPreset.values()
+                    val initialIndex = remember(showPresetPicker) {
+                        viewModel.filmStyleScrollIndex.value
+                    }
+                    val initialOffset = remember(showPresetPicker) {
+                        viewModel.filmStyleScrollOffset.value
+                    }
+                    // The index is clamped to the live preset count in case
+                    // the saved value is stale or the enum shrank between
+                    // app versions — `(size - 1).coerceAtLeast(0)`
+                    // gracefully handles the (theoretical) empty-enum case
+                    // so coerceIn's lower/upper bounds are still monotonic.
+                    val safeInitialIndex = initialIndex.coerceIn(
+                        0,
+                        (presetList.size - 1).coerceAtLeast(0)
+                    )
+                    val filmStyleListState = rememberLazyListState(
+                        initialFirstVisibleItemIndex = safeInitialIndex,
+                        initialFirstVisibleItemScrollOffset = initialOffset
+                    )
+                    // Persist every visible-item change. `snapshotFlow`
+                    // observes the LazyListState on the Compose snapshot
+                    // scope so it sees the same transaction the
+                    // LazyListState mutated, giving us a clean downstream
+                    // Flow. distinctUntilChanged drops redundant emissions
+                    // so fling inertia doesn't spam DataStore.
+                    LaunchedEffect(filmStyleListState) {
+                        snapshotFlow {
+                            filmStyleListState.firstVisibleItemIndex to
+                                filmStyleListState.firstVisibleItemScrollOffset
+                        }
+                            .distinctUntilChanged()
+                            .collect { (idx, off) ->
+                                viewModel.saveFilmStyleScrollPosition(idx, off)
+                            }
+                    }
                     LazyRow(
+                        state = filmStyleListState,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 8.dp),
