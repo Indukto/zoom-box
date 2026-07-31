@@ -623,9 +623,11 @@ class LutPreviewRenderer(
                 float maxRadius = 0.72 * max(uViewSize.x, uViewSize.y);
                 float t = (dist / maxRadius - 0.55) / 0.45;
                 t = clamp(t, 0.0, 1.0);
-                float shaderA = t * (135.0 / 255.0);
+                // Subtle film falloff: keep corners readable without removing
+                // the analog frame character.
+                float shaderA = t * (95.0 / 255.0);
                 float invA = 1.0 - shaderA;
-                float cornerContrib = t * (12.0 / 255.0) * shaderA;
+                float cornerContrib = t * (8.0 / 255.0) * shaderA;
                 c.rgb = c.rgb * invA + vec3(cornerContrib);
 
                 // ── 7. Contrast & Saturation ──
@@ -753,9 +755,11 @@ class LutPreviewRenderer(
                 float maxRadius = 0.72 * max(uViewSize.x, uViewSize.y);
                 float t = (dist / maxRadius - 0.55) / 0.45;
                 t = clamp(t, 0.0, 1.0);
-                float shaderA = t * (135.0 / 255.0);
+                // Subtle film falloff: keep corners readable without removing
+                // the analog frame character.
+                float shaderA = t * (95.0 / 255.0);
                 float invA = 1.0 - shaderA;
-                float cornerContrib = t * (12.0 / 255.0) * shaderA;
+                float cornerContrib = t * (8.0 / 255.0) * shaderA;
                 c.rgb = c.rgb * invA + vec3(cornerContrib);
 
                 // ── 7. Contrast & Saturation ──

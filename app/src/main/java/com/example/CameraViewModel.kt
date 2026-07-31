@@ -1427,8 +1427,10 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         val maxRadiusInv = 1f / maxRadius
         val vigInner = 0.55f
         val vigRange = 0.45f
-        val vigFadeMax = 135f / 255f
-        val cornerRgb = 12f
+        // Keep the film-frame falloff subtle so corners stay readable.
+        // This mirrors the live GLSurface shader's reduced vignette strength.
+        val vigFadeMax = 95f / 255f
+        val cornerRgb = 8f
         val innerRadiusSq = (vigInner * maxRadius) * (vigInner * maxRadius)
 
         val rowDy2 = FloatArray(h) { y -> (y - cy).let { it * it } }
