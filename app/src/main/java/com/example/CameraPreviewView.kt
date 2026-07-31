@@ -34,6 +34,7 @@ import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculatePan
@@ -43,6 +44,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -55,6 +57,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.milliseconds
@@ -240,11 +243,31 @@ fun CameraPreviewView(
 
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
 
-    // OpenGL-backed preview surface. Renders camera frames through the
-    // WB + 3D-LUT fragment shader (see LutPreviewRenderer). Replaces the
-    // stock androidx.camera.view.PreviewView, which only supports flat
-    // color overlays.
-    val previewView = remember { LutPreviewView(context) }
+    // Filtered styles use the OpenGL preview so their LUT/effects are rendered
+    // live. NORMAL deliberately uses CameraX's stock PreviewView instead of
+    // the custom GLSurfaceView: the latter is a SurfaceView whose buffer can
+    // be resized during the first edge-to-edge Compose layout pass (the Pixel
+    // logcat shows that as a BLASTBufferQueue size mismatch and an abandoned
+    // consumer). Normal has no GPU effects to justify that extra surface, so
+    // keeping it on the stable CameraX path avoids the startup race entirely.
+    val lutPreviewView = remember { LutPreviewView(context) }
+    val normalPreviewView = remember {
+        PreviewView(context).apply {
+            // Force TextureView rather than PreviewView's default SurfaceView.
+            // The affected Pixel logcat showed a SurfaceView BLAST buffer-size
+            // mismatch during startup; compatible mode avoids that separate
+            // SurfaceView buffer while preserving the normal camera preview.
+            implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+            scaleType = PreviewView.ScaleType.FILL_CENTER
+        }
+    }
+    val useFilteredPreview = activePreset != FilmPreset.NORMAL
+    val activePreviewView = if (useFilteredPreview) lutPreviewView else normalPreviewView
+    val activeSurfaceProvider = if (useFilteredPreview) {
+        lutPreviewView.surfaceProvider
+    } else {
+        normalPreviewView.surfaceProvider
+    }
 
     val imageCapture = remember {
         ImageCapture.Builder()
@@ -339,6 +362,7 @@ fun CameraPreviewView(
         isFrontCamera,
         activeExtension,
         isRawCapturing,
+        useFilteredPreview,
         catalogHolder.value
     ) {
         val cp = try { cameraProviderFuture.get() } catch (e: Exception) { null } ?: return@LaunchedEffect
@@ -358,7 +382,7 @@ fun CameraPreviewView(
             if (isFrontCamera) {
                 val boundCam = previewManager.bindDefaultCamera(
                     cameraProvider = cp,
-                    surfaceProvider = previewView.surfaceProvider,
+                    surfaceProvider = activeSurfaceProvider,
                     imageCapture = imageCapture,
                     isFrontCamera = true,
                     flashMode = flashMode
@@ -378,7 +402,7 @@ fun CameraPreviewView(
                         cameraProvider = cp,
                         logicalCameraId = targetProfile.logicalCameraId,
                         physicalCameraId = targetProfile.physicalCameraId,
-                        surfaceProvider = previewView.surfaceProvider,
+                        surfaceProvider = activeSurfaceProvider,
                         flashMode = flashMode,
                         extension = activeExtension
                     )
@@ -392,7 +416,7 @@ fun CameraPreviewView(
                     // empty.
                     val boundCam = previewManager.bindDefaultCamera(
                         cameraProvider = cp,
-                        surfaceProvider = previewView.surfaceProvider,
+                        surfaceProvider = activeSurfaceProvider,
                         imageCapture = imageCapture,
                         isFrontCamera = false,
                         flashMode = flashMode
@@ -404,6 +428,11 @@ fun CameraPreviewView(
                     activeImageCapture = bound.imageCapture
                 }
             }
+        } catch (e: CancellationException) {
+            // A route change cancels this effect while CameraX is still
+            // releasing the previous surface. Never turn that cancellation
+            // into a successful-looking bind continuation.
+            throw e
         } catch (e: Exception) {
             Log.e("CameraPreviewView", "Failed to bind camera lifecycle", e)
         }
@@ -443,20 +472,20 @@ fun CameraPreviewView(
     // Push white-balance + exposure into the GL renderer every time they
     // change. The renderer marshals the values onto the GL thread.
     LaunchedEffect(temperature, tint, exposure) {
-        previewView.setWhiteBalance(temperature, tint, exposure)
+        lutPreviewView.setWhiteBalance(temperature, tint, exposure)
     }
 
     // Push the active LUT into the GL renderer. Loads (and caches) the LUT
     // from assets on first use.
     LaunchedEffect(activeLut) {
-        previewView.setLut(activeLut)
+        lutPreviewView.setLut(activeLut)
     }
 
     // Push per-preset film effect parameters to the GPU renderer whenever
     // the preset changes. These include film curve, contrast, saturation,
     // bloom/halation, chromatic fringing, and split toning values.
     LaunchedEffect(activePreset) {
-        previewView.setFilmEffects(
+        lutPreviewView.setFilmEffects(
             filmCurve = activePreset.defaultFilmCurve,
             contrast = activePreset.defaultContrast,
             saturation = activePreset.defaultSaturation,
@@ -476,7 +505,7 @@ fun CameraPreviewView(
     // Mirror the front-camera preview horizontally to match the stock
     // PreviewView behavior (selfie mirror).
     LaunchedEffect(isFrontCamera) {
-        previewView.setFlipH(isFrontCamera)
+        lutPreviewView.setFlipH(isFrontCamera)
     }
 
     // Zoom gesture — seed from current digitalZoomRatio
@@ -485,9 +514,13 @@ fun CameraPreviewView(
     val currentOnZoomTick by rememberUpdatedState(onZoomTick)
     val currentZoomEnabled by rememberUpdatedState(zoomEnabled)
 
-    AndroidView(
-        factory = { previewView },
-        modifier = modifier.fillMaxSize().pointerInput(zoomEnabled) {
+    // The native child must change together with the CameraX surface provider.
+    // key() disposes the old preview child before the manager binds the new
+    // provider, preventing an abandoned consumer during preset changes.
+    key(useFilteredPreview) {
+        AndroidView(
+            factory = { activePreviewView },
+            modifier = modifier.fillMaxSize().pointerInput(zoomEnabled) {
             val heightPx = size.height.toFloat().coerceAtLeast(1f)
             awaitEachGesture {
                 if (!currentZoomEnabled) return@awaitEachGesture
@@ -524,8 +557,9 @@ fun CameraPreviewView(
                     }
                 } while (event.changes.any { it.pressed })
             }
-        }
-    )
+            }
+        )
+    }
 }
 
 private fun tickIndexOf(zoom: Float): Int {
@@ -534,14 +568,15 @@ private fun tickIndexOf(zoom: Float): Int {
 }
 
 /**
- * Tiny mutable holder for the cached LensCatalog result. We need an object
- * (not by-value state) so the rebind `LaunchedEffect` reads the same
- * instance the enumeration effect wrote to without re-running when Compose
- * state changes — Compose treats `mutableStateOf` updates as recompositions,
- * which we explicitly want to avoid on the rebind path.
+ * Small Compose-aware holder for the cached LensCatalog result. The value must
+ * be observable: the initial bind effect can run before camera enumeration
+ * finishes, and updating this holder must re-run that effect. LUT-backed
+ * presets happen to trigger another recomposition when their LUT finishes
+ * loading; NORMAL returns null, so a plain mutable field would leave NORMAL
+ * permanently unbound with a black viewfinder.
  */
 private class CatalogHolder {
-    var value: LensCatalog.CatalogResult? = null
+    var value: LensCatalog.CatalogResult? by mutableStateOf(null)
 }
 
 fun triggerImageCapture(

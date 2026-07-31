@@ -32,6 +32,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.compose.runtime.Stable
 import androidx.lifecycle.LifecycleOwner
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -333,6 +334,11 @@ class PreviewSessionManager(
                 // to/from front and we lose the id.
                 Log.i("LensSwitch", "bind OK | attempt=${index + 1}/${retryDelays.size} delay=${delayMs}ms")
                 return BindResult(camera, newImageCapture)
+            } catch (e: CancellationException) {
+                // A preset/lens route change cancels the bind effect. Do not
+                // continue retrying against a surface that Compose is already
+                // disposing; doing so can abandon the next preview consumer.
+                throw e
             } catch (e: Exception) {
                 Log.w(
                     TAG,
@@ -371,6 +377,8 @@ class PreviewSessionManager(
                 currentLogicalCameraId = previousLogicalCameraId
                 Log.i("LensSwitch", "bind RECOVERY | restored previous lens (logical=$previousLogicalCameraId)")
                 return BindResult(restored, previousImageCapture)
+            } catch (e2: CancellationException) {
+                throw e2
             } catch (e2: Exception) {
                 Log.e(TAG, "Recovery bind failed; falling back to clean unbind", e2)
             }
@@ -699,6 +707,11 @@ class PreviewSessionManager(
                 currentIsFrontCamera = isFrontCamera
                 Log.i("LensSwitch", "bindDefault OK | attempt=${index + 1}/${retryDelays.size} delay=${delayMs}ms")
                 return camera
+            } catch (e: CancellationException) {
+                // A preset/lens route change cancels the bind effect. Do not
+                // continue retrying against a surface that Compose is already
+                // disposing.
+                throw e
             } catch (e: Exception) {
                 Log.w(
                     TAG,
@@ -726,6 +739,8 @@ class PreviewSessionManager(
                 currentPreview = previousPreview
                 currentImageCapture = previousImageCapture
                 return restored
+            } catch (e2: CancellationException) {
+                throw e2
             } catch (e2: Exception) {
                 Log.e(TAG, "Recovery bind failed; falling back to clean unbind", e2)
             }

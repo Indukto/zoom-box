@@ -40,6 +40,8 @@ class LutPreviewView(
     init {
         setEGLContextClientVersion(2)
         setRenderer(renderer)
+        // Render only when a camera frame or setting arrives. NORMAL uses the
+        // stock PreviewView, so this GPU surface is not involved in its startup.
         renderMode = RENDERMODE_WHEN_DIRTY
         preserveEGLContextOnPause = true
     }

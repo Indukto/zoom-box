@@ -1328,6 +1328,7 @@ fun CameraActiveScreen(
     val rawModeEnabled by viewModel.rawModeEnabled.collectAsState()
     val activeExtension by viewModel.activeExtension.collectAsState()
     val activePreset by viewModel.activePreset.collectAsState()
+    val settingsLoaded by viewModel.settingsLoaded.collectAsState()
     // NOTE: Film-Style picker scroll position is intentionally NOT
     // collected via `collectAsState`. Doing so would subscribe this whole
     // composable to a StateFlow that mutates on every scroll tick, which
@@ -1454,6 +1455,7 @@ fun CameraActiveScreen(
                 .height(vfHeight)
                 .clip(RoundedCornerShape(16.dp))
         ) {
+        if (settingsLoaded) {
         CameraPreviewView(
             modifier = Modifier
                 .fillMaxSize()
@@ -1563,6 +1565,7 @@ fun CameraActiveScreen(
             imageCaptureProvider = { activeImageCapture = it },
             onLensCatalogReady = { result -> viewModel.setLensCatalogResult(result) }
         )
+        }
 
         // Countdown timer overlay
         if (timerCountdown > 0) {

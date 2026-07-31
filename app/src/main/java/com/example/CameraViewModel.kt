@@ -40,6 +40,7 @@ import com.example.zoom.LensCatalog
 import com.example.zoom.LensRole
 import com.example.zoom.PreviewSessionManager
 import com.example.zoom.RawCapture
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -345,8 +346,14 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     private val _tint = MutableStateFlow(0f)
     val tint: StateFlow<Float> = _tint.asStateFlow()
 
-    private val _activePreset = MutableStateFlow(FilmPreset.WARM_PORTRAIT)
+    // Start in the pass-through route while persisted settings are loading.
+    // CameraUi waits for settingsLoaded before creating any preview surface, so
+    // the startup route never flips from a LUT GLSurfaceView to PreviewView.
+    private val _activePreset = MutableStateFlow(FilmPreset.NORMAL)
     val activePreset: StateFlow<FilmPreset> = _activePreset.asStateFlow()
+
+    private val _settingsLoaded = MutableStateFlow(false)
+    val settingsLoaded: StateFlow<Boolean> = _settingsLoaded.asStateFlow()
 
     // Lazily-parsed LUTs keyed by asset path. Parsed once on first use and
     // reused for every subsequent capture that selects the same film.
@@ -460,20 +467,34 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
 
     init {
         viewModelScope.launch {
-            prefsRepo.settingsFlow.first().let { saved ->
-                _rawModeEnabled.value = saved.rawModeEnabled
-                _aspectRatio.value = saved.aspectRatio
-                _activePreset.value = saved.activePreset
-                _flashMode.value = saved.flashMode
-                _showGridLines.value = saved.showGridLines
-                _selfTimerMode.value = saved.selfTimerMode
-                _doubleExposureActive.value = saved.doubleExposureActive
-                _isFrontCamera.value = saved.isFrontCamera
-                _activeExtension.value = saved.activeExtension
-                _selectedLensRole.value = saved.selectedLensRole
-                _outputResolution.value = saved.outputResolution
-                _filmStyleScrollIndex.value = saved.filmStyleScrollIndex
-                _filmStyleScrollOffset.value = saved.filmStyleScrollOffset
+            try {
+                prefsRepo.settingsFlow.first().let { saved ->
+                    _rawModeEnabled.value = saved.rawModeEnabled
+                    _aspectRatio.value = saved.aspectRatio
+                    _activePreset.value = saved.activePreset
+                    _flashMode.value = saved.flashMode
+                    _showGridLines.value = saved.showGridLines
+                    _selfTimerMode.value = saved.selfTimerMode
+                    _doubleExposureActive.value = saved.doubleExposureActive
+                    _isFrontCamera.value = saved.isFrontCamera
+                    _activeExtension.value = saved.activeExtension
+                    _selectedLensRole.value = saved.selectedLensRole
+                    _outputResolution.value = saved.outputResolution
+                    _filmStyleScrollIndex.value = saved.filmStyleScrollIndex
+                    _filmStyleScrollOffset.value = saved.filmStyleScrollOffset
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Keep the safe defaults if the preference store is corrupt or
+                // temporarily unavailable. The camera should still start rather
+                // than fail its ViewModel coroutine silently.
+                Log.e("CameraViewModel", "Failed to load saved camera settings", e)
+            } finally {
+                // Do this even after a preference-store failure: the safe
+                // NORMAL defaults still allow the camera to start, and the
+                // preview is never created mid-route switch.
+                _settingsLoaded.value = true
             }
         }
     }
