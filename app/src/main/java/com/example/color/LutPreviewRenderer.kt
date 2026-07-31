@@ -229,6 +229,20 @@ class LutPreviewRenderer(
         uHighlightTintBLoc = GLES20.glGetUniformLocation(program, "uHighlightTintB")
         uHighlightTintStrengthLoc = GLES20.glGetUniformLocation(program, "uHighlightTintStrength")
 
+        // Drain any stale GL errors from EGL-context creation or the program
+        // link above. GL errors are sticky flags that survive across bind
+        // calls, so calling glGetError here leaves our subsequent
+        // glBindTexture + glTexParameteri sequence starting from a known-clean
+        // state. This is a defensive no-op on healthy contexts: glGetError
+        // returns GL_NO_ERROR immediately and the loop exits. On drivers
+        // that surface multiple errors per frame (Adreno, some PowerVR) each
+        // one is logged with its hex code so a real bug is still visible.
+        while (true) {
+            val err = GLES20.glGetError()
+            if (err == GLES20.GL_NO_ERROR) break
+            Log.w(TAG, "Drained stale GL error 0x${Integer.toHexString(err)} at onSurfaceCreated")
+        }
+
         // Input (camera) texture.
         val tex = IntArray(1)
         GLES20.glGenTextures(1, tex, 0)
