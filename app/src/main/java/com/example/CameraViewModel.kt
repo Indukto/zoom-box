@@ -316,11 +316,12 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     private val _selectedLensRole = MutableStateFlow(LensRole.PRIMARY)
     val selectedLensRole: StateFlow<LensRole> = _selectedLensRole.asStateFlow()
 
-    // User-facing JPEG resolution preference (3 MP / 12 MP). The full-decode
-    // path inside processAndSavePhoto reads `_outputResolution.value.inSampleSize`
-    // to decide whether to halve each axis of the source JPEG. The crop-region
-    // path (BitmapRegionDecoder) ignores this — its decoding is dictated by the
-    // cropped rect's source-resolution.
+    // User-facing JPEG resolution preference (3 MP / full sensor resolution).
+    // Both branches inside processAndSavePhoto read
+    // `_outputResolution.value.inSampleSize` and pass it through to the
+    // decoder — the full-decode BitmapFactory branch via Options.inSampleSize,
+    // and the crop-region BitmapRegionDecoder branch via the Options object
+    // given to decodeRegion.
     private val _outputResolution = MutableStateFlow(OutputResolution.THREE_MEGAPIXEL)
     val outputResolution: StateFlow<OutputResolution> = _outputResolution.asStateFlow()
 
@@ -812,8 +813,9 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     /**
-     * Switch between 3 MP (fast) and 12 MP (archival) JPEG output. The new
-     * value is committed to DataStore immediately so it survives a relaunch.
+     * Switch between 3 MP (fast) and full sensor resolution (archival) JPEG
+     * output. The new value is committed to DataStore immediately so it
+     * survives a relaunch.
      */
     fun setOutputResolution(resolution: OutputResolution) {
         _outputResolution.value = resolution
@@ -1162,13 +1164,14 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                     val decoder = BitmapRegionDecoder.newInstance(rawFile.absolutePath, false)
                     // Pass the user's output-resolution preference into the
                     // region decoder so this crop-region branch honours the
-                    // 3 MP / 12 MP choice just like the BitmapFactory path
-                    // below does. The decoder scales the cropped rect on
-                    // decode (no need to allocate and then downscale a full
-                    // 11 MP bitmap) so the saved JPEG matches the requested
-                    // size. Per BitmapRegionDecoder's contract, `Rect` stays
-                    // in original unscaled coordinates, which matches the
-                    // `origW`/`origH` math above.
+                    // 3 MP / full sensor resolution choice just like the
+                    // BitmapFactory path below does. The decoder scales the
+                    // cropped rect on decode (no need to allocate and then
+                    // downscale a full sensor resolution bitmap) so the saved
+                    // JPEG matches the requested size. Per
+                    // BitmapRegionDecoder's contract, `Rect` stays in original
+                    // unscaled coordinates, which matches the `origW`/`origH`
+                    // math above.
                     val regionOpts = BitmapFactory.Options().apply {
                         inSampleSize = _outputResolution.value.inSampleSize
                     }
@@ -1190,17 +1193,18 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                         rotated
                     }
                 } else {
-                    // inSampleSize = 2: decode the JPEG at half resolution in
-                    // each axis (12 MP → 3 MP). The retro film-style output
-                    // forgives the softness (the filter character — grain,
-                    // tonal compression, colour tint — already hides fine
-                    // detail) but this single change cuts applyRetroFilter's
-                    // pixel-loop work ~4× and the JPEG encode + save by a
-                    // similar factor, dropping the full-quality post-capture
-                    // path (the only path without explicit zoom-box cropping)
-                    // from ~3-4 s to < 1 s on mid-range hardware. If archival
-                    // 12 MP output is needed, bump to 1 here OR set
-                    // FORCE_FULL_RESOLUTION in build flags.
+                    // Honour the user's output resolution preference so this
+                    // no-crop branch decodes at either full sensor resolution
+                    // (inSampleSize = 1) or at half resolution on each axis
+                    // (inSampleSize = 2 → ~3 MP). The retro
+                    // film-style output forgives the small loss of fine
+                    // detail (the filter character — grain, tonal
+                    // compression, colour tint — already hides it) but this
+                    // single change cuts applyRetroFilter's pixel-loop work
+                    // ~4× and the JPEG encode + save by a similar factor,
+                    // dropping the full-quality post-capture path (the only
+                    // path without explicit zoom-box cropping) from ~3-4 s
+                    // to < 1 s on mid-range hardware.
                     // Honour the user's output resolution preference: inSampleSize = 2
                     // (3 MP) is the snappy default that pairs well with the retro filter
                     // aesthetic; inSampleSize = 1 keeps full source resolution for
@@ -1500,7 +1504,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         // on the previous separate LutColorFilter.applyInPlace call. That
         // call did a SECOND full-bitmap getPixels + per-pixel trilinear
         // blend + setPixels which was responsible for ~3–4 s of capture
-        // latency on 12 MP JPEGs (single-threaded, even when the retro
+        // latency on full sensor resolution JPEGs (single-threaded, even when the retro
         // chunks above finished quickly on quad-core devices).
         val lutActive = lut != null
         val lutData: FloatArray? = lut?.data

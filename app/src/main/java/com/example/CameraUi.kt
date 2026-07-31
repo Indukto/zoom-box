@@ -2800,7 +2800,7 @@ fun SettingsScreen(viewModel: CameraViewModel, onClose: () -> Unit) {
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 SettingsRow(
-                    label = "Save at 12 MP",
+                    label = "Save at full resolution",
                     checked = outputResolution == OutputResolution.FULL,
                     enabled = true,
                     onCheckedChange = { wantFullRes ->

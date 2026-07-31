@@ -121,7 +121,7 @@ object LutColorFilter {
      * values, not a fresh bitmap. [apply] allocates a new ARGB_8888 bitmap
      * and copies wxh pixels twice (source getPixels + setPixels on output);
      * the in-place variant skips both the allocation and one of the copies,
-     * halving time-to-first-byte on a 12MP capture. The blend math is
+     * halving time-to-first-byte on a full sensor resolution capture. The blend math is
      * identical to [apply] — same trilinear interpolation, same indexing.
      */
     fun applyInPlace(target: Bitmap, lut: CubeLut): Bitmap {

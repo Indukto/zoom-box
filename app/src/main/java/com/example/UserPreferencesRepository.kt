@@ -21,8 +21,8 @@ private val Context.settingsDataStore by preferencesDataStore("camera_settings")
  * `inSampleSize` to feed into `BitmapFactory.Options` on the full-decode
  * path in `processAndSavePhoto`:
  *
- *  - [FULL] (inSampleSize = 1)            — full source resolution
- *                                            (~12 MP), ~3-4 s capture
+ *  - [FULL] (inSampleSize = 1)            — full sensor resolution, ~3-4 s
+ *                                            capture
  *  - [THREE_MEGAPIXEL] (inSampleSize = 2) — halved each axis (~3 MP),
  *                                            ~1 s capture, plenty for the
  *                                            retro filter aesthetic
