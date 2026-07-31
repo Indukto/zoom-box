@@ -293,6 +293,26 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
 
     private val prefsRepo = UserPreferencesRepository(application)
 
+    // Reuse the large ARGB pixel buffer on the worker thread. The filter still
+    // reads and writes the exact same pixels; this only avoids allocating and
+    // collecting a multi-megapixel IntArray for every capture. A holder-level
+    // inUse flag prevents overlapping processing coroutines on the same worker
+    // from sharing the mutable arrays.
+    private class FilterBuffers {
+        var pixels = IntArray(0)
+        var rowDistanceSquared = FloatArray(0)
+        var inUse = false
+    }
+
+    private val filterBuffers = ThreadLocal<FilterBuffers>()
+
+    // Avoid retaining unusually large buffers forever on a pooled dispatcher
+    // thread. This is large enough for typical full-resolution phone captures
+    // while bounding memory after an outlier image.
+    private companion object {
+        const val MAX_RETAINED_FILTER_PIXELS = 16_000_000
+    }
+
     private val _selectedLensRole = MutableStateFlow(LensRole.PRIMARY)
     val selectedLensRole: StateFlow<LensRole> = _selectedLensRole.asStateFlow()
 
@@ -1140,7 +1160,19 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                     // byte-for-byte equivalent (it internally calls this same path).
                     @Suppress("DEPRECATION")
                     val decoder = BitmapRegionDecoder.newInstance(rawFile.absolutePath, false)
-                    val regionBitmap = decoder.decodeRegion(Rect(srcL, srcT, srcR, srcB), null)
+                    // Pass the user's output-resolution preference into the
+                    // region decoder so this crop-region branch honours the
+                    // 3 MP / 12 MP choice just like the BitmapFactory path
+                    // below does. The decoder scales the cropped rect on
+                    // decode (no need to allocate and then downscale a full
+                    // 11 MP bitmap) so the saved JPEG matches the requested
+                    // size. Per BitmapRegionDecoder's contract, `Rect` stays
+                    // in original unscaled coordinates, which matches the
+                    // `origW`/`origH` math above.
+                    val regionOpts = BitmapFactory.Options().apply {
+                        inSampleSize = _outputResolution.value.inSampleSize
+                    }
+                    val regionBitmap = decoder.decodeRegion(Rect(srcL, srcT, srcR, srcB), regionOpts)
                     decoder.recycle()
 
                     val matrix = Matrix()
@@ -1433,9 +1465,34 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         val cornerRgb = 8f
         val innerRadiusSq = (vigInner * maxRadius) * (vigInner * maxRadius)
 
-        val rowDy2 = FloatArray(h) { y -> (y - cy).let { it * it } }
+        val cachedBuffers = filterBuffers.get() ?: FilterBuffers().also { filterBuffers.set(it) }
+        // A coroutine can suspend while its child chunks run. If another
+        // capture resumes on this same dispatcher thread in the meantime,
+        // give it private arrays rather than corrupting the first result.
+        val buffers = if (cachedBuffers.inUse) FilterBuffers() else cachedBuffers
+        buffers.inUse = true
 
-        val pixels = IntArray(w * h)
+        try {
+            val rowDy2 = buffers.rowDistanceSquared.let { buffer ->
+            if (buffer.size < h) {
+                FloatArray(h).also { buffers.rowDistanceSquared = it }
+            } else {
+                buffer
+            }
+        }
+        for (y in 0 until h) {
+            val dy = y - cy
+            rowDy2[y] = dy * dy
+        }
+
+        val pixelCount = w * h
+        val pixels = buffers.pixels.let { buffer ->
+            if (buffer.size < pixelCount) {
+                IntArray(pixelCount).also { buffers.pixels = it }
+            } else {
+                buffer
+            }
+        }
         target.getPixels(pixels, 0, w, 0, 0, w, h)
 
         // Precompute LUT params so each parallel chunk can do its
@@ -1708,11 +1765,18 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
             }.awaitAll()
         }
 
-        target.setPixels(pixels, 0, w, 0, 0, w, h)
+            target.setPixels(pixels, 0, w, 0, 0, w, h)
 
-        // The LUT trilinear blend is now folded into the parallel chunks
-        // above; no separate second pixel pass is needed.
-        return target
+            // The LUT trilinear blend is now folded into the parallel chunks
+            // above; no separate second pixel pass is needed.
+            return target
+        } finally {
+            buffers.inUse = false
+            if (buffers.pixels.size > MAX_RETAINED_FILTER_PIXELS) {
+                buffers.pixels = IntArray(0)
+                buffers.rowDistanceSquared = FloatArray(0)
+            }
+        }
     }
 
     /**
