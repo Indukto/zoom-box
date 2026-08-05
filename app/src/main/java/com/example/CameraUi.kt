@@ -163,6 +163,8 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
+import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -174,6 +176,7 @@ import com.example.zoom.LensRole
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
+import com.google.accompanist.permissions.shouldShowRationale
 import java.io.File
 
 private const val FLASH_BURST_DURATION_MS = 120L
@@ -917,9 +920,61 @@ fun CameraUi(
 
     val cameraPermissionState = rememberPermissionState(android.Manifest.permission.CAMERA)
 
+    // Picking the right photo-read permission per platform:
+    //   - Android 13 (TIRAMISU, API 33) and up: READ_MEDIA_IMAGES
+    //   - Android 10..12 (Q..S_V2, API 29..32): READ_EXTERNAL_STORAGE
+    // The manifest declares both with the right sdk-version gates, so older
+    // devices install cleanly without seeing READ_MEDIA_IMAGES in the
+    // Play listing and newer devices don't see the deprecated
+    // READ_EXTERNAL_STORAGE. Without this permission granted, the gallery
+    // still works for photos inserted by THIS install of the app (we own
+    // those MediaStore rows via implicit app-uid ownership); granting it
+    // extends the gallery to foreign photos in Pictures/ZoomBoxCamera/
+    // and crucially to pre-reinstall rows (the OS disowns pre-reinstall rows
+    // when the UID changes, so they need explicit read access).
+    val mediaPermissionState = rememberPermissionState(
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU)
+            android.Manifest.permission.READ_MEDIA_IMAGES
+        else
+            android.Manifest.permission.READ_EXTERNAL_STORAGE
+    )
+
+    // Don't gate the camera UI on this permission — camera is the primary
+    // feature and works regardless. Key the effect on BOTH media and camera
+    // permission state so it re-runs when either changes (otherwise the
+    // "wait for camera before prompting media" early-return below would
+    // silently lock out the media dialog forever on a cold launch: camera
+    // isn't granted at first composition → early-return → camera flips to
+    // granted → the keyed status didn't change → effect never re-runs).
+    // Always re-scan at the end so granting mid-session takes effect immediately.
+    LaunchedEffect(mediaPermissionState.status, cameraPermissionState.status.isGranted) {
+        if (cameraPermissionState.status.isGranted &&
+            !mediaPermissionState.status.isGranted &&
+            !mediaPermissionState.status.shouldShowRationale
+        ) {
+            // Defer until camera is granted so we don't pre-empt it.
+            // The "don't auto-resurface rationale" branch is the same condition
+            // (shouldShowRationale == true means the user previously denied),
+            // so the user gets exactly one prompt per install — never again.
+            mediaPermissionState.launchPermissionRequest()
+        }
+        viewModel.loadPhotos(context)
+    }
+
     LaunchedEffect(Unit) {
         // Small delay so gallery I/O doesn't compete with camera init
         kotlinx.coroutines.delay(100.milliseconds)
+        viewModel.loadPhotos(context)
+    }
+
+    // Refresh the gallery whenever the activity returns to the foreground.
+    // Most external-gallery changes are already covered by the MediaStore
+    // ContentObserver installed in CameraViewModel, but this is a cheap
+    // belt-and-braces fallback: photos added to Pictures/ZoomBoxCamera/ by a
+    // non-MediaStore path (USB MTP, ADB `cp`, OEM auto-backup restorers, etc.)
+    // wouldn't fire a MediaStore notify and the filmstrip would stay stale
+    // until the next capture or relaunch.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         viewModel.loadPhotos(context)
     }
 

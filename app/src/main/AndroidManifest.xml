@@ -6,6 +6,19 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28"
         tools:ignore="ScopedStorage" />
+    <!-- READ_MEDIA_IMAGES (Android 13+) and READ_EXTERNAL_STORAGE (Android 10-12)
+         are required to see photos in Pictures/ZoomBoxCamera/ that the app
+         didn't insert into MediaStore itself. After an app reinstall the OS
+         no longer treats the new install as the "owner" of the pre-reinstall
+         MediaStore rows (UID changes), so without these runtime-granted
+         permissions the gallery silently shows nothing of the user's history
+         even though the files physically exist on disk. minSdk = 29 means
+         we're always in scoped-storage territory; these declarations are
+         what gives MediaStore.Images.Media queries visibility into foreign
+         rows in our folder. -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-feature android:name="android.hardware.camera" android:required="true" />
     <!-- Advertise RAW + Camera2 support to Google Play without blocking install
          on devices that lack these capabilities. -->

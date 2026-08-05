@@ -13,6 +13,7 @@ package com.example
 import android.app.Application
 import android.content.ContentValues
 import android.content.Context
+import android.database.ContentObserver
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.BitmapRegionDecoder
@@ -22,6 +23,8 @@ import android.media.MediaActionSound
 import android.media.ExifInterface
 import android.os.Build
 import android.os.Environment
+import android.os.Handler
+import android.os.Looper
 import android.provider.MediaStore
 import android.util.Log
 import android.annotation.SuppressLint
@@ -47,8 +50,8 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.asStateFlow        import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
@@ -486,6 +489,18 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
 
     private var shutterSound: MediaActionSound? = null
 
+    // Held so onCleared() can unregister the MediaStore observer we install in
+    // init. Nullable so a registration failure in init leaves the slot null and
+    // onCleared() can no-op cleanly without an NPE.
+    private var mediaStoreObserver: ContentObserver? = null
+
+    // Held while a debounced MediaStore-driven refresh is in flight so a burst
+    // of notifications (e.g. Google Photos doing a bulk insert, the system
+    // MediaScanner noticing an unrelated Pictures/ change) collapses into one
+    // directory rescan instead of N concurrent ones. Reset by the debounced
+    // coroutine when it completes.
+    private var pendingGalleryRefresh: Job? = null
+
     init {
         viewModelScope.launch {
             try {
@@ -534,6 +549,50 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
             val app = getApplication<Application>()
             for (preset in FilmPreset.entries) loadLut(app, preset)
         }
+
+        // ── MediaStore sync ─────────────────────────────────────────────────
+        // Register a ContentObserver on the shared image collection so that
+        // deletions or insertions made in OTHER gallery apps (Google Photos,
+        // the system Files app, OEM gallery, etc.) propagate into our in-app
+        // gallery *immediately* instead of waiting for the next launch or the
+        // next in-app capture. Without this observer the in-app filmstrip
+        // silently diverges from the device's Pictures/ZoomBoxCamera folder
+        // — a delete in Google Photos leaves a stale thumbnail in this app
+        // until relaunch.
+        //
+        // notifyForDescendants = true so notifications for the public tree
+        // (including subfolders like Pictures/ZoomBoxCamera/RAW/) bubble up.
+        // We pass a main-Looper Handler so onChange runs on the main thread
+        // and we dispatch the IO re-scan via viewModelScope — `getApplication`
+        // is safe to call from init because AndroidViewModel caches the
+        // application reference at construction time.
+        try {
+            val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+                override fun onChange(selfChange: Boolean) {
+                    // Cancel any refresh that's still waiting out its debounce
+                    // window so a burst of notifications (Google Photos bulk
+                    // insert, system MediaScanner noticing other Pictures/…
+                    // changes) collapses into a single rescan instead of N
+                    // concurrent reads racing on the same disk.
+                    pendingGalleryRefresh?.cancel()
+                    pendingGalleryRefresh = viewModelScope.launch(Dispatchers.IO) {
+                        kotlinx.coroutines.delay(150)
+                        _capturedPhotos.value = listPhotoFiles(getApplication())
+                    }
+                }
+            }
+            getApplication<Application>().contentResolver.registerContentObserver(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                /* notifyForDescendants = */ true,
+                observer
+            )
+            mediaStoreObserver = observer
+        } catch (e: Exception) {
+            // Some test harnesses / vendor content providers can refuse observer
+            // registration — log and continue. The gallery still works, it just
+            // falls back to the existing capture/delete/launch refresh path.
+            Log.e("CameraViewModel", "Failed to register MediaStore observer", e)
+        }
     }
 
     fun loadPhotos(context: Context) {
@@ -543,7 +602,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     /**
-     * Synchronous directory scan shared by [loadPhotos] (async wrapper) and
+     * Synchronous gallery scan shared by [loadPhotos] (async wrapper) and
      * [deletePhoto] (which needs the post-delete list *now* to auto-advance
      * the photo viewer's selection). Sorted newest-first to match the
      * gallery / filmstrip where index 0 is the most recent capture.
@@ -551,33 +610,36 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     private fun listPhotoFiles(context: Context): List<File> {
         // Two locations hold our captures:
         //   1. App-private: getExternalFilesDir(DIRECTORY_PICTURES) — working
-        //      copies written straight from the capture pipeline.
+        //      copies written straight from the capture pipeline. File.listFiles
+        //      works fine here because we own the directory and it lives
+        //      inside our scope (`/sdcard/Android/data/<package>/files/...`).
         //   2. Public-shared MediaStore mirror: Pictures/ZoomBoxCamera/ (plus
-        //      its RAW subfolder). After an app reinstall the private copy
-        //      is wiped but the MediaStore entries survive — scanning the
-        //      public tree is what surfaces the user's old photos at startup.
+        //      any subfolders, including the RAW/ tree). After an app reinstall
+        //      the private copy is wiped but the MediaStore entries survive —
+        //      and only MediaStore can see them on Android 10+ scoped storage
+        //      without READ_MEDIA_IMAGES.
         val privateDir = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
-        val publicRoot = File(
-            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES),
-            "ZoomBoxCamera"
-        )
 
+        // Local helper kept inside this method so its scope is obviously
+        // tied to the gallery scan; lift it back to the class only if some
+        // other method needs the same predicate.
         fun isOurPhoto(file: File): Boolean =
             file.isFile && file.extension.lowercase() in listOf("jpg", "jpeg", "dng")
 
+        val publicFiles = listPublicPhotosViaMediaStore(context)
+        // Drop orphan app-private cache mirrors whose MediaStore row has gone
+        // away (external delete via file manager, sideload via ADB, etc.).
+        // Without this pass, distinctBy-{name} below would resurrect those
+        // names from the private mirror after the corresponding public file
+        // disappears — the gallery would keep showing photos the user just
+        // removed from /sdcard/Pictures/ZoomBoxCamera/. Skip during an
+        // in-flight capture: the working copy is on disk before its
+        // MediaStore row exists, and we'd otherwise race-delete the photo
+        // the user is currently taking (see [_isCapturing]).
+        if (!_isCapturing.value) {
+            cleanupOrphanPrivateFiles(context, publicFiles.map { it.name }.toSet())
+        }
         val privateFiles = privateDir?.listFiles(::isOurPhoto)?.toList() ?: emptyList()
-        // Targeted scan: only check the root and known subdirectories
-        // (RAW/) instead of walkTopDown() which traverses the entire tree.
-        // runCatching guards against scoped-storage edge cases where the
-        // public tree exists but listFiles() refuses to descend it.
-        val publicFiles = runCatching {
-            val rootFiles = publicRoot.listFiles(::isOurPhoto)?.toList() ?: emptyList()
-            val rawDir = File(publicRoot, "RAW")
-            val rawFiles = if (rawDir.isDirectory) {
-                rawDir.listFiles(::isOurPhoto)?.toList() ?: emptyList()
-            } else emptyList()
-            rootFiles + rawFiles
-        }.getOrDefault(emptyList())
 
         // Public first, then private — distinctBy { it.name } keeps the
         // public entry when both copies exist, so the file we hand to
@@ -585,6 +647,191 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         return (publicFiles + privateFiles)
             .distinctBy { it.name }
             .sortedByDescending { it.lastModified() }
+    }
+
+    /**
+     * Delete app-private cache mirrors whose MediaStore row is no longer
+     * present, so external deletes (file manager, MTP, Google Photos) are
+     * reflected in the in-app gallery even though the app-private copy is
+     * technically still on disk.
+     *
+     * The capture pipeline writes each photo to BOTH places
+     * (`getExternalFilesDir(DIRECTORY_PICTURES)/...` for the working copy and
+     * `Pictures/ZoomBoxCamera/...` via `MediaStore.insert` for the public
+     * mirror). If the user removes the public side, the working copy
+     * lingers and `listPhotoFiles`'s distinctBy-{name} pass falls back to
+     * it, re-surfacing the supposedly-deleted photo. This pass makes the
+     * external delete two-sided by also trashing the cache mirror.
+     *
+     * Done as a single bulk MediaStore query rather than one round-trip per
+     * private file: even on a heavily-used device a few hundred files would
+     * mean hundreds of binder calls, vs. one. We also scope the bulk probe to
+     * our own folder so a name collision with an unrelated MediaStore row
+     * (some other app's `IMG_20240301_120000.jpg` for instance) can't fool
+     * us into keeping a true orphan.
+     *
+     * Mid-capture safety: callers should skip this pass while
+     * [_isCapturing].value is true; between the working-copy rename and the
+     * MediaStore.insert call a file legitimately has no row yet, and we'd
+     * race-delete it.
+     */
+    private fun cleanupOrphanPrivateFiles(context: Context, publicFileNames: Set<String>) {
+        val privateDir = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES) ?: return
+        val candidateFiles = privateDir.listFiles()?.filter { f ->
+            f.isFile && f.extension.lowercase() in listOf("jpg", "jpeg", "dng")
+        } ?: return
+
+        // Candidates that aren't already covered by the public set need a
+        // MediaStore probe. Same slash-anchored scope as listPublicPhotos…
+        // so we don't accidentally accept a name that already exists
+        // somewhere else on the device.
+        val orphanCandidates = candidateFiles.filter { it.name !in publicFileNames }
+        if (orphanCandidates.isEmpty()) return
+
+        val resolver = context.contentResolver
+        val imageUri = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        val folderBase = Environment.DIRECTORY_PICTURES.lowercase()
+        // Slash-anchored: = (bare or trailing-slash root) + LIKE "ZoomBoxCamera/%"
+        // Mirrors listPublicPhotosViaMediaStore so probe-cached rows match the
+        // same population the public query uses.
+        val selectionArgs = mutableListOf<String>()
+        val selection = buildString {
+            append(MediaStore.Images.Media.DISPLAY_NAME).append(" IN (")
+            repeat(orphanCandidates.size) { idx ->
+                if (idx > 0) append(", ")
+                append("?")
+                selectionArgs += orphanCandidates[idx].name
+            }
+            append(") AND (")
+            // 'Pictures/zoomboxcamera'
+            append("LOWER(").append(MediaStore.Images.Media.RELATIVE_PATH).append(") = ?")
+            selectionArgs += "$folderBase/zoomboxcamera"
+            append(" OR ")
+            // 'Pictures/zoomboxcamera/'
+            append("LOWER(").append(MediaStore.Images.Media.RELATIVE_PATH).append(") = ?")
+            selectionArgs += "$folderBase/zoomboxcamera/"
+            append(" OR ")
+            // 'Pictures/zoomboxcamera/...'
+            append("LOWER(").append(MediaStore.Images.Media.RELATIVE_PATH).append(") LIKE ?")
+            selectionArgs += "$folderBase/zoomboxcamera/%"
+            append(")")
+        }
+
+        // Probe once: collect all display names that have a row under our
+        // folder. Anything not in this set is an orphan.
+        val protectedNames: Set<String> = runCatching {
+            resolver.query(
+                imageUri,
+                arrayOf(MediaStore.Images.Media.DISPLAY_NAME),
+                selection,
+                selectionArgs.toTypedArray(),
+                null
+            )?.use { cursor ->
+                val idx = cursor.getColumnIndex(MediaStore.Images.Media.DISPLAY_NAME)
+                buildSet {
+                    while (cursor.moveToNext()) {
+                        val name = cursor.getString(idx)
+                        if (!name.isNullOrBlank()) add(name)
+                    }
+                }
+            }
+        }.getOrNull() ?: emptySet()
+
+        var deletedCount = 0
+        for (f in orphanCandidates) {
+            if (f.name in protectedNames) continue
+            val deleted = runCatching { f.delete() }.getOrDefault(false)
+            if (deleted) deletedCount++
+        }
+        if (deletedCount > 0) {
+            Log.i("CameraViewModel", "Cleaned up $deletedCount orphan private file(s)")
+        }
+    }
+
+    /**
+     * Query MediaStore for every image in (and under) `Pictures/ZoomBoxCamera/`
+     * and project the result back into `File` objects so the rest of the
+     * capture/delete pipeline keeps working with `File` references unchanged.
+     *
+     * Why MediaStore instead of `File.listFiles()` on the public tree:
+     *   - On Android 10+ scoped storage, `File.listFiles()` returns null/empty
+     *     on `/sdcard/Pictures/...` unless the app has MANAGE_EXTERNAL_STORAGE
+     *     or the corresponding READ_MEDIA_IMAGES / READ_EXTERNAL_STORAGE
+     *     permission. Our app previously assumed the public tree was readable
+     *     and would silently show an empty gallery whenever the user reinstalled
+     *     (UID changes → OS no longer treats us as the owner of pre-reinstall
+     *     rows, and File API falls back to "no access").
+     *   - MediaStore queries work for our own rows even without the runtime
+     *     permission (we implicitly own them) and naturally return both our
+     *     own files and any other-app file in the same folder once the
+     *     permission is granted.
+     *
+     * RELATIVE_PATH matching uses slash-anchored equality + LIKE so we cover
+     * every vendor normalizer without over-matching sibling folders:
+     *   - "Pictures/ZoomBoxCamera"        (= exact match for non-slash form)
+     *   - "Pictures/ZoomBoxCamera/"       (= exact match for AOSP normalised form)
+     *   - "Pictures/ZoomBoxCamera/RAW/"   (LIKE prefix for subfolders)
+     *   - any future subfolder the user might create (LIKE prefix)
+     * Importantly we reject similarly-named sibling folders like
+     * "Pictures/ZoomBoxCameraBackup/" or "Pictures/ZoomBoxCamera2/" because
+     * the LIKE pattern is anchored with the trailing slash instead of a bare
+     * `%` — otherwise those folders would also appear in the gallery.
+     * IS_PENDING = 0 filters out half-written rows that the capture pipeline
+     * hasn't finished copying yet — without this the gallery can briefly show
+     * a thumbnail pointing at a file that's still being flushed to disk.
+     */
+    private fun listPublicPhotosViaMediaStore(context: Context): List<File> {
+        val resolver = context.contentResolver
+        val collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        val projection = arrayOf(
+            MediaStore.Images.Media._ID,
+            @Suppress("DEPRECATION") MediaStore.Images.Media.DATA
+        )
+        // IS_PENDING = 0 keeps in-flight writes out of the gallery.
+        // MIME_TYPE filter narrows to JPEG/DNG so we don't accidentally pick up
+        // any other image format a vendor MediaProvider stuffs under our folder.
+        // RELATIVE_PATH matching is slash-anchored: '=' fixes the bare root
+        // (some vendors keep "Pictures/ZoomBoxCamera" with no trailing slash;
+        // AOSP inserts "Pictures/ZoomBoxCamera/"); the two LIKE patterns only
+        // match true descendants ("ZoomBoxCamera/RAW/…", or any future
+        // subfolder like "ZoomBoxCamera/2024/…"). Without the slash anchor a
+        // sibling folder such as "Pictures/ZoomBoxCameraBackup/" or
+        // "Pictures/ZoomBoxCamera2/" would also satisfy the prefix match and
+        // we'd leak foreign images into the gallery.
+        val selection = "${MediaStore.Images.Media.IS_PENDING} = 0 " +
+            "AND (${MediaStore.Images.Media.MIME_TYPE} = ? " +
+                 "OR ${MediaStore.Images.Media.MIME_TYPE} = ?) " +
+            "AND (LOWER(${MediaStore.Images.Media.RELATIVE_PATH}) = ? " +
+                 "OR LOWER(${MediaStore.Images.Media.RELATIVE_PATH}) LIKE ? " +
+                 "OR LOWER(${MediaStore.Images.Media.RELATIVE_PATH}) LIKE ?)"
+        val args = arrayOf(
+            "image/jpeg", "image/x-adobe-dng",
+            "${Environment.DIRECTORY_PICTURES}/zoomboxcamera/".lowercase(),
+            "${Environment.DIRECTORY_PICTURES}/zoomboxcamera".lowercase(),
+            "${Environment.DIRECTORY_PICTURES}/zoomboxcamera/%".lowercase()
+        )
+        // DATE_ADDED DESC matches the newest-first gallery ordering
+        // (lastModified on File can drift if a user copies files in via MTP).
+        val sortOrder = "${MediaStore.Images.Media.DATE_ADDED} DESC"
+
+        return runCatching {
+            resolver.query(collection, projection, selection, args, sortOrder)?.use { cursor ->
+                @Suppress("DEPRECATION")
+                val dataIdx = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA)
+                val result = mutableListOf<File>()
+                while (cursor.moveToNext()) {
+                    @Suppress("DEPRECATION")
+                    val dataPath = cursor.getString(dataIdx)
+                    if (dataPath.isNullOrBlank()) continue
+                    val f = File(dataPath)
+                    // Skip rows whose on-disk file is gone — MediaStore rows
+                    // can outlive the actual file during a half-completed delete;
+                    // listing them in the gallery would dereference to nothing.
+                    if (f.exists()) result.add(f)
+                }
+                result
+            } ?: emptyList()
+        }.getOrDefault(emptyList())
     }
 
     fun getCurrentLensProfile(): com.example.zoom.LensProfile? {
@@ -1395,6 +1642,17 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                     if (candidate.exists()) candidate.delete()
                 }
 
+                // Remove the MediaStore row we created in savePhotoToGallery /
+                // saveDngToGallery so the deletion propagates to OTHER gallery
+                // apps (Google Photos, Files app, OEM gallery, etc.) instead
+                // of only cleaning up our own file system copy. Without this,
+                // the vice-versa half of the gallery-sync contract — "delete
+                // from in-app gallery" → "delete from system gallery" — is
+                // broken; other apps keep showing the photo until their next
+                // background scan re-detects the missing file on disk (often
+                // hours later).
+                deleteMediaStoreRow(context, file)
+
                 // Re-scan synchronously inside this coroutine instead of calling
                 // loadPhotos() — loadPhotos fires its own viewModelScope.launch
                 // and _capturedPhotos wouldn't be updated by the time we read it
@@ -1423,6 +1681,49 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
             } catch (e: Exception) { Log.e("CameraViewModel", "Error deleting photo", e) }
         }
     }
+
+    /**
+     * Removes the MediaStore row(s) that correspond to [file] so the deletion
+     * propagates to other gallery apps. Min SDK is 29 so we always deal in
+     * scoped-storage semantics: the row was inserted by us via
+     * MediaStore.Images.Media with a known absolute DATA path.
+     *
+     * The WHERE clause matches DISPLAY_NAME + DATA for two reasons:
+     *   - DISPLAY_NAME alone risks colliding with a same-named JPEG from
+     *     another app (e.g. user copies IMG_1234.jpg into another folder);
+     *   - RELATIVE_PATH is unreliable as a selection key: savePhotoToGallery
+     *     writes it without a trailing slash while saveDngToGallery writes
+     *     "Pictures/ZoomBoxCamera/RAW/", and the platform MediaProvider
+     *     doesn't always normalise the trailing slash on insert, so a
+     *     RELATIVE_PATH comparison can fail to match our own freshly-written
+     *     rows. DATA is the canonical "this file lives at this absolute
+     *     path" column and works for both the JPEG root and the RAW subfolder.
+     *
+     * Deletion is best-effort: zero rows deleted is fine (file may have been
+     * only in the app-private directory and never inserted into the public
+     * tree). We log the count so it's traceable but don't surface as an error.
+     */
+    private fun deleteMediaStoreRow(context: Context, file: File) {
+        try {
+            val resolver = context.contentResolver
+            val collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+            @Suppress("DEPRECATION")
+            val rows = resolver.delete(
+                collection,
+                "${MediaStore.Images.Media.DISPLAY_NAME} = ? AND ${MediaStore.Images.Media.DATA} = ?",
+                arrayOf(file.name, file.absolutePath)
+            )
+            Log.i("CameraViewModel", "Deleted $rows MediaStore row(s) for ${file.name}")
+        } catch (e: SecurityException) {
+            // Vendors have been known to throw SecurityException when revoking
+            // a delete on a row owned by a different package; log + swallow
+            // rather than failing the in-app delete.
+            Log.e("CameraViewModel", "Permission error deleting MediaStore row for ${file.name}", e)
+        } catch (e: Exception) {
+            Log.e("CameraViewModel", "Error deleting MediaStore row for ${file.name}", e)
+        }
+    }
+
     private suspend fun Bitmap.applyRetroFilter(
         tempVal: Float,
         tintVal: Float,
@@ -1887,5 +2188,17 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     override fun onCleared() {
         super.onCleared()
         try { shutterSound?.release() } catch (_: Exception) {}
+        // Unregister the MediaStore observer we set up in init. Without this
+        // the observer (which captures `viewModelScope` via the onChange
+        // lambda) would leak past the ViewModel lifetime and the
+        // ContentResolver would hold a phantom reference until process death.
+        // ContentResolver.unregisterContentObserver throws
+        // IllegalArgumentException if the observer isn't currently registered
+        // (e.g. registration failed in init), so wrap defensively.
+        mediaStoreObserver?.let {
+            try { getApplication<Application>().contentResolver.unregisterContentObserver(it) }
+            catch (_: Exception) {}
+            mediaStoreObserver = null
+        }
     }
 }
