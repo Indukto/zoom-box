@@ -45,6 +45,4 @@ Open in Android Studio, sync Gradle, and run.
 ./gradlew testDebugUnitTest
 ```
 
-## License
 
-GPL-3.0-or-later.
