@@ -66,14 +66,13 @@ data class BindResult(
 enum class CaptureExtension(val mode: Int) {
     NONE(ExtensionMode.NONE),
     HDR(ExtensionMode.HDR),
-    NIGHT(ExtensionMode.NIGHT),
     BOKEH(ExtensionMode.BOKEH),
     FACE_RETOUCH(ExtensionMode.FACE_RETOUCH),
     AUTO(ExtensionMode.AUTO);
 
     companion object {
         /** Modes surfaced to the user in the UI, in display order. */
-        val userSelectable get() = listOf(NONE, HDR, NIGHT, BOKEH, AUTO)
+        val userSelectable get() = listOf(NONE, HDR, BOKEH, AUTO)
     }
 }
 
@@ -182,10 +181,10 @@ class PreviewSessionManager(
      *
      * If a logical-camera id is recorded we use it; otherwise we fall
      * back to whichever `DEFAULT_*_CAMERA` was last bound. OEM extension
-     * state (HDR/NIGHT/...) is deliberately NOT preserved here; recovery
-     * jumps straight to the plain logical selector. We lose a fidelity
-     * state but keep the viewfinder alive, which is the better trade —
-     * the user can manually re-select HDR from the UI.
+     * state (HDR/...) is deliberately NOT preserved here; recovery jumps
+     * straight to the plain logical selector. We lose a fidelity state but
+     * keep the viewfinder alive, which is the better trade — the user can
+     * manually re-select HDR from the UI.
      */
     private fun recoverySelector(): CameraSelector {
         val id = currentLogicalCameraId

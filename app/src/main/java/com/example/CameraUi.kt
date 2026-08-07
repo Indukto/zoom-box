@@ -171,7 +171,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import java.util.Locale
 import com.example.zoom.AspectRatio
 import com.example.color.CubeLut
-import com.example.zoom.CaptureExtension
 import com.example.zoom.LensRole
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
@@ -2754,9 +2753,6 @@ fun SettingsScreen(viewModel: CameraViewModel, onClose: () -> Unit) {
     val rawModeEnabled by viewModel.rawModeEnabled.collectAsState()
     val rawAvailableForCurrentLens by viewModel.rawAvailableForCurrentLens.collectAsState()
     val isFrontCamera by viewModel.isFrontCamera.collectAsState()
-    val activeExtension by viewModel.activeExtension.collectAsState()
-    val availableExtensions by viewModel.availableExtensions.collectAsState()
-    val extensionsProbeDone by viewModel.extensionsProbeDone.collectAsState()
     val aspectRatio by viewModel.aspectRatio.collectAsState()
     val outputResolution by viewModel.outputResolution.collectAsState()
 
@@ -2868,24 +2864,6 @@ fun SettingsScreen(viewModel: CameraViewModel, onClose: () -> Unit) {
                         )
                     }
                 )
-                Spacer(modifier = Modifier.height(10.dp))
-                SettingsRow(
-                    label = "Night Mode",
-                    subtitle = when {
-                        isFrontCamera -> "Not available on the front camera"
-                        !extensionsProbeDone -> "Checking lens support\u2026"
-                        CaptureExtension.NIGHT in availableExtensions -> "Long-exposure night capture"
-                        else -> "Not supported by the current lens"
-                    },
-                    checked = activeExtension == CaptureExtension.NIGHT,
-                    enabled = (CaptureExtension.NIGHT in availableExtensions || !extensionsProbeDone) && !isFrontCamera,
-                    onCheckedChange = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        val currently = activeExtension == CaptureExtension.NIGHT
-                        viewModel.setExtension(if (currently) CaptureExtension.NONE else CaptureExtension.NIGHT)
-                    }
-                )
-
                 Spacer(modifier = Modifier.height(36.dp))
 
                 Text(
