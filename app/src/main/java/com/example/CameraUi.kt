@@ -802,13 +802,12 @@ private fun MorphedPanelChrome(content: @Composable () -> Unit) {
 @Composable
 private fun MorphedPanelHeaderButton(
     icon: ImageVector,
-    description: String,
     onClick: () -> Unit
 ) {
     IconButton(onClick = onClick, modifier = Modifier.size(24.dp)) {
         Icon(
             imageVector = icon,
-            contentDescription = description,
+            contentDescription = "Close",
             tint = Color.White.copy(alpha = 0.75f),
             modifier = Modifier.size(14.dp)
         )
@@ -1360,8 +1359,6 @@ fun CameraActiveScreen(
     val capturedPhotos by viewModel.capturedPhotos.collectAsState()
     val selectedPhoto by viewModel.selectedPhoto.collectAsState()
     val boxScale by viewModel.boxScale.collectAsState()
-    val previewLensRole by viewModel.previewLensRole.collectAsState()
-    val captureLensRole by viewModel.captureLensRole.collectAsState()
     val showGridLines by viewModel.showGridLines.collectAsState()
     val aspectRatio by viewModel.aspectRatio.collectAsState()
 
@@ -1995,7 +1992,6 @@ fun CameraActiveScreen(
                             headerActions = {
                                 MorphedPanelHeaderButton(
                                     icon = Icons.Rounded.Close,
-                                    description = "Close",
                                     onClick = {
                                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                         viewModel.closeSliders()
@@ -2014,7 +2010,6 @@ fun CameraActiveScreen(
                             headerActions = {
                                 MorphedPanelHeaderButton(
                                     icon = Icons.Rounded.Close,
-                                    description = "Close",
                                     onClick = {
                                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                         viewModel.closeSliders()
@@ -2265,7 +2260,7 @@ fun CameraActiveScreen(
                                 coroutineScope.launch {
                                     timerCountdown = selfTimerMode
                                     repeat(selfTimerMode) {
-                                        kotlinx.coroutines.delay(1000L)
+                                        kotlinx.coroutines.delay(1000.milliseconds)
                                         timerCountdown--
                                     }
                                     doCapture()
@@ -2359,7 +2354,7 @@ fun CameraActiveScreen(
                     // Keying on `showPresetPicker` re-runs this read every
                     // time the sheet toggles on so each open sees the
                     // latest active preset.
-                    val presetList = FilmPreset.entries
+                    val presetList = FilmPreset.entries.filterNot { it == FilmPreset.DREAMY }
                     val safeInitialIndex = remember(showPresetPicker) {
                         presetList.indexOf(activePreset).coerceAtLeast(0)
                     }
@@ -2424,7 +2419,7 @@ fun CameraActiveScreen(
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             contentPadding = PaddingValues(horizontal = symmetricPadding)
                         ) {
-                            items(FilmPreset.entries) { preset ->
+                            items(FilmPreset.entries.filterNot { it == FilmPreset.DREAMY }) { preset ->
                                 val selected = preset == activePreset
                                 Column(
                                     modifier = Modifier
@@ -2480,7 +2475,7 @@ fun CameraActiveScreen(
                     // background change doesn't hijack an active fling.
                     LaunchedEffect(activePreset, showPresetPicker) {
                         if (!showPresetPicker) return@LaunchedEffect
-                        kotlinx.coroutines.delay(50)
+                        kotlinx.coroutines.delay(50.milliseconds)
                         if (filmStyleListState.isScrollInProgress) return@LaunchedEffect
                         val targetIndex =
                             presetList.indexOf(activePreset).coerceAtLeast(0)
@@ -2986,7 +2981,7 @@ private fun AspectRatioChips(
         modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        AspectRatio.values().forEach { ratio ->
+        AspectRatio.entries.forEach { ratio ->
             val isSelected = ratio == selected
             Surface(
                 modifier = Modifier

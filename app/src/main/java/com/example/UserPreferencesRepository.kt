@@ -105,11 +105,14 @@ class UserPreferencesRepository(private val context: Context) {
             selectedLensRole = prefs[SELECTED_LENS_ROLE]?.let { name ->
                 try { LensRole.valueOf(name) } catch (_: Exception) { LensRole.PRIMARY }
             } ?: LensRole.PRIMARY,
-            // Clamp to a sane non-negative index so a corrupted store can't
-            // crash the LazyListState. The number of presets is small and
-            // stable so we don't bother probing FilmPreset.values().size
-            // here — the Compose layer clamps again with a wider bound.
-            filmStyleScrollIndex = (prefs[FILM_STYLE_SCROLL_INDEX] ?: 0).coerceAtLeast(0),
+            // Clamp to a sane non-negative index, and to the current enum
+            // size so a previously persisted out-of-range index (saved
+            // before a preset was added/removed — e.g. NORMAL shifting
+            // from index 8 → 9 when a new preset is inserted before it)
+            // doesn't strand the LazyListState on a non-existent chip.
+            // The Compose layer clamps again with the same upper bound.
+            filmStyleScrollIndex = (prefs[FILM_STYLE_SCROLL_INDEX] ?: 0)
+                .coerceIn(0, FilmPreset.entries.size - 1),
             filmStyleScrollOffset = prefs[FILM_STYLE_SCROLL_OFFSET] ?: 0,
             outputResolution = OutputResolution.fromKey(prefs[OUTPUT_RESOLUTION])
         )

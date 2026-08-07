@@ -21,14 +21,11 @@ import android.graphics.Matrix
 import android.graphics.Rect
 import android.media.MediaActionSound
 import android.media.ExifInterface
-import android.os.Build
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
 import android.util.Log
-import android.annotation.SuppressLint
-
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.compose.runtime.Stable
@@ -50,7 +47,8 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow        import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.io.File
@@ -59,6 +57,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.math.PI
+import kotlin.time.Duration.Companion.milliseconds
 
 @Stable
 data class ExifData(
@@ -603,7 +602,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                     // concurrent reads racing on the same disk.
                     pendingGalleryRefresh?.cancel()
                     pendingGalleryRefresh = viewModelScope.launch(Dispatchers.IO) {
-                        kotlinx.coroutines.delay(150)
+                        kotlinx.coroutines.delay(150.milliseconds)
                         _capturedPhotos.value = listPhotoFiles(getApplication())
                     }
                 }
@@ -1032,7 +1031,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
      * the bottom-sheet picker, and the choice is persisted.
      */
     fun cycleCameraPreset(direction: Int) {
-        val ordered = FilmPreset.entries
+        val ordered = FilmPreset.entries.filterNot { it == FilmPreset.DREAMY }
         if (ordered.size <= 1) return
         val currentIndex = ordered.indexOf(_activePreset.value).let { if (it < 0) 0 else it }
         val step = if (direction >= 0) 1 else -1
@@ -1320,29 +1319,19 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
             val values = ContentValues().apply {
                 put(MediaStore.Images.Media.DISPLAY_NAME, file.name)
                 put(MediaStore.Images.Media.MIME_TYPE, "image/x-adobe-dng")
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    put(MediaStore.Images.Media.IS_PENDING, 1)
-                    put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/ZoomBoxCamera/RAW")
-                } else {
-                    @Suppress("DEPRECATION")
-                    put(MediaStore.Images.Media.DATA, file.absolutePath)
-                }
+                put(MediaStore.Images.Media.IS_PENDING, 1)
+                put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/ZoomBoxCamera/RAW")
             }
             val resolver = context.contentResolver
-            val contentUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val contentUri =
                 MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-            } else {
-                MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-            }
             val uri = resolver.insert(contentUri, values) ?: return
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                resolver.openOutputStream(uri)?.use { out ->
-                    file.inputStream().use { `in` -> `in`.copyTo(out) }
-                }
-                values.clear()
-                values.put(MediaStore.Images.Media.IS_PENDING, 0)
-                resolver.update(uri, values, null, null)
+            resolver.openOutputStream(uri)?.use { out ->
+                file.inputStream().use { `in` -> `in`.copyTo(out) }
             }
+            values.clear()
+            values.put(MediaStore.Images.Media.IS_PENDING, 0)
+            resolver.update(uri, values, null, null)
         } catch (e: Exception) {
             Log.e("CameraViewModel", "Error saving DNG to gallery", e)
         }
@@ -1604,23 +1593,18 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
             val values = ContentValues().apply {
                 put(MediaStore.Images.Media.DISPLAY_NAME, file.name)
                 put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    put(MediaStore.Images.Media.IS_PENDING, 1)
-                    put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/ZoomBoxCamera")
-                } else { @Suppress("DEPRECATION") put(MediaStore.Images.Media.DATA, file.absolutePath) }
+                put(MediaStore.Images.Media.IS_PENDING, 1)
+                put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/ZoomBoxCamera")
             }
             val resolver = context.contentResolver
-            val contentUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-            else MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+            val contentUri =
+                MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
             val uri = resolver.insert(contentUri, values)
             if (uri != null) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    resolver.openOutputStream(uri)?.use { out -> file.inputStream().use { `in` -> `in`.copyTo(out) } }
-                    values.clear()
-                    values.put(MediaStore.Images.Media.IS_PENDING, 0)
-                    resolver.update(uri, values, null, null)
-                }
-
+                resolver.openOutputStream(uri)?.use { out -> file.inputStream().use { `in` -> `in`.copyTo(out) } }
+                values.clear()
+                values.put(MediaStore.Images.Media.IS_PENDING, 0)
+                resolver.update(uri, values, null, null)
             }
         } catch (e: Exception) { Log.e("CameraViewModel", "Error saving to gallery", e) }
     }
@@ -1793,7 +1777,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         val wbDeltaG = -tintVal * 0.04f
         val wbDeltaB = -tempVal * 0.04f + tintVal * 0.02f
 
-        val expScale = if (hasExp) java.lang.Math.pow(2.0, (expVal * 0.4).toDouble()).toFloat() else 1f
+        val expScale = if (hasExp) java.lang.Math.pow(2.0, expVal * 0.4).toFloat() else 1f
 
         // ── Precompute bloom look-up table ──
         // For the CPU path we use a simplified bloom that works on the
@@ -2067,9 +2051,9 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                                 chromaB = ((cb - 0.5f) * amp * grainChroma).toInt()
                             }
 
-                            r8 = (r8 + monoDelta + chromaR).toInt().coerceIn(0, 255)
-                            g8 = (g8 + monoDelta + chromaG).toInt().coerceIn(0, 255)
-                            b8 = (b8 + monoDelta + chromaB).toInt().coerceIn(0, 255)
+                            r8 = (r8 + monoDelta + chromaR).coerceIn(0, 255)
+                            g8 = (g8 + monoDelta + chromaG).coerceIn(0, 255)
+                            b8 = (b8 + monoDelta + chromaB).coerceIn(0, 255)
                         }
 
                         if (lutActive) {
@@ -2171,7 +2155,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
      * "grain" deltas only.
      */
     private fun hash2D(x: Int, y: Int): Float {
-        var h = x * 0x27d4eb2d.toInt() xor y * 0x165667b1.toInt()
+        var h = x * 0x27d4eb2d xor y * 0x165667b1
         h = h xor (h ushr 13)
         h *= 0x85ebca6b.toInt()
         h = h xor (h ushr 16)
