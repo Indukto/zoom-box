@@ -11,11 +11,11 @@ android {
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
-    applicationId = "com.indukto.zoomboxcamera.qvtkpd"
+    applicationId = "com.indukto.zoomboxcamera"
     minSdk = 29
     targetSdk = 36
     versionCode = 1
-    versionName = "1.1.9"
+    versionName = "1.1.11"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

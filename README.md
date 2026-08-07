@@ -47,4 +47,4 @@ Open in Android Studio, sync Gradle, and run.
 
 ## License
 
-MIT.
+GPL-3.0-or-later.

@@ -1,6 +1,6 @@
 {
   "name": "ZoomBox Camera",
-  "description": "A retro-themed camera with a focal zoom framing box, supporting multi-lens simulations (35mm, 50mm, 85mm), exposure adjustments, and thermal filter effects.",
+  "description": "A camera with a focal zoom framing box, supporting multi-lens, exposure adjustments, and thermal filter effects.",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }

@@ -269,6 +269,33 @@ enum class FilmPreset(
         highlightTintStrength = 0.10f,
         defaultFringing = 0.002f
     ),
+    /**
+     * Dreamy soft-focus preset inspired by hazy golden-hour / pastel looks.
+     *
+     * Combines a hand-crafted 25-cube LUT (`luts/dreamy.cube`, lifted blacks +
+     * peach highlights + cool shadow bias) with a heavy bloom + soft film
+     * S-curve on top so the viewfinder reads as gauzy and out-of-focus even
+     * at capture time. Saturation drops below 1.0, contrast stays just under
+     * neutral, and split-toning pushes shadows toward pale blue and
+     * highlights toward warm peach — matching the LUT's built-in tint in
+     * the CPU post-processing path so JPEGs and live preview agree.
+     */
+    DREAMY(
+        "Dreamy",
+        "luts/dreamy.cube",
+        defaultGrainStrength = 0.10f,
+        defaultGrainChroma = 0.30f,       // soft pearl-grain on top of the haze
+        defaultFilmCurve = 0.30f,         // strong toe lift for soft shadows
+        defaultContrast = 0.88f,          // softer contrast — never punchy
+        defaultSaturation = 0.72f,        // pulled further toward pastel so the
+                                          // heavier bloom doesn't read muddy
+        defaultBloom = 0.55f,             // heavy halation = signature soft glow
+        shadowTintR = 0.0f, shadowTintG = -0.005f, shadowTintB = 0.025f,  // pale-blue shadows
+        shadowTintStrength = 0.10f,
+        highlightTintR = 0.03f, highlightTintG = 0.015f, highlightTintB = 0.0f,  // peach highlights
+        highlightTintStrength = 0.10f,
+        defaultFringing = 0.004f          // subtle softness at edges
+    ),
 
     /**
      * Pass-through preset — no LUT, no grain, no film curve, identity
