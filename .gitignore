@@ -24,3 +24,6 @@ debug.keystore
 # re-introduced or copied in by mistake.
 /google-services.json
 /app/google-services.json
+
+# Freebuff desktop app local SQLite state — never commit.
+.freebuff/
