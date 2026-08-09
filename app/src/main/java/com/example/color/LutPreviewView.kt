@@ -132,6 +132,23 @@ class LutPreviewView(
         )
     }
 
+    /**
+     * Push the DREAM-core extras (soft-focus blur + milky pastel haze
+     * overlay) onto the GPU renderer. Both new effects run on the live
+     * preview so the user sees them gracing the viewfinder immediately
+     * when they tap a dreamcore-style preset. Other presets pass all
+     * zeros so the shader branches skip these stages entirely.
+     */
+    fun setDreamcoreEffects(
+        softFocus: Float,
+        milkyMix: Float,
+        milkyTintR: Float,
+        milkyTintG: Float,
+        milkyTintB: Float
+    ) {
+        renderer.setDreamcoreEffects(softFocus, milkyMix, milkyTintR, milkyTintG, milkyTintB)
+    }
+
     fun setLut(lut: CubeLut?) {
         renderer.setLut(lut)
     }

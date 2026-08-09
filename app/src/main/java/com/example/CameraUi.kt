@@ -2353,7 +2353,7 @@ fun CameraActiveScreen(
                     // Keying on `showPresetPicker` re-runs this read every
                     // time the sheet toggles on so each open sees the
                     // latest active preset.
-                    val presetList = FilmPreset.entries.filterNot { it == FilmPreset.DREAMY }
+                    val presetList = FilmPreset.entries
                     val safeInitialIndex = remember(showPresetPicker) {
                         presetList.indexOf(activePreset).coerceAtLeast(0)
                     }
@@ -2418,7 +2418,7 @@ fun CameraActiveScreen(
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             contentPadding = PaddingValues(horizontal = symmetricPadding)
                         ) {
-                            items(FilmPreset.entries.filterNot { it == FilmPreset.DREAMY }) { preset ->
+                            items(FilmPreset.entries) { preset ->
                                 val selected = preset == activePreset
                                 Column(
                                     modifier = Modifier

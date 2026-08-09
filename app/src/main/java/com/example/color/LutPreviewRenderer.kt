@@ -66,6 +66,13 @@ class LutPreviewRenderer(
     private var uHighlightTintBLoc = 0
     private var uHighlightTintStrengthLoc = 0
 
+    // ── Dreamcore-style extras (uniform locations) ──
+    private var uSoftFocusLoc = 0
+    private var uMilkyMixLoc = 0
+    private var uMilkyTintRLoc = 0
+    private var uMilkyTintGLoc = 0
+    private var uMilkyTintBLoc = 0
+
     private var inputTexture = 0
     private var lutTexture = 0
     private var lutWidth = 0  // 0 == no LUT uploaded yet
@@ -95,6 +102,13 @@ class LutPreviewRenderer(
     @Volatile private var highlightTintG = 0f
     @Volatile private var highlightTintB = 0f
     @Volatile private var highlightTintStrength = 0f
+
+    // ── Dreamcore-style extras (per-frame inputs) ──
+    @Volatile private var softFocus = 0f
+    @Volatile private var milkyMix = 0f
+    @Volatile private var milkyTintR = 0f
+    @Volatile private var milkyTintG = 0f
+    @Volatile private var milkyTintB = 0f
 
     // Pending LUT (set from UI thread, consumed on GL thread).
     @Volatile private var pendingLut: CubeLut? = null
@@ -148,6 +162,36 @@ class LutPreviewRenderer(
         highlightTintG = highlightTintGVal
         highlightTintB = highlightTintBVal
         highlightTintStrength = highlightTintStrengthVal
+        glSurfaceView.requestRender()
+    }
+
+    /**
+     * Set the dreamcore-style extras for the current preset:
+     *   - [softFocusVal]: 0 = sharp, 1 = full 3x3 box blur applied to the
+     *     WB+exposed signal (added before tone-mapping so the lift and
+     *     saturation also feel the blur — matches the gauzy dreamcore
+     *     softness without needing a separable Gaussian resource pass).
+     *   - [milkyMixVal] + [milkyTintRVal]/[milkyTintGVal]/[milkyTintBVal]:
+     *     a pastel cream overlay applied as the LAST stage of the shader
+     *     (after LUT), weighted toward shadows (so warm-cream tones wash
+     *     into the dark areas while highlights stay punchier). 0 = inert.
+     *
+     * External callers (e.g. CameraPreviewView's preset effect sync)
+     * invoke this whenever [FilmPreset.activePreset] changes; the new
+     * values take effect on the next render frame.
+     */
+    fun setDreamcoreEffects(
+        softFocusVal: Float,
+        milkyMixVal: Float,
+        milkyTintRVal: Float,
+        milkyTintGVal: Float,
+        milkyTintBVal: Float
+    ) {
+        softFocus = softFocusVal
+        milkyMix = milkyMixVal
+        milkyTintR = milkyTintRVal
+        milkyTintG = milkyTintGVal
+        milkyTintB = milkyTintBVal
         glSurfaceView.requestRender()
     }
 
@@ -228,6 +272,13 @@ class LutPreviewRenderer(
         uHighlightTintGLoc = GLES20.glGetUniformLocation(program, "uHighlightTintG")
         uHighlightTintBLoc = GLES20.glGetUniformLocation(program, "uHighlightTintB")
         uHighlightTintStrengthLoc = GLES20.glGetUniformLocation(program, "uHighlightTintStrength")
+
+        // ── Dreamcore-style extras (uniform locations) ──
+        uSoftFocusLoc = GLES20.glGetUniformLocation(program, "uSoftFocus")
+        uMilkyMixLoc = GLES20.glGetUniformLocation(program, "uMilkyMix")
+        uMilkyTintRLoc = GLES20.glGetUniformLocation(program, "uMilkyTintR")
+        uMilkyTintGLoc = GLES20.glGetUniformLocation(program, "uMilkyTintG")
+        uMilkyTintBLoc = GLES20.glGetUniformLocation(program, "uMilkyTintB")
 
         // Drain any stale GL errors from EGL-context creation or the program
         // link above. GL errors are sticky flags that survive across bind
@@ -329,6 +380,13 @@ class LutPreviewRenderer(
         GLES20.glUniform1f(uHighlightTintGLoc, highlightTintG)
         GLES20.glUniform1f(uHighlightTintBLoc, highlightTintB)
         GLES20.glUniform1f(uHighlightTintStrengthLoc, highlightTintStrength)
+
+        // ── Dreamcore-style extras (uniform upload) ──
+        GLES20.glUniform1f(uSoftFocusLoc, softFocus)
+        GLES20.glUniform1f(uMilkyMixLoc, milkyMix)
+        GLES20.glUniform1f(uMilkyTintRLoc, milkyTintR)
+        GLES20.glUniform1f(uMilkyTintGLoc, milkyTintG)
+        GLES20.glUniform1f(uMilkyTintBLoc, milkyTintB)
 
         if (has3dTextures && lutEnabled && lutWidth > 0) {
             GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
@@ -574,6 +632,13 @@ class LutPreviewRenderer(
             uniform float uHighlightTintB;
             uniform float uHighlightTintStrength;
 
+            // ── Dreamcore-style extras (soft-focus blur + milky haze) ──
+            uniform float uSoftFocus;
+            uniform float uMilkyMix;
+            uniform float uMilkyTintR;
+            uniform float uMilkyTintG;
+            uniform float uMilkyTintB;
+
             varying vec2 vTexCoord;
 
             // ── Filmic S-curve ──
@@ -589,6 +654,29 @@ class LutPreviewRenderer(
 
             void main() {
                 vec3 c = texture2D(uTexture, vTexCoord).rgb;
+
+                // ── 0.5. Soft-focus 3x3 box blur (dreamcore) ──
+                // Optional first stage for the gauzy/out-of-focus look.
+                // 8 extra texture2D samples (only when uSoftFocus>0) blended
+                // with the center pixel via a 3x3 box filter. Doing the
+                // blur BEFORE WB/exposure/s-curve/lut so the lifted blacks
+                // and the per-pixel toning feel the blurred signal — that
+                // is what makes the result really feel soft, instead of
+                // reading as a sharp image with a slightly blurry
+                // standalone filter applied on top.
+                if (uSoftFocus > 0.0) {
+                    vec2 pxSize = 1.0 / uViewSize;
+                    vec3 n_tl = texture2D(uTexture, vTexCoord + vec2(-pxSize.x,  pxSize.y)).rgb;
+                    vec3 n_t  = texture2D(uTexture, vTexCoord + vec2(       0.0,  pxSize.y)).rgb;
+                    vec3 n_tr = texture2D(uTexture, vTexCoord + vec2( pxSize.x,  pxSize.y)).rgb;
+                    vec3 n_l  = texture2D(uTexture, vTexCoord + vec2(-pxSize.x,       0.0)).rgb;
+                    vec3 n_r  = texture2D(uTexture, vTexCoord + vec2( pxSize.x,       0.0)).rgb;
+                    vec3 n_bl = texture2D(uTexture, vTexCoord + vec2(-pxSize.x, -pxSize.y)).rgb;
+                    vec3 n_b  = texture2D(uTexture, vTexCoord + vec2(       0.0, -pxSize.y)).rgb;
+                    vec3 n_br = texture2D(uTexture, vTexCoord + vec2( pxSize.x, -pxSize.y)).rgb;
+                    vec3 blurred = (n_tl + n_t + n_tr + n_l + c + n_r + n_bl + n_b + n_br) / 9.0;
+                    c = mix(c, blurred, uSoftFocus);
+                }
 
                 // ── 1. White balance ──
                 c.r += uTemperature * 0.04;
@@ -678,6 +766,21 @@ class LutPreviewRenderer(
                 if (uLutEnabled == 1) {
                     c = texture3D(uLut, c).rgb;
                 }
+                // ── 10. Milky pastel haze overlay (dreamcore) ──
+                // Last stage: blend toward the milky tint, weighted toward
+                // shadows so the cream wash pools into dark areas while
+                // highlights barely budge. The (1-luma) term dominates so
+                // even a 0.30 mix casts a visible pastel glow over the
+                // dark side of the frame while the highlight side gets
+                // only ~0.075 of wash — exactly the asymmetry of a
+                // semi-translucent cream overlay.
+                if (uMilkyMix > 0.0) {
+                    vec3 milkyColor = vec3(uMilkyTintR, uMilkyTintG, uMilkyTintB);
+                    float milkyLuma = dot(c, vec3(0.299, 0.587, 0.114));
+                    float milkyStrength = (1.0 - milkyLuma) * uMilkyMix * 1.2 + uMilkyMix * 0.25;
+                    c = mix(c, milkyColor, clamp(milkyStrength, 0.0, 1.0));
+                }
+
                 gl_FragColor = vec4(c, 1.0);
             }
         """
@@ -710,6 +813,13 @@ class LutPreviewRenderer(
             uniform float uHighlightTintB;
             uniform float uHighlightTintStrength;
 
+            // ── Dreamcore-style extras (soft-focus blur + milky haze) ──
+            uniform float uSoftFocus;
+            uniform float uMilkyMix;
+            uniform float uMilkyTintR;
+            uniform float uMilkyTintG;
+            uniform float uMilkyTintB;
+
             varying vec2 vTexCoord;
 
             // ── Filmic S-curve ──
@@ -725,6 +835,29 @@ class LutPreviewRenderer(
 
             void main() {
                 vec3 c = texture2D(uTexture, vTexCoord).rgb;
+
+                // ── 0.5. Soft-focus 3x3 box blur (dreamcore) ──
+                // Optional first stage for the gauzy/out-of-focus look.
+                // 8 extra texture2D samples (only when uSoftFocus>0) blended
+                // with the center pixel via a 3x3 box filter. Doing the
+                // blur BEFORE WB/exposure/s-curve/lut so the lifted blacks
+                // and the per-pixel toning feel the blurred signal — that
+                // is what makes the result really feel soft, instead of
+                // reading as a sharp image with a slightly blurry
+                // standalone filter applied on top.
+                if (uSoftFocus > 0.0) {
+                    vec2 pxSize = 1.0 / uViewSize;
+                    vec3 n_tl = texture2D(uTexture, vTexCoord + vec2(-pxSize.x,  pxSize.y)).rgb;
+                    vec3 n_t  = texture2D(uTexture, vTexCoord + vec2(       0.0,  pxSize.y)).rgb;
+                    vec3 n_tr = texture2D(uTexture, vTexCoord + vec2( pxSize.x,  pxSize.y)).rgb;
+                    vec3 n_l  = texture2D(uTexture, vTexCoord + vec2(-pxSize.x,       0.0)).rgb;
+                    vec3 n_r  = texture2D(uTexture, vTexCoord + vec2( pxSize.x,       0.0)).rgb;
+                    vec3 n_bl = texture2D(uTexture, vTexCoord + vec2(-pxSize.x, -pxSize.y)).rgb;
+                    vec3 n_b  = texture2D(uTexture, vTexCoord + vec2(       0.0, -pxSize.y)).rgb;
+                    vec3 n_br = texture2D(uTexture, vTexCoord + vec2( pxSize.x, -pxSize.y)).rgb;
+                    vec3 blurred = (n_tl + n_t + n_tr + n_l + c + n_r + n_bl + n_b + n_br) / 9.0;
+                    c = mix(c, blurred, uSoftFocus);
+                }
 
                 // ── 1. White balance ──
                 c.r += uTemperature * 0.04;
@@ -805,6 +938,21 @@ class LutPreviewRenderer(
                     c.b += uHighlightTintB * highlightW * uHighlightTintStrength;
                 }
                 c = clamp(c, 0.0, 1.0);
+
+                // ── 10. Milky pastel haze overlay (dreamcore) ──
+                // Last stage: blend toward the milky tint, weighted toward
+                // shadows so the cream wash pools into dark areas while
+                // highlights barely budge. The (1-luma) term dominates so
+                // even a 0.30 mix casts a visible pastel glow over the
+                // dark side of the frame while the highlight side gets
+                // only ~0.075 of wash — exactly the asymmetry of a
+                // semi-translucent cream overlay.
+                if (uMilkyMix > 0.0) {
+                    vec3 milkyColor = vec3(uMilkyTintR, uMilkyTintG, uMilkyTintB);
+                    float milkyLuma = dot(c, vec3(0.299, 0.587, 0.114));
+                    float milkyStrength = (1.0 - milkyLuma) * uMilkyMix * 1.2 + uMilkyMix * 0.25;
+                    c = mix(c, milkyColor, clamp(milkyStrength, 0.0, 1.0));
+                }
 
                 gl_FragColor = vec4(c, 1.0);
             }

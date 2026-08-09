@@ -146,7 +146,34 @@ enum class FilmPreset(
      * Shifts the R and B channels relative to G to simulate color channel
      * misregistration in instant film. 0 = no fringing.
      */
-    val defaultFringing: Float = 0f) {
+    val defaultFringing: Float = 0f,
+    // ── Dreamcore-style extras ────────────────────────────────────────────
+    /**
+     * Soft-focus blur strength in [0, 1]. Blends each pixel with a 3x3 box
+     * blur kernel of its (WB+exposed) neighbours so the image reads as
+     * slightly out-of-focus / hazy. 0 = sharp (no blur applied); 1 = full
+     * 3x3 box blur. Used by the dreamcore-style preset to simulate the
+     * characteristic gauzy / "almost-not-there" focus of dreamcore
+     * photography without resampling the full sensor.
+     */
+    val defaultSoftFocus: Float = 0f,
+    /**
+     * Strength of the milky pastel haze overlay in [0, 1]. Blends the
+     * output toward the [milkyTintR]/[milkyTintG]/[milkyTintB] cream color
+     * with strength weighted toward darker regions, producing the
+     * signature dreamcore "frosted glass" / pastel-wash look. 0 = no
+     * overlay.
+     */
+    val defaultMilkyMix: Float = 0f,
+    /**
+     * Per-channel color of the milky haze overlay (R, G, B independent),
+     * each in [0, 1]. DREAMY picks a pastel magnolia cream; other presets
+     * default to 0 (but the overlay is skipped entirely when
+     * [defaultMilkyMix] = 0 so the zero defaults are inert).
+     */
+    val milkyTintR: Float = 0f,
+    val milkyTintG: Float = 0f,
+    val milkyTintB: Float = 0f) {
 
     WARM_PORTRAIT(
         "Warm Portrait",
@@ -269,31 +296,58 @@ enum class FilmPreset(
         defaultFringing = 0.002f
     ),
     /**
-     * Dreamy soft-focus preset inspired by hazy golden-hour / pastel looks.
+     * Dreamcore inspired preset — soft, hazy, high-key pastel look without
+     * any LUT. Replaces the previous "Dreamy" golden-hour LUT profile: the
+     * new variant is built entirely from per-pixel math so the live preview
+     * and the saved JPEG agree exactly (no asset parse / upload race at
+     * preset-switch time).
      *
-     * Combines a hand-crafted 25-cube LUT (`luts/dreamy.cube`, lifted blacks +
-     * peach highlights + cool shadow bias) with a heavy bloom + soft film
-     * S-curve on top so the viewfinder reads as gauzy and out-of-focus even
-     * at capture time. Saturation drops below 1.0, contrast stays just under
-     * neutral, and split-toning pushes shadows toward pale blue and
-     * highlights toward warm peach — matching the LUT's built-in tint in
-     * the CPU post-processing path so JPEGs and live preview agree.
+     * Recipe, in pipeline order:
+     *  1. Slight overexposure (defaultExposure +0.5) to lift everything
+     *     into the high-key range that dreamcore images typically occupy.
+     *  2. Strong film S-curve (0.55) — pronounced toe and shoulder so the
+     *     previously-clipped shadow side is lifted and the highlight side
+     *     rolls off softly instead of clipping flat white.
+     *  3. Very low contrast (0.70) — keeps the image gauzy rather than
+     *     punchy; shadows and highlights stay close to midtones.
+     *  4. Aggressively desaturated (0.55) — colors bleed strongly toward
+     *     pastel.
+     *  5. Strongest bloom of any preset (0.78) — heavy halation around
+     *     bright highlights is the dreamcore signature.
+     *  6. Split-toning ~2x stronger than other presets: cyan-blue shadows
+     *     (the cool tonal anchor of the room/phone-booth reference images)
+     *     and pink-peach highlights (the warm tonal anchor).
+     *  7. Soft-focus blur (0.65) — 3x3 box blur applied to the WB+exposed
+     *     signal so the picture reads as slightly out-of-focus, matching
+     *     the dreamy diffused sharpness.
+     *  8. Milky pastel haze overlay (0.30) muted toward a magnolia cream
+     *     (#EBDBF2-ish in normalised floats) — pastel "frosted glass"
+     *     on dark areas, gentle wash on highlights.
+     *
+     * Note: `assetPath = ""` (no LUT) — the per-pixel math is the entire
+     * grade now. See [loadLut] which short-circuits on blank asset paths.
      */
     DREAMY(
         "Dreamy",
-        "luts/dreamy.cube",
-        defaultGrainStrength = 0.10f,
-        defaultGrainChroma = 0.30f,       // soft pearl-grain on top of the haze
-        defaultFilmCurve = 0.30f,         // strong toe lift for soft shadows
-        defaultContrast = 0.88f,          // softer contrast — never punchy
-        defaultSaturation = 0.72f,        // pulled further toward pastel so the
-                                          // heavier bloom doesn't read muddy
-        defaultBloom = 0.55f,             // heavy halation = signature soft glow
-        shadowTintR = 0.0f, shadowTintG = -0.005f, shadowTintB = 0.025f,  // pale-blue shadows
-        shadowTintStrength = 0.10f,
-        highlightTintR = 0.03f, highlightTintG = 0.015f, highlightTintB = 0.0f,  // peach highlights
-        highlightTintStrength = 0.10f,
-        defaultFringing = 0.004f          // subtle softness at edges
+        "",  // ← No LUT; grade built from per-pixel effects only.
+        defaultTemp = 0f,
+        defaultTint = 0f,
+        defaultExposure = 0.5f,            // mild over-exposure for high-key feel
+        defaultGrainStrength = 0.04f,      // very light grain — dreamcore reads clean
+        defaultGrainChroma = 0.25f,
+        defaultFilmCurve = 0.55f,          // strong toe lift + soft shoulder
+        defaultContrast = 0.70f,           // very low, never punchy
+        defaultSaturation = 0.55f,         // pulled strongly to pastel
+        defaultBloom = 0.78f,              // heaviest halation of any preset
+        shadowTintR = -0.005f, shadowTintG = 0.012f, shadowTintB = 0.060f,  // cyan-blue shadows
+        shadowTintStrength = 0.20f,        // ~2x standard presets
+        highlightTintR = 0.07f, highlightTintG = 0.025f, highlightTintB = 0.005f, // pink-peach highlights
+        highlightTintStrength = 0.18f,     // ~2x standard presets
+        defaultFringing = 0.008f,
+        // ─ Dreamcore-specific ──────────────────────────────────────────
+        defaultSoftFocus = 0.65f,          // hazy, slightly out of focus
+        defaultMilkyMix = 0.30f,           // pastel "frosted glass" overlay
+        milkyTintR = 0.92f, milkyTintG = 0.86f, milkyTintB = 0.95f,      // magnolia cream
     ),
 
     /**
@@ -330,6 +384,17 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     private class FilterBuffers {
         var pixels = IntArray(0)
         var rowDistanceSquared = FloatArray(0)
+        /**
+         * Pre-capture snapshot of [pixels] used by the optional
+         * soft-focus pre-pass so neighbor reads see unmodified input
+         * (in-place mutation + parallel chunks otherwise corrupts a
+         * same-frame blur). Lazily grown to match the largest
+         * [pixelCount] we have ever processed; cuts GC pressure on
+         * repeated captures with the same resolution. Null when
+         * soft-focus is not active for the current preset — in which
+         * case the per-pixel loop's blur read short-circuits.
+         */
+        var softFocusSnapshot: IntArray? = null
         var inUse = false
     }
 
@@ -1031,7 +1096,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
      * the bottom-sheet picker, and the choice is persisted.
      */
     fun cycleCameraPreset(direction: Int) {
-        val ordered = FilmPreset.entries.filterNot { it == FilmPreset.DREAMY }
+        val ordered = FilmPreset.entries
         if (ordered.size <= 1) return
         val currentIndex = ordered.indexOf(_activePreset.value).let { if (it < 0) 0 else it }
         val step = if (direction >= 0) 1 else -1
@@ -1529,7 +1594,14 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                     preset.defaultFilmCurve > 0f || preset.defaultContrast != 1.0f ||
                     preset.defaultSaturation != 1.0f || preset.defaultBloom > 0f ||
                     preset.shadowTintStrength > 0f || preset.highlightTintStrength > 0f ||
-                    preset.defaultFringing > 0f) {
+                    preset.defaultFringing > 0f ||
+                    // ── Dreamcore-style extras also force the post-process
+                    //    filter pass even when every other preset knob is
+                    //    neutral — without this guard DREAMY's soft-focus
+                    //    blur and milky haze would be silently skipped
+                    //    on a non-grad-baseline image (no LUT, no grain,
+                    //    no S-curve, etc. under default settings).
+                    preset.defaultSoftFocus > 0f || preset.defaultMilkyMix > 0f) {
                     val filtered = finalBitmap.applyRetroFilter(
                         _temperature.value,
                         _tint.value,
@@ -1549,7 +1621,13 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                         highlightTintR = preset.highlightTintR,
                         highlightTintG = preset.highlightTintG,
                         highlightTintB = preset.highlightTintB,
-                        fringing = preset.defaultFringing
+                        fringing = preset.defaultFringing,
+                        // ── Dreamcore-style extras ──
+                        softFocus = preset.defaultSoftFocus,
+                        milkyMix = preset.defaultMilkyMix,
+                        milkyTintR = preset.milkyTintR,
+                        milkyTintG = preset.milkyTintG,
+                        milkyTintB = preset.milkyTintB
                     )
                     if (filtered !== finalBitmap) {
                         finalBitmap.recycle()
@@ -1755,7 +1833,13 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         highlightTintR: Float = 0f,
         highlightTintG: Float = 0f,
         highlightTintB: Float = 0f,
-        fringing: Float = 0f
+        fringing: Float = 0f,
+        // ── Dreamcore-style extras ──
+        softFocus: Float = 0f,
+        milkyMix: Float = 0f,
+        milkyTintR: Float = 0f,
+        milkyTintG: Float = 0f,
+        milkyTintB: Float = 0f
     ): Bitmap {
         val w = this.width
         val h = this.height
@@ -1870,6 +1954,124 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         val numChunks = Runtime.getRuntime().availableProcessors().coerceIn(1, 4)
         val total = w * h
         val chunkSize = (total + numChunks - 1) / numChunks
+
+        // ── Soft-focus pre-pass (dreamcore) ──
+        // Reads a frozen copy of the input bitmap (snapshot), averages a
+        // 3x3 box neighbourhood for each pixel, and writes the blurred
+        // mix BACK INTO `pixels` (in-place). After this pass the rest of
+        // the pipeline sees blurred pixels as its input — the WB, exposure,
+        // S-curve and toning stages then operate on the soft signal so
+        // the entire downstream image has the dreamy, smoothed look.
+        //
+        // Why a snapshot rather than reading directly from `pixels`:
+        // the parallel chunks below all access the same `pixels[]`
+        // array, and a blur sample at index p+X reads 8 neighbours that
+        // may already have been rewritten to the post-blur value by
+        // another chunk or by an earlier sweep through this chunk. A
+        // pre-capture snapshot freezes neighbours at their input values,
+        // so each pixel's blur sees a true box-3x3 window of the
+        // pre-blur bitmap. Memory cost is one extra IntArray (≈12 MB
+        // for a 3 MP capture); only allocated when softFocus > 0 (i.e.
+        // DREAMY) so other presets pay nothing.
+        val softFocusActive = softFocus > 0f
+        if (softFocusActive) {
+            val snap = buffers.softFocusSnapshot?.let { if (it.size >= pixelCount) it else null }
+                ?: IntArray(pixelCount).also { buffers.softFocusSnapshot = it }
+            System.arraycopy(pixels, 0, snap, 0, pixelCount)
+
+            val blursChunks = numChunks
+            val blurChunkSize = (total + blursChunks - 1) / blursChunks
+            coroutineScope {
+                (0 until blursChunks).map { chunk ->
+                    async(Dispatchers.Default) {
+                        val a = chunk * blurChunkSize
+                        val b = (a + blurChunkSize).coerceAtMost(total)
+                        var p = a
+                        while (p < b) {
+                            val x = p % w
+                            val y = p / w
+                            var sumR = 0
+                            var sumG = 0
+                            var sumB = 0
+                            // 3x3 box read with edge-clamping so the
+                            // blur doesn't produce darker outer pixels
+                            // (the blur kernel spreads the missing
+                            // contributions into the boundary).
+                            val yTop = if (y > 0) y - 1 else 0
+                            val yBot = if (y < h - 1) y + 1 else h - 1
+                            val xLft = if (x > 0) x - 1 else 0
+                            val xRgt = if (x < w - 1) x + 1 else w - 1
+                            val rowT = yTop * w
+                            val rowM = y * w
+                            val rowB = yBot * w
+                            val s_tl = snap[rowT + xLft]
+                            val s_tc = snap[rowT + x]
+                            val s_tr = snap[rowT + xRgt]
+                            val s_ml = snap[rowM + xLft]
+                            val s_mc = snap[rowM + x]
+                            val s_mr = snap[rowM + xRgt]
+                            val s_bl = snap[rowB + xLft]
+                            val s_bc = snap[rowB + x]
+                            val s_br = snap[rowB + xRgt]
+                            sumR = (s_tl ushr 16 and 0xFF) +
+                                   (s_tc ushr 16 and 0xFF) +
+                                   (s_tr ushr 16 and 0xFF) +
+                                   (s_ml ushr 16 and 0xFF) +
+                                   (s_mc ushr 16 and 0xFF) +
+                                   (s_mr ushr 16 and 0xFF) +
+                                   (s_bl ushr 16 and 0xFF) +
+                                   (s_bc ushr 16 and 0xFF) +
+                                   (s_br ushr 16 and 0xFF)
+                            sumG = (s_tl ushr 8 and 0xFF) +
+                                   (s_tc ushr 8 and 0xFF) +
+                                   (s_tr ushr 8 and 0xFF) +
+                                   (s_ml ushr 8 and 0xFF) +
+                                   (s_mc ushr 8 and 0xFF) +
+                                   (s_mr ushr 8 and 0xFF) +
+                                   (s_bl ushr 8 and 0xFF) +
+                                   (s_bc ushr 8 and 0xFF) +
+                                   (s_br ushr 8 and 0xFF)
+                            sumB = (s_tl and 0xFF) +
+                                   (s_tc and 0xFF) +
+                                   (s_tr and 0xFF) +
+                                   (s_ml and 0xFF) +
+                                   (s_mc and 0xFF) +
+                                   (s_mr and 0xFF) +
+                                   (s_bl and 0xFF) +
+                                   (s_bc and 0xFF) +
+                                   (s_br and 0xFF)
+                            val bR = sumR / 9
+                            val bG = sumG / 9
+                            val bB = sumB / 9
+
+                            val orig = pixels[p]
+                            val alphaMask = orig and 0xFF000000.toInt()
+                            val origR = (orig ushr 16) and 0xFF
+                            val origG = (orig ushr 8) and 0xFF
+                            val origB = orig and 0xFF
+                            // mix(original, blurred, softFocus) — preserves
+                            // original sharpness when softFocus approaches 0
+                            // and is a pure 3x3 average when softFocus=1.
+                            val mixR = (origR + (bR - origR) * softFocus).toInt().coerceIn(0, 255)
+                            val mixG = (origG + (bG - origG) * softFocus).toInt().coerceIn(0, 255)
+                            val mixB = (origB + (bB - origB) * softFocus).toInt().coerceIn(0, 255)
+                            pixels[p] = alphaMask or (mixR shl 16) or (mixG shl 8) or mixB
+                            p++
+                        }
+                    }
+                }
+            }
+        }
+
+        // Precompute the milky haze parameters (constants for this run,
+        // computed once instead of per-pixel). Inert unless the preset
+        // asked for any milky amount.
+        val milkyActive = milkyMix > 0f
+        val milkyStrengthShade = milkyMix * 1.2f  // weight on shadow side
+        val milkyStrengthBase = milkyMix * 0.25f // baseline wash even at luma=1
+        val milkyR = milkyTintR.coerceIn(0f, 1f)
+        val milkyG = milkyTintG.coerceIn(0f, 1f)
+        val milkyB = milkyTintB.coerceIn(0f, 1f)
 
         coroutineScope {
             (0 until numChunks).map { chunk ->
@@ -2114,9 +2316,50 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                             val or8 = (outR * 255f + 0.5f).toInt().coerceIn(0, 255)
                             val og8 = (outG * 255f + 0.5f).toInt().coerceIn(0, 255)
                             val ob8 = (outB * 255f + 0.5f).toInt().coerceIn(0, 255)
-                            pixels[p] = (a shl 24) or (or8 shl 16) or (og8 shl 8) or ob8
+
+                            // ── 10. Milky pastel haze overlay (dreamcore) ──
+                            // Final stage (after LUT): blend toward the cream
+                            // tint, weighted toward shadows (heavy wash on
+                            // dark pixels, gentle wash on highlights). Mirrors
+                            // the GL shader so the JPEG and the live viewfinder
+                            // agree. Falls through to the regular pixel write
+                            // below after this conditional modifies or8/og8/ob8.
+                            if (milkyActive) {
+                                val ms =
+                                    (1f - (or8 / 255f * 0.299f + og8 / 255f * 0.587f + ob8 / 255f * 0.114f))
+                                        .coerceIn(0f, 1f) * milkyStrengthShade + milkyStrengthBase
+                                val clampedMs = ms.coerceIn(0f, 1f)
+                                val invMs = 1f - clampedMs
+                                val mR = (or8 / 255f * invMs + milkyR * clampedMs) * 255f + 0.5f
+                                val mG = (og8 / 255f * invMs + milkyG * clampedMs) * 255f + 0.5f
+                                val mB = (ob8 / 255f * invMs + milkyB * clampedMs) * 255f + 0.5f
+                                val mr8 = mR.toInt().coerceIn(0, 255)
+                                val mg8 = mG.toInt().coerceIn(0, 255)
+                                val mb8 = mB.toInt().coerceIn(0, 255)
+                                pixels[p] = (a shl 24) or (mr8 shl 16) or (mg8 shl 8) or mb8
+                            } else {
+                                pixels[p] = (a shl 24) or (or8 shl 16) or (og8 shl 8) or ob8
+                            }
                         } else {
-                            pixels[p] = (a shl 24) or (r8 shl 16) or (g8 shl 8) or b8
+                            // No LUT path — apply milky haze to the
+                            // post-split-toning / post-grain / etc. RGB.
+                            if (milkyActive) {
+                                val lumF =
+                                    (r8 / 255f * 0.299f + g8 / 255f * 0.587f + b8 / 255f * 0.114f)
+                                val ms =
+                                    ((1f - lumF).coerceIn(0f, 1f)) * milkyStrengthShade + milkyStrengthBase
+                                val clampedMs = ms.coerceIn(0f, 1f)
+                                val invMs = 1f - clampedMs
+                                val mR = (r8 / 255f * invMs + milkyR * clampedMs) * 255f + 0.5f
+                                val mG = (g8 / 255f * invMs + milkyG * clampedMs) * 255f + 0.5f
+                                val mB = (b8 / 255f * invMs + milkyB * clampedMs) * 255f + 0.5f
+                                val mr8 = mR.toInt().coerceIn(0, 255)
+                                val mg8 = mG.toInt().coerceIn(0, 255)
+                                val mb8 = mB.toInt().coerceIn(0, 255)
+                                pixels[p] = (a shl 24) or (mr8 shl 16) or (mg8 shl 8) or mb8
+                            } else {
+                                pixels[p] = (a shl 24) or (r8 shl 16) or (g8 shl 8) or b8
+                            }
                         }
                         p++
                     }

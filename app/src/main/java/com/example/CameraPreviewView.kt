@@ -500,6 +500,17 @@ fun CameraPreviewView(
             highlightTintB = activePreset.highlightTintB,
             highlightTintStrength = activePreset.highlightTintStrength
         )
+        // Push the dreamcore-style extras (soft-focus blur + milky pastel
+        // haze) alongside the regular film-effect uniforms so the live
+        // viewfinder matches what the post-capture JPEG will look like.
+        // Other presets pass zeros so the shader `if` branches short-circuit.
+        lutPreviewView.setDreamcoreEffects(
+            softFocus = activePreset.defaultSoftFocus,
+            milkyMix = activePreset.defaultMilkyMix,
+            milkyTintR = activePreset.milkyTintR,
+            milkyTintG = activePreset.milkyTintG,
+            milkyTintB = activePreset.milkyTintB
+        )
     }
 
     // Mirror the front-camera preview horizontally to match the stock
