@@ -60,6 +60,9 @@ object RawCapture {
      *        if the device has no logical multi-camera)
      * @param focalLengthMm Native focal length, used only to label the filename
      * @param flashMode 0 = auto, 1 = on, 2 = off
+     * @param targetRotation Current physical device rotation (Surface.ROTATION_*),
+     *     sensor-tracked by the caller — Display.getRotation() stays ROTATION_0
+     *     while the activity is locked to portrait, so it can't be used here
      * @param onCaptured Invoked with the written .dng file
      * @param onError Invoked on any failure (capability, open, session, capture)
      */
@@ -70,6 +73,7 @@ object RawCapture {
         physicalCameraId: String,
         focalLengthMm: Int,
         flashMode: Int,
+        targetRotation: Int,
         onCaptured: (File) -> Unit,
         onError: (Exception) -> Unit
     ) {
@@ -138,7 +142,7 @@ object RawCapture {
             imageReader = ImageReader.newInstance(size.width, size.height, ImageFormat.RAW_SENSOR, 2)
 
             val sensorOrientation = physicalChars.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
-            val deviceRotation = when (context.displayRotation) {
+            val deviceRotation = when (targetRotation) {
                 Surface.ROTATION_90 -> 90
                 Surface.ROTATION_180 -> 180
                 Surface.ROTATION_270 -> 270
@@ -395,16 +399,3 @@ object RawCapture {
         return out
     }
 }
-
-/**
- * Returns the current display rotation in surface-rotation constants.
- * Modern API (30+) on Context.display; deprecated WindowManager.defaultDisplay
- * fallback for older devices (project minSdk is 24).
- */
-private val Context.displayRotation: Int
-    get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        display.rotation
-    } else {
-        @Suppress("DEPRECATION")
-        (getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay.rotation
-    }

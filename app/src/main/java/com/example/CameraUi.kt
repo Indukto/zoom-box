@@ -13,6 +13,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.graphics.BitmapFactory
+import android.media.ExifInterface
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import android.os.Build
@@ -2066,6 +2067,9 @@ fun CameraActiveScreen(
                         context = context,
                         imageCapture = captureDevice,
                         executor = mainExecutor,
+                        // Sensor-tracked physical rotation — under the portrait
+                        // lock Display.getRotation() is pinned to ROTATION_0.
+                        targetRotation = viewModel.physicalRotation.value,
                         onCaptured = { rawFile ->
                             viewModel.processAndSavePhoto(
                                 context = context,
@@ -2676,18 +2680,46 @@ fun PhotoViewerOverlay(
             LaunchedEffect(photo) {
                 val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                 BitmapFactory.decodeFile(photo.absolutePath, options)
-                val w = options.outWidth
-                val h = options.outHeight
-                if (w > 0 && h > 0) photoDims = IntSize(w, h)
+                var w = options.outWidth
+                var h = options.outHeight
+                if (w > 0 && h > 0) {
+                    // BitmapFactory reports the raw pixel dimensions, but Coil
+                    // renders the image with the EXIF orientation applied (it
+                    // respects the tag by default). Swap the bounds for 90°/
+                    // 270° rotations so the card aspect matches the rendered
+                    // image — without this, a horizontal (landscape) photo
+                    // carrying an EXIF rotation would be framed by a
+                    // portrait-shaped card and vice versa.
+                    val orientation = try {
+                        ExifInterface(photo.absolutePath).getAttributeInt(
+                            ExifInterface.TAG_ORIENTATION,
+                            ExifInterface.ORIENTATION_NORMAL
+                        )
+                    } catch (e: Exception) { ExifInterface.ORIENTATION_NORMAL }
+                    if (orientation == ExifInterface.ORIENTATION_ROTATE_90 ||
+                        orientation == ExifInterface.ORIENTATION_ROTATE_270 ||
+                        orientation == ExifInterface.ORIENTATION_TRANSPOSE ||
+                        orientation == ExifInterface.ORIENTATION_TRANSVERSE) {
+                        w = h.also { h = w }
+                    }
+                    photoDims = IntSize(w, h)
+                }
             }
             val photoAspect = photoDims?.let { d -> d.width.toFloat() / d.height.toFloat() } ?: (1f / 1.35f)
 
-            Box(
+            BoxWithConstraints(
                 modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
                 contentAlignment = Alignment.Center
             ) {
+                // Size the film card to fit the available area while preserving
+                // the photo's aspect ratio: width-bound for portrait shots,
+                // height-bound for horizontal (landscape) shots so a wide image
+                // fills the screen instead of overflowing (or shrinking to a
+                // strip) when the device is held sideways.
+                val cardWidth = minOf(maxWidth, maxHeight * photoAspect)
+                val cardHeight = cardWidth / photoAspect
                 Card(
-                    modifier = Modifier.fillMaxWidth().aspectRatio(photoAspect),
+                    modifier = Modifier.width(cardWidth).height(cardHeight),
                     colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAF9)),
                     shape = RoundedCornerShape(12.dp),
                     elevation = CardDefaults.cardElevation(defaultElevation = 16.dp)
@@ -2706,7 +2738,17 @@ fun PhotoViewerOverlay(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(text = phoneName, fontSize = 12.sp, fontWeight = FontWeight.Normal, color = Color.Black.copy(alpha = 0.55f), fontFamily = FontFamily.Serif, modifier = Modifier.padding(horizontal = 4.dp))
-                            Text(text = "${exifData.focalLength}  ${exifData.shutterSpeed}  ${exifData.iso}", fontSize = 12.sp, fontWeight = FontWeight.Normal, color = Color.Black.copy(alpha = 0.55f), fontFamily = FontFamily.Serif, modifier = Modifier.padding(horizontal = 4.dp))
+                            // EXIF metadata row — orientation is appended only
+                            // when the tag is present and non-normal, so the
+                            // row stays unchanged for this app's own captures
+                            // (baked upright, tagged NORMAL).
+                            val metaText = buildString {
+                                append(exifData.focalLength); append("  ")
+                                append(exifData.shutterSpeed); append("  ")
+                                append(exifData.iso)
+                                if (exifData.orientation != "--") { append("  ·  "); append(exifData.orientation) }
+                            }
+                            Text(text = metaText, fontSize = 12.sp, fontWeight = FontWeight.Normal, color = Color.Black.copy(alpha = 0.55f), fontFamily = FontFamily.Serif, modifier = Modifier.padding(horizontal = 4.dp))
                         }
                     }
                 }

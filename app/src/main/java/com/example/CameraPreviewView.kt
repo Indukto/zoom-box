@@ -594,12 +594,22 @@ fun triggerImageCapture(
     context: Context,
     imageCapture: ImageCapture,
     executor: Executor,
+    targetRotation: Int,
     onCaptured: (File) -> Unit,
     onCaptureError: (ImageCaptureException) -> Unit
 ) {
     val directory = context.getExternalFilesDir(android.os.Environment.DIRECTORY_PICTURES) ?: context.cacheDir
     val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
     val photoFile = File(directory, "RETRO_IMG_$timeStamp.jpg")
+    // The ImageCapture's target rotation was set at bind time (possibly long
+    // ago), so refresh it to the CURRENT physical rotation right before
+    // capturing. The rotation comes from an OrientationEventListener (the
+    // activity is locked to portrait, where Display.getRotation() keeps
+    // reporting ROTATION_0) — this is what makes a photo taken with the
+    // phone held sideways come out landscape instead of always portrait.
+    // CameraX handles the sensor-side rotation math itself once the target
+    // rotation is correct.
+    imageCapture.targetRotation = targetRotation
     val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
     imageCapture.takePicture(outputOptions, executor,
         object : ImageCapture.OnImageSavedCallback {

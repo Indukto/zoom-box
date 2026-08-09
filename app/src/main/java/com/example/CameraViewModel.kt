@@ -26,6 +26,8 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
 import android.util.Log
+import android.view.OrientationEventListener
+import android.view.Surface
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.compose.runtime.Stable
@@ -63,7 +65,14 @@ import kotlin.time.Duration.Companion.milliseconds
 data class ExifData(
     val focalLength: String = "--",
     val shutterSpeed: String = "--",
-    val iso: String = "--"
+    val iso: String = "--",
+    /**
+     * EXIF orientation tag rendered as a short label ("90°", "180°",
+     * "270°", "Mirrored H/V", …). "--" when the tag is absent or NORMAL
+     * (which is what this app writes: pixels are baked upright at save
+     * time, so no rotation is needed for display).
+     */
+    val orientation: String = "--"
 )
 
 /**
@@ -470,6 +479,18 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     private val _settingsLoaded = MutableStateFlow(false)
     val settingsLoaded: StateFlow<Boolean> = _settingsLoaded.asStateFlow()
 
+    // ── Physical device rotation (sensor-tracked) ─────────────────────────
+    // The activity is locked to portrait, so Display.getRotation() keeps
+    // reporting ROTATION_0 even when the phone is physically held sideways.
+    // CameraX's docs prescribe an OrientationEventListener for exactly this
+    // case: it tracks the sensor-derived device orientation so the capture
+    // target rotation can follow how the phone is actually held — that's
+    // what makes a photo taken in landscape come out landscape.
+    private val _physicalRotation = MutableStateFlow(Surface.ROTATION_0)
+    val physicalRotation: StateFlow<Int> = _physicalRotation.asStateFlow()
+
+    private var orientationListener: OrientationEventListener? = null
+
     // Lazily-parsed LUTs keyed by asset path. Parsed once on first use and
     // reused for every subsequent capture that selects the same film.
     private val cachedLuts = mutableMapOf<String, CubeLut>()
@@ -683,6 +704,33 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
             // registration — log and continue. The gallery still works, it just
             // falls back to the existing capture/delete/launch refresh path.
             Log.e("CameraViewModel", "Failed to register MediaStore observer", e)
+        }
+
+        // ── Physical rotation tracking ────────────────────────────────────
+        // Display.getRotation() stays ROTATION_0 while the activity is locked
+        // to portrait, so the sensor-based OrientationEventListener is the
+        // only reliable source of "which way is down" for the capture
+        // pipeline. The degree → Surface-rotation mapping below matches what
+        // ImageCapture.setTargetRotation documents: 0° → ROTATION_0,
+        // 45–135° → ROTATION_270, 135–225° → ROTATION_180, 225–315° →
+        // ROTATION_90.
+        try {
+            orientationListener = object : OrientationEventListener(getApplication()) {
+                override fun onOrientationChanged(orientation: Int) {
+                    if (orientation == OrientationEventListener.ORIENTATION_UNKNOWN) return
+                    val rotation = when (orientation) {
+                        in 45 until 135 -> Surface.ROTATION_270
+                        in 135 until 225 -> Surface.ROTATION_180
+                        in 225 until 315 -> Surface.ROTATION_90
+                        else -> Surface.ROTATION_0
+                    }
+                    if (rotation != _physicalRotation.value) _physicalRotation.value = rotation
+                }
+            }.apply { enable() }
+        } catch (e: Exception) {
+            // A failed sensor registration shouldn't kill the camera; captures
+            // simply fall back to ROTATION_0 (portrait).
+            Log.e("CameraViewModel", "Failed to start orientation listener", e)
         }
     }
 
@@ -1343,6 +1391,9 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
             physicalCameraId = physicalCameraId,
             focalLengthMm = focalLengthMm,
             flashMode = _flashMode.value,
+            // Sensor-tracked physical rotation (Display.getRotation() is
+            // pinned to ROTATION_0 under the portrait lock).
+            targetRotation = _physicalRotation.value,
             onCaptured = { dngFile ->
                 // Release the shutter visual the instant the DNG lands on
                 // disk (mirrors the JPEG path's semantics where
@@ -1456,7 +1507,17 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                     }
                 }
 
-                val arTargetRatio = 1f / currentAspectRatioMultiplier
+                // The aspect-ratio setting is expressed in portrait terms
+                // (heightToWidth > 1, e.g. 4:3 portrait). A landscape capture
+                // (rotated dims wider than tall) must be cropped toward the
+                // LANDSCAPE equivalent of the chosen ratio — otherwise a photo
+                // taken with the phone held sideways gets force-cropped into a
+                // portrait frame and the saved picture is never landscape.
+                val arTargetRatio = if (rotW > rotH) {
+                    currentAspectRatioMultiplier
+                } else {
+                    1f / currentAspectRatioMultiplier
+                }
                 val arActualRatio = curW.toFloat() / curH.toFloat()
                 if (kotlin.math.abs(arActualRatio - arTargetRatio) >= 0.02f) {
                     if (arActualRatio > arTargetRatio) {
@@ -1650,6 +1711,11 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                     if (originalExposureTime > 0.0) { exifOut.setAttribute(ExifInterface.TAG_EXPOSURE_TIME, originalExposureTime.toString()) }
                     if (originalIso > 0) { exifOut.setAttribute(ExifInterface.TAG_ISO_SPEED_RATINGS, originalIso.toString()) }
                     exifOut.setAttribute(ExifInterface.TAG_FOCAL_LENGTH, "${captureFocalLength}.0")
+                    // The pixels were already rotated upright by the matrix pass
+                    // above (EXIF rotation applied to the decoded bitmap before
+                    // re-encoding), so the saved file is tagged NORMAL. Baking
+                    // the rotation into the pixels + tagging NORMAL is what keeps
+                    // the photo upright in external gallery apps and viewers.
                     exifOut.setAttribute(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL.toString())
                     exifOut.saveAttributes()
                 } catch (e: Exception) { Log.e("CameraViewModel", "Error writing EXIF", e) }
@@ -1697,10 +1763,21 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
             } else "--"
             val isoRaw = exif.getAttributeInt(ExifInterface.TAG_ISO_SPEED_RATINGS, 0)
             val iso = if (isoRaw > 0) "ISO $isoRaw" else "--"
+            val orientationTag = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+            val orientation = when (orientationTag) {
+                ExifInterface.ORIENTATION_ROTATE_90 -> "90°"
+                ExifInterface.ORIENTATION_ROTATE_180 -> "180°"
+                ExifInterface.ORIENTATION_ROTATE_270 -> "270°"
+                ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> "Mirrored H"
+                ExifInterface.ORIENTATION_FLIP_VERTICAL -> "Mirrored V"
+                ExifInterface.ORIENTATION_TRANSPOSE -> "90° Mirrored"
+                ExifInterface.ORIENTATION_TRANSVERSE -> "270° Mirrored"
+                else -> "--"
+            }
             val name = file.nameWithoutExtension
             val focalMatch = Regex("""_(\d+)mm$""").find(name)
             val focalLength = focalMatch?.groupValues?.get(1)?.let { "${it}mm" } ?: "--"
-            ExifData(focalLength = focalLength, shutterSpeed = shutterSpeed, iso = iso)
+            ExifData(focalLength = focalLength, shutterSpeed = shutterSpeed, iso = iso, orientation = orientation)
         } catch (e: Exception) { Log.e("CameraViewModel", "Error reading EXIF", e); ExifData() }
     }
 
@@ -2441,6 +2518,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
 
     override fun onCleared() {
         super.onCleared()
+        try { orientationListener?.disable() } catch (_: Exception) {}
         try { shutterSound?.release() } catch (_: Exception) {}
         // Unregister the MediaStore observer we set up in init. Without this
         // the observer (which captures `viewModelScope` via the onChange
