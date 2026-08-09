@@ -53,6 +53,7 @@ class UserPreferencesRepository(private val context: Context) {
         private val ACTIVE_PRESET = stringPreferencesKey("active_preset")
         private val FLASH_MODE = intPreferencesKey("flash_mode")
         private val SHOW_GRID_LINES = booleanPreferencesKey("show_grid_lines")
+        private val GALLERY_FRAME = booleanPreferencesKey("gallery_frame")
         private val SELF_TIMER_MODE = intPreferencesKey("self_timer_mode")
         private val DOUBLE_EXPOSURE = booleanPreferencesKey("double_exposure")
         private val IS_FRONT_CAMERA = booleanPreferencesKey("is_front_camera")
@@ -75,6 +76,7 @@ class UserPreferencesRepository(private val context: Context) {
         val activePreset: FilmPreset = FilmPreset.WARM_PORTRAIT,
         val flashMode: Int = 0,
         val showGridLines: Boolean = false,
+        val showGalleryFrame: Boolean = false,
         val selfTimerMode: Int = 0,
         val doubleExposureActive: Boolean = false,
         val isFrontCamera: Boolean = false,
@@ -96,6 +98,7 @@ class UserPreferencesRepository(private val context: Context) {
             } ?: FilmPreset.WARM_PORTRAIT,
             flashMode = prefs[FLASH_MODE] ?: 0,
             showGridLines = prefs[SHOW_GRID_LINES] ?: false,
+            showGalleryFrame = prefs[GALLERY_FRAME] ?: false,
             selfTimerMode = prefs[SELF_TIMER_MODE] ?: 0,
             doubleExposureActive = prefs[DOUBLE_EXPOSURE] ?: false,
             isFrontCamera = prefs[IS_FRONT_CAMERA] ?: false,
@@ -136,6 +139,10 @@ class UserPreferencesRepository(private val context: Context) {
 
     suspend fun saveShowGridLines(enabled: Boolean) {
         context.settingsDataStore.edit { it[SHOW_GRID_LINES] = enabled }
+    }
+
+    suspend fun saveGalleryFrame(enabled: Boolean) {
+        context.settingsDataStore.edit { it[GALLERY_FRAME] = enabled }
     }
 
     suspend fun saveSelfTimerMode(mode: Int) {

@@ -2,6 +2,7 @@ package com.example
 
 import android.app.Application
 import android.content.Context
+import android.graphics.Bitmap
 import com.example.zoom.AspectRatio
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,7 +39,38 @@ class ExampleRobolectricTest {
   fun test_viewmodel_initial_states() {
     val viewModel = CameraViewModel(ApplicationProvider.getApplicationContext())
     assertFalse(viewModel.showGridLines.value)
+    assertFalse(viewModel.showGalleryFrame.value)
     assertEquals(AspectRatio.RATIO_4_3, viewModel.aspectRatio.value)
+  }
+
+  @Test
+  fun test_viewmodel_toggle_gallery_frame() {
+    val viewModel = CameraViewModel(ApplicationProvider.getApplicationContext())
+    // The film-card frame around gallery photos must default to OFF.
+    assertFalse(viewModel.showGalleryFrame.value)
+    viewModel.toggleGalleryFrame()
+    assertTrue(viewModel.showGalleryFrame.value)
+    viewModel.toggleGalleryFrame()
+    assertFalse(viewModel.showGalleryFrame.value)
+  }
+
+  @Test
+  fun test_bake_gallery_frame_enlarges_photo_with_cream_background() {
+    val viewModel = CameraViewModel(ApplicationProvider.getApplicationContext())
+    val photo = Bitmap.createBitmap(360, 480, Bitmap.Config.ARGB_8888)
+    val framed = viewModel.bakeGalleryFrame(
+      photo = photo,
+      focalLength = 24,
+      exposureTime = 1.0 / 1000.0,
+      iso = 100
+    )
+    // The frame adds padding + a footer strip on both axes.
+    assertTrue(framed.width > photo.width)
+    assertTrue(framed.height > photo.height)
+    // Top-left corner is the cream card background, not the photo.
+    assertEquals(0xFFF9FAF9.toInt(), framed.getPixel(0, 0))
+    photo.recycle()
+    framed.recycle()
   }
 
   @Test

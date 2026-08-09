@@ -110,8 +110,6 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -2184,7 +2182,7 @@ fun CameraActiveScreen(
                             else -> Icons.Rounded.FlashOff
                         },
                         contentDescription = "Flash",
-                        tint = if (flashMode == 2) Color.Gray else Color(0xFFFBBF24),
+                        tint = if (flashMode == 2) Color.White else Color(0xFFFBBF24),
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -2597,7 +2595,6 @@ fun PhotoViewerOverlay(
         }
     }
 
-    val phoneName = Build.MODEL
     BackHandler(onBack = onClose)
 
     // Outer Column keeps its original top = 16 dp baseline so non-cutout
@@ -2673,9 +2670,6 @@ fun PhotoViewerOverlay(
         ) { page ->
             val photo = allPhotos[page]
 
-            var exifData by remember(photo) { mutableStateOf(ExifData()) }
-            LaunchedEffect(photo) { exifData = viewModel.readExifData(photo) }
-
             var photoDims by remember(photo) { mutableStateOf<IntSize?>(null) }
             LaunchedEffect(photo) {
                 val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -2711,47 +2705,22 @@ fun PhotoViewerOverlay(
                 modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
                 contentAlignment = Alignment.Center
             ) {
-                // Size the film card to fit the available area while preserving
-                // the photo's aspect ratio: width-bound for portrait shots,
-                // height-bound for horizontal (landscape) shots so a wide image
-                // fills the screen instead of overflowing (or shrinking to a
-                // strip) when the device is held sideways.
-                val cardWidth = minOf(maxWidth, maxHeight * photoAspect)
-                val cardHeight = cardWidth / photoAspect
-                Card(
-                    modifier = Modifier.width(cardWidth).height(cardHeight),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF9FAF9)),
-                    shape = RoundedCornerShape(12.dp),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 16.dp)
-                ) {
-                    Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
-                        Image(
-                            painter = rememberAsyncImagePainter(model = photo),
-                            contentDescription = "Enlarged capture",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(8.dp))
-                        )
-                        Spacer(modifier = Modifier.height(14.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(text = phoneName, fontSize = 12.sp, fontWeight = FontWeight.Normal, color = Color.Black.copy(alpha = 0.55f), fontFamily = FontFamily.Serif, modifier = Modifier.padding(horizontal = 4.dp))
-                            // EXIF metadata row — orientation is appended only
-                            // when the tag is present and non-normal, so the
-                            // row stays unchanged for this app's own captures
-                            // (baked upright, tagged NORMAL).
-                            val metaText = buildString {
-                                append(exifData.focalLength); append("  ")
-                                append(exifData.shutterSpeed); append("  ")
-                                append(exifData.iso)
-                                if (exifData.orientation != "--") { append("  ·  "); append(exifData.orientation) }
-                            }
-                            Text(text = metaText, fontSize = 12.sp, fontWeight = FontWeight.Normal, color = Color.Black.copy(alpha = 0.55f), fontFamily = FontFamily.Serif, modifier = Modifier.padding(horizontal = 4.dp))
-                        }
-                    }
-                }
+                // Show the photo exactly as saved: the film-card frame, when
+                // enabled, is baked into the JPEG itself, so the gallery just
+                // renders the file as-is (no double frame). Size it to fit the
+                // available area while preserving the photo's aspect ratio:
+                // width-bound for portrait shots, height-bound for horizontal
+                // (landscape) shots so a wide image fills the screen instead
+                // of overflowing (or shrinking to a strip) when the device is
+                // held sideways.
+                val imgWidth = minOf(maxWidth, maxHeight * photoAspect)
+                val imgHeight = imgWidth / photoAspect
+                Image(
+                    painter = rememberAsyncImagePainter(model = photo),
+                    contentDescription = "Enlarged capture",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.width(imgWidth).height(imgHeight)
+                )
             }
         }
 
@@ -2797,6 +2766,7 @@ fun SettingsScreen(viewModel: CameraViewModel, onClose: () -> Unit) {
     val isFrontCamera by viewModel.isFrontCamera.collectAsState()
     val aspectRatio by viewModel.aspectRatio.collectAsState()
     val outputResolution by viewModel.outputResolution.collectAsState()
+    val showGalleryFrame by viewModel.showGalleryFrame.collectAsState()
 
     // Intercept system back to dismiss the settings page back to the camera.
     BackHandler(onBack = onClose)
@@ -2904,6 +2874,25 @@ fun SettingsScreen(viewModel: CameraViewModel, onClose: () -> Unit) {
                             if (wantFullRes) OutputResolution.FULL
                             else OutputResolution.THREE_MEGAPIXEL
                         )
+                    }
+                )
+                Spacer(modifier = Modifier.height(36.dp))
+                Text(
+                    text = "GALLERY",
+                    color = Color.White.copy(alpha = 0.7f),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 1.5.sp,
+                    modifier = Modifier.padding(start = 4.dp, top = 4.dp, bottom = 6.dp)
+                )
+                SettingsRow(
+                    label = "Photo Frame",
+                    subtitle = "Add the film-card frame in the gallery and bake it into saved photos",
+                    checked = showGalleryFrame,
+                    enabled = true,
+                    onCheckedChange = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        viewModel.toggleGalleryFrame()
                     }
                 )
                 Spacer(modifier = Modifier.height(36.dp))
