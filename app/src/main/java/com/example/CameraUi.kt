@@ -922,14 +922,23 @@ fun CameraUi(
 
     var showSettingsPage by remember { mutableStateOf(false) }
 
-    // TESTING: two-step gesture tutorial, sequential (ZoomBox first,
-    // swipe-to-change-style second), and currently always-on so QA can
-    // repeatedly validate the detection thresholds. `null` means "no
+    // Two-step gesture tutorial, sequential (ZoomBox first,
+    // swipe-to-change-style second). Only shown on the very first app
+    // launch — after the user completes or skips it, a flag is persisted
+    // in SharedPreferences so it never appears again. `null` means "no
     // tutorial visible" (settled state after both gestures are
-    // completed or the user taps skip). Initialised to Zoom so the
-    // very first launch shows the pinch demo. Flip the initial value
-    // to `null` once the gesture detection is approved.
-    var tutorialStep by remember { mutableStateOf<TutorialStep?>(TutorialStep.Zoom) }
+    // completed or the user taps skip).
+    val prefs = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+    val isFirstLaunch = remember { prefs.getBoolean("is_first_launch", true) }
+    var tutorialStep by remember { mutableStateOf<TutorialStep?>(if (isFirstLaunch) TutorialStep.Zoom else null) }
+
+    // Once the tutorial is dismissed (completed or skipped), persist the
+    // flag so it never shows again on subsequent launches.
+    LaunchedEffect(tutorialStep) {
+        if (tutorialStep == null) {
+            prefs.edit().putBoolean("is_first_launch", false).apply()
+        }
+    }
 
     // Current zoom ratio, read once per composition. Used to compute
     // the new zoom after the user performs the tutorial's vertical
