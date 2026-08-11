@@ -1457,8 +1457,9 @@ fun CameraActiveScreen(
         // camera UI does NOT reposition. Only the SettingsScreen (a sibling of
         // this composable at the top of CameraUi()) handles landscape so the
         // setting icons adapt to a wider screen naturally.
-        // Top anchor (declared first so it's in scope for availableHeight below).
-        val vfTop = 56.dp
+        // Top inset — minimum gap between the screen's top edge and the
+        // viewfinder, reserving room for the settings button / status area.
+        val topInset = 56.dp
 
         // Height-aware clamp so the viewfinder + bubble + bottom deck stay
         // within the available screen height in any orientation. There's no
@@ -1474,7 +1475,7 @@ fun CameraActiveScreen(
         // upward another ~120 dp) + the two-row bottom deck (~140 dp) so they
         // never overlap the viewfinder in any orientation.
         val reservedBottom = 200.dp
-        val availableHeight = (totalHeight - vfTop - reservedBottom).coerceAtLeast(120.dp)
+        val availableHeight = (totalHeight - topInset - reservedBottom).coerceAtLeast(120.dp)
         val vfWidth: Dp
         val vfHeight: Dp
         if (vfHeightRaw > availableHeight) {
@@ -1485,6 +1486,13 @@ fun CameraActiveScreen(
             vfHeight = vfHeightRaw
         }
         val vfX = (totalWidth - vfWidth) / 2f
+
+        // Vertically center the viewfinder between the top inset (settings /
+        // status area) and the bottom UI deck, instead of pinning it to the
+        // top edge of the screen. In landscape the height clamp makes
+        // vfHeight == availableHeight, so vfTop naturally collapses back to
+        // topInset (the viewfinder already fills the whole available region).
+        val vfTop = topInset + (availableHeight - vfHeight) / 2f
 
         // ─────────────────────────────────────────────────────────────────
         // Preset-change toast state (declared ahead of the viewfinder Box
@@ -1792,6 +1800,9 @@ fun CameraActiveScreen(
         // Three-point settings menu button in the top-right corner of the viewfinder
         // Opens a full-screen Settings page; the actual page surface + back navigation
         // lives in SettingsScreen at the top of CameraUi() (sibling swap, not overlay).
+        // Anchored to the viewfinder's top-right corner so it stays put inside
+        // the corner even as the viewfinder recenters between the top inset
+        // and the bottom deck.
         Box(
             modifier = Modifier
                 .offset(x = vfX + vfWidth - 48.dp, y = vfTop + 8.dp)
