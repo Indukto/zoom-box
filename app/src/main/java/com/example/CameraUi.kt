@@ -922,6 +922,27 @@ fun CameraUi(
 
     var showSettingsPage by remember { mutableStateOf(false) }
 
+    // TESTING: two-step gesture tutorial, sequential (ZoomBox first,
+    // swipe-to-change-style second), and currently always-on so QA can
+    // repeatedly validate the detection thresholds. `null` means "no
+    // tutorial visible" (settled state after both gestures are
+    // completed or the user taps skip). Initialised to Zoom so the
+    // very first launch shows the pinch demo. Flip the initial value
+    // to `null` once the gesture detection is approved.
+    var tutorialStep by remember { mutableStateOf<TutorialStep?>(TutorialStep.Zoom) }
+
+    // Current zoom ratio, read once per composition. Used to compute
+    // the new zoom after the user performs the tutorial's vertical
+    // drag: we apply a +20% bump (zoom-in-by-tactile, matching the
+    // bottom-to-top gesture direction the user requested) so the
+    // camera visibly reacts to the gesture instead of feeling frozen.
+    val currentZoomRatio by viewModel.digitalZoomRatio.collectAsState()
+
+    // Aspect ratio drives the viewfinder box geometry (mirrored in
+    // the tutorial section below) so the tutorial arrow's base can be
+    // pinned to the actual bottom edge of the live viewfinder.
+    val aspectRatio by viewModel.aspectRatio.collectAsState()
+
     val cameraPermissionState = rememberPermissionState(android.Manifest.permission.CAMERA)
 
     // Picking the right photo-read permission per platform:
@@ -1012,7 +1033,35 @@ fun CameraUi(
             // settings navigation — there's no disposal/race to recover
             // from, and the viewfinder is live the instant the overlay
             // closes.
-            Box(modifier = Modifier.fillMaxSize()) {
+            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                // Viewfinder-bottom fraction, mirrored from the exact
+                // geometry CameraActiveScreen computes internally
+                // (92% width, aspect-ratio height, 56.dp top inset,
+                // 200.dp bottom-deck reserve, vertically centred in
+                // the remaining band). Kept in sync deliberately: the
+                // tutorial arrow's base should sit on the bottom edge
+                // of the LIVE VIEWFINDER, not on the bottom of the
+                // app — the tutorial canvas extends past the
+                // viewfinder down into the bottom deck (shutter /
+                // filmstrip), so anchoring to the screen edge would
+                // put the arrow far below the preview.
+                val vfWidthRaw = maxWidth * 0.92f
+                val vfHeightRaw = vfWidthRaw * aspectRatio.heightToWidth
+                val availableHeight =
+                    (maxHeight - 56.dp - 200.dp).coerceAtLeast(120.dp)
+                val vfWidth: Dp
+                val vfHeight: Dp
+                if (vfHeightRaw > availableHeight) {
+                    vfHeight = availableHeight
+                    vfWidth = availableHeight / aspectRatio.heightToWidth
+                } else {
+                    vfWidth = vfWidthRaw
+                    vfHeight = vfHeightRaw
+                }
+                val vfTop = 56.dp + (availableHeight - vfHeight) / 2f
+                val viewfinderBottomFraction =
+                    (vfTop + vfHeight).value / maxHeight.value
+
                 CameraActiveScreen(
                     viewModel = viewModel,
                     onOpenSettings = { showSettingsPage = true }
@@ -1041,6 +1090,63 @@ fun CameraUi(
                     SettingsScreen(
                         viewModel = viewModel,
                         onClose = { showSettingsPage = false }
+                    )
+                }
+
+                // Sequential gesture tutorial. Each step is a thin
+                // coach-mark that floats above the live viewfinder
+                // WITHOUT dimming it, advances on the matching gesture,
+                // and disappears completely (no second step rendered)
+                // once both steps have been completed or the user taps
+                // skip. TutorialStep.Zoom must be detected before
+                // TutorialStep.Swipe becomes visible.
+                AnimatedVisibility(
+                    visible = tutorialStep != null,
+                    enter = fadeIn(tween(durationMillis = 240)),
+                    exit = fadeOut(tween(durationMillis = 200))
+                ) {
+                    val step = tutorialStep ?: return@AnimatedVisibility
+                    TutorialOverlay(
+                        step = step,
+                        // Anchor the demo arrow's base to the bottom
+                        // edge of the live viewfinder (see the mirror
+                        // computation at the top of this Box).
+                        viewfinderBottomFraction = viewfinderBottomFraction,
+                        // When a step completes, advance along the
+                        // fixed Zoom → Swipe → none sequence. We do
+                        // NOT honor the user's preferred "next" — the
+                        // order is canonical so the onboarding always
+                        // teaches zoom first.
+                        onAdvance = {
+                            tutorialStep = when (step) {
+                                TutorialStep.Zoom -> TutorialStep.Swipe
+                                TutorialStep.Swipe -> null
+                            }
+                        },
+                        // Force a +20% zoom-in step on the camera so
+                        // the gesture demonstrably does something
+                        // even if Compose's pointer-pipeline drops
+                        // the rest of the motion after the overlay
+                        // unmounts. Bounded against the camera's own
+                        // MIN/MAX so we never push past the hardware.
+                        // Via the ViewModel rather than direct
+                        // CameraControl so the box-scale derivation in
+                        // `recalculateState()` (the chain that snaps
+                        // the on-screen zoom-box rect) stays in sync.
+                        onZoomAction = {
+                            viewModel.setZoom(currentZoomRatio * 1.20f)
+                        },
+                        // Cycle the film preset directly. Direction
+                        // convention matches the camera's own
+                        // `detectHorizontalDragGestures` block so
+                        // LEFT → next, RIGHT → prev.
+                        onSwipeAction = { direction ->
+                            viewModel.cycleCameraPreset(direction)
+                        },
+                        // Either skip button drops the user straight
+                        // into the camera. Power users shouldn't be
+                        // forced through two animations.
+                        onSkipAll = { tutorialStep = null }
                     )
                 }
             }
