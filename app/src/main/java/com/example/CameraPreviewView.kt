@@ -69,6 +69,7 @@ import com.example.zoom.CaptureExtension
 import com.example.zoom.LensCatalog
 import com.example.zoom.LensRole
 import com.example.zoom.PreviewSessionManager
+import com.example.zoom.ZoomBoxCalculator
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -547,13 +548,19 @@ fun CameraPreviewView(
                     val newZoom = if (pointers.size >= 2) {
                         val pinchFactor = event.calculateZoom()
                         if (pinchFactor == 1.0f) null
-                        else (runningZoom * pinchFactor).coerceIn(1.0f, 3.0f)
+                        else (runningZoom * pinchFactor).coerceIn(
+                            ZoomBoxCalculator.MIN_ZOOM_RATIO,
+                            ZoomBoxCalculator.MAX_ZOOM_RATIO
+                        )
                     } else {
                         val dragPx = -event.calculatePan().y
                         if (dragPx == 0f) null
                         else {
                             val fractionalDrag = dragPx / heightPx
-                            (runningZoom * kotlin.math.exp(fractionalDrag / 0.7f)).coerceIn(1.0f, 3.0f)
+                            (runningZoom * kotlin.math.exp(fractionalDrag / 0.7f)).coerceIn(
+                                ZoomBoxCalculator.MIN_ZOOM_RATIO,
+                                ZoomBoxCalculator.MAX_ZOOM_RATIO
+                            )
                         }
                     }
 

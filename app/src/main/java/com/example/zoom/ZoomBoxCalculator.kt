@@ -18,6 +18,16 @@ object ZoomBoxCalculator {
     val TELE_FOCAL_LENGTH = 69f
 
     /**
+     * Digital zoom limits (ratios relative to the primary lens). Shared by the
+     * zoom gesture in CameraPreviewView and the clamp in CameraViewModel.setZoom
+     * so both stay in lock-step. 5.0x on a 24 mm primary reaches ~120 mm,
+     * roughly matching the tele lens — the box-shrink ceiling the UI was
+     * designed around.
+     */
+    const val MIN_ZOOM_RATIO = 1.0f
+    const val MAX_ZOOM_RATIO = 5.0f
+
+    /**
      * Calculates the zoom-box rect in pixel coordinates.
      *
      * @param viewfinderFocalLength Focal length of the viewfinder lens (e.g., 13mm UW)

@@ -46,6 +46,7 @@ import com.example.zoom.LensCatalog
 import com.example.zoom.LensRole
 import com.example.zoom.PreviewSessionManager
 import com.example.zoom.RawCapture
+import com.example.zoom.ZoomBoxCalculator
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -1053,7 +1054,10 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
 
     fun setZoom(ratio: Float) {
         if (_selectedLensRole.value != LensRole.PRIMARY) return
-        val clampedRatio = ratio.coerceIn(1.0f, 3.0f)
+        val clampedRatio = ratio.coerceIn(
+            ZoomBoxCalculator.MIN_ZOOM_RATIO,
+            ZoomBoxCalculator.MAX_ZOOM_RATIO
+        )
         _digitalZoomRatio.value = clampedRatio
         recalculateState()
     }
