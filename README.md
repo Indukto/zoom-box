@@ -2,6 +2,8 @@
 
 Retro-themed Android camera app built with Jetpack Compose and CameraX. Uses a "Zoom Box" framing overlay that shows the exact crop area before capture, paired with vintage film color processing, 3D LUT grading, and manual controls.
 
+If you have feature requests put them into issues 
+
 [![Screenshot-20260730-231458.png](https://i.postimg.cc/Kc38gxQY/Screenshot-20260730-231458.png)](https://postimg.cc/K4F26X6X) [![Screenshot-20260730-231920.png](https://i.postimg.cc/YSfMxCZz/Screenshot-20260730-231920.png)](https://postimg.cc/HJxqYdpr) 
 
 
