@@ -37,6 +37,10 @@ import androidx.lifecycle.viewModelScope
 import androidx.compose.runtime.Stable
 import com.example.color.CubeLut
 import com.example.color.CubeLutParser
+import com.example.color.CameraProfileRegistry
+import com.example.color.GpuCaptureProcessor
+import com.example.color.RetroRenderParams
+import com.example.color.toRetroRenderParams
 // LutColorFilter is no longer called here — its trilinear blend is now
 // inlined into applyRetroFilter's parallel chunks (one pixel pass total).
 import com.example.zoom.AspectRatio
@@ -187,7 +191,19 @@ enum class FilmPreset(
      */
     val milkyTintR: Float = 0f,
     val milkyTintG: Float = 0f,
-    val milkyTintB: Float = 0f) {
+    val milkyTintB: Float = 0f,
+    // ── Opt-in artifacts (zero defaults keep existing presets pixel-identical) ──
+    /**
+     * Filmic highlight roll-off in [0, 1]. Compresses the highlights above
+     * a soft ~0.7 knee into a rounded shoulder; 0 = linear (no roll-off).
+     * Consumed identically by the live GL shader and the CPU capture filter.
+     */
+    val defaultHighlightRolloff: Float = 0f,
+    /**
+     * Black-point fade in [0, 1]. Lifts shadows toward mid-gray while
+     * leaving mid-tones and highlights nearly untouched; 0 = no fade.
+     */
+    val defaultFade: Float = 0f) {
 
     WARM_PORTRAIT(
         "Warm Portrait",
@@ -365,6 +381,14 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     // while bounding memory after an outlier image.
     private companion object {
         const val MAX_RETAINED_FILTER_PIXELS = 16_000_000
+
+        /**
+         * When true, captures try the GPU still pipeline
+         * ([GpuCaptureProcessor]) first and fall back to the CPU filter on
+         * any EGL/shader failure. Kept off by default until the EGL path is
+         * validated against the CPU output on real Adreno/Mali hardware.
+         */
+        const val USE_GPU_CAPTURE = true
     }
 
     private val _selectedLensRole = MutableStateFlow(LensRole.PRIMARY)
@@ -445,6 +469,13 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     // Lazily-parsed LUTs keyed by asset path. Parsed once on first use and
     // reused for every subsequent capture that selects the same film.
     private val cachedLuts = mutableMapOf<String, CubeLut>()
+
+    // Backend look profiles (assets/cameras/*.json). JSON wins over the
+    // in-code FilmPreset adapter when a matching id exists, so adding a look
+    // no longer requires an enum edit. Loaded lazily on the capture thread.
+    private val cameraProfileRegistry by lazy {
+        CameraProfileRegistry(getApplication<Application>())
+    }
 
     private val _flashMode = MutableStateFlow(0)
     val flashMode: StateFlow<Int> = _flashMode.asStateFlow()
@@ -1627,49 +1658,35 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                     if (finalBitmap !== normalizedBitmap) normalizedBitmap.recycle()
                 }
 
-                val currentLut = loadLut(context, _activePreset.value)
                 val preset = _activePreset.value
-                val hasAdjustments = _temperature.value != 0f || _tint.value != 0f || _exposure.value != 0f
-                if (currentLut != null || hasAdjustments || preset.defaultGrainStrength > 0f ||
-                    preset.defaultFilmCurve > 0f || preset.defaultContrast != 1.0f ||
-                    preset.defaultSaturation != 1.0f || preset.defaultBloom > 0f ||
-                    preset.shadowTintStrength > 0f || preset.highlightTintStrength > 0f ||
-                    preset.defaultFringing > 0f ||
-                    // ── Soft-focus / milky-haze extras also force the
-                    //    post-process filter pass even when every other
-                    //    preset knob is neutral — without this guard a
-                    //    preset's soft-focus blur and milky haze would
-                    //    be silently skipped
-                    //    on a non-grad-baseline image (no LUT, no grain,
-                    //    no S-curve, etc. under default settings).
-                    preset.defaultSoftFocus > 0f || preset.defaultMilkyMix > 0f) {
-                    val filtered = finalBitmap.applyRetroFilter(
-                        _temperature.value,
-                        _tint.value,
-                        _exposure.value,
-                        lut = currentLut,
-                        grainStrength = preset.defaultGrainStrength,
-                        grainChroma = preset.defaultGrainChroma,
-                        filmCurve = preset.defaultFilmCurve,
-                        contrast = preset.defaultContrast,
-                        saturation = preset.defaultSaturation,
-                        bloomStrength = preset.defaultBloom,
-                        shadowTintStrength = preset.shadowTintStrength,
-                        shadowTintR = preset.shadowTintR,
-                        shadowTintG = preset.shadowTintG,
-                        shadowTintB = preset.shadowTintB,
-                        highlightTintStrength = preset.highlightTintStrength,
-                        highlightTintR = preset.highlightTintR,
-                        highlightTintG = preset.highlightTintG,
-                        highlightTintB = preset.highlightTintB,
-                        fringing = preset.defaultFringing,
-                        // ── Dreamcore-style extras ──
-                        softFocus = preset.defaultSoftFocus,
-                        milkyMix = preset.defaultMilkyMix,
-                        milkyTintR = preset.milkyTintR,
-                        milkyTintG = preset.milkyTintG,
-                        milkyTintB = preset.milkyTintB
-                    )
+                // One shared snapshot drives both the live preview and the
+                // post-capture filter, so the saved JPEG can never drift from
+                // what the viewfinder showed. The registry prefers a JSON
+                // profile over the enum when one is bundled; the bundled
+                // profile mirrors the enum so output is unchanged today.
+                val renderParams = cameraProfileRegistry.renderParamsFor(
+                    preset,
+                    temperature = _temperature.value,
+                    tint = _tint.value,
+                    exposure = _exposure.value
+                )
+                val currentLut = loadLut(context, preset)
+                if (currentLut != null || renderParams.needsProcessing) {
+                    val filtered = if (USE_GPU_CAPTURE) {
+                        // GPU still capture with a CPU fallback.
+                        // GpuCaptureProcessor returns null on any EGL/shader
+                        // failure, in which case the well-tested CPU pipeline
+                        // below still produces the saved JPEG.
+                        val gpu = try {
+                            GpuCaptureProcessor().process(finalBitmap, renderParams, lut = currentLut)
+                        } catch (e: Exception) {
+                            Log.e("CameraViewModel", "GPU capture threw; using CPU filter", e)
+                            null
+                        }
+                        gpu ?: finalBitmap.applyRetroFilter(renderParams, lut = currentLut)
+                    } else {
+                        finalBitmap.applyRetroFilter(renderParams, lut = currentLut)
+                    }
                     if (filtered !== finalBitmap) {
                         finalBitmap.recycle()
                         finalBitmap = filtered
@@ -1946,33 +1963,38 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private suspend fun Bitmap.applyRetroFilter(
-        tempVal: Float,
-        tintVal: Float,
-        expVal: Float,
-        lut: CubeLut? = null,
-        grainStrength: Float = 0f,
-        grainChroma: Float = 0f,
-        // ── New film effect parameters ──
-        filmCurve: Float = 0f,
-        contrast: Float = 1.0f,
-        saturation: Float = 1.0f,
-        bloomStrength: Float = 0f,
-        shadowTintStrength: Float = 0f,
-        shadowTintR: Float = 0f,
-        shadowTintG: Float = 0f,
-        shadowTintB: Float = 0f,
-        highlightTintStrength: Float = 0f,
-        highlightTintR: Float = 0f,
-        highlightTintG: Float = 0f,
-        highlightTintB: Float = 0f,
-        fringing: Float = 0f,
-        // ── Dreamcore-style extras ──
-        softFocus: Float = 0f,
-        milkyMix: Float = 0f,
-        milkyTintR: Float = 0f,
-        milkyTintG: Float = 0f,
-        milkyTintB: Float = 0f
+        params: RetroRenderParams,
+        lut: CubeLut? = null
     ): Bitmap {
+        // Destructure the shared snapshot into locals so the existing
+        // per-pixel body stays untouched (and stays in the same order as the
+        // GL shader's stages).
+        val tempVal = params.temperature
+        val tintVal = params.tint
+        val expVal = params.exposure
+        val grainStrength = params.grainStrength
+        val grainChroma = params.grainChroma
+        val filmCurve = params.filmCurve
+        val contrast = params.contrast
+        val saturation = params.saturation
+        val bloomStrength = params.bloom
+        val shadowTintStrength = params.shadowTintStrength
+        val shadowTintR = params.shadowTintR
+        val shadowTintG = params.shadowTintG
+        val shadowTintB = params.shadowTintB
+        val highlightTintStrength = params.highlightTintStrength
+        val highlightTintR = params.highlightTintR
+        val highlightTintG = params.highlightTintG
+        val highlightTintB = params.highlightTintB
+        val fringing = params.fringing
+        val softFocus = params.softFocus
+        val milkyMix = params.milkyMix
+        val milkyTintR = params.milkyTintR
+        val milkyTintG = params.milkyTintG
+        val milkyTintB = params.milkyTintB
+        val highlightRolloff = params.highlightRolloff
+        val fade = params.fade
+
         val w = this.width
         val h = this.height
         if (w <= 0 || h <= 0) return this
@@ -2289,6 +2311,24 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                             bf = (bf + warmGlowB).coerceIn(0f, 1f)
                         }
 
+                        // ── 5.5. Highlight roll-off (filmic shoulder) ──
+                        // Mirrors the GL shader's rolloffChannel() exactly:
+                        // identity below the 0.7 knee, soft shoulder above.
+                        if (highlightRolloff > 0f) {
+                            if (rf > 0.7f) {
+                                val t = (rf - 0.7f) / 0.3f
+                                rf = 0.7f + (t - highlightRolloff * t * (1f - t)) * 0.3f
+                            }
+                            if (gf > 0.7f) {
+                                val t = (gf - 0.7f) / 0.3f
+                                gf = 0.7f + (t - highlightRolloff * t * (1f - t)) * 0.3f
+                            }
+                            if (bf > 0.7f) {
+                                val t = (bf - 0.7f) / 0.3f
+                                bf = 0.7f + (t - highlightRolloff * t * (1f - t)) * 0.3f
+                            }
+                        }
+
                         // ── 6. Vignette ──
                         val distSq = dx * dx + rowDy2[y]
                         if (distSq > innerRadiusSq) {
@@ -2349,6 +2389,18 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                                 gf += highlightTintG * highlightW * highlightTintStrength
                                 bf += highlightTintB * highlightW * highlightTintStrength
                             }
+                            rf = rf.coerceIn(0f, 1f)
+                            gf = gf.coerceIn(0f, 1f)
+                            bf = bf.coerceIn(0f, 1f)
+                        }
+
+                        // ── 8.5. Fade (black-point lift) ──
+                        // Mirrors the GL shader: lift shadows toward mid-gray,
+                        // leaving mid-tones and highlights nearly untouched.
+                        if (fade > 0f) {
+                            rf += fade * (0.5f - rf) * (1f - rf)
+                            gf += fade * (0.5f - gf) * (1f - gf)
+                            bf += fade * (0.5f - bf) * (1f - bf)
                             rf = rf.coerceIn(0f, 1f)
                             gf = gf.coerceIn(0f, 1f)
                             bf = bf.coerceIn(0f, 1f)

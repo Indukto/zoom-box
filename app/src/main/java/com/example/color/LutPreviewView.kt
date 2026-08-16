@@ -106,47 +106,14 @@ class LutPreviewView(
     // ------------------------------------------------------------------
     // Public pass-through setters (UI thread → renderer)
 
-    fun setWhiteBalance(temp: Float, tint: Float, exposure: Float) {
-        renderer.setWhiteBalance(temp, tint, exposure)
-    }
-
-    fun setFilmEffects(
-        filmCurve: Float,
-        contrast: Float,
-        saturation: Float,
-        bloomStrength: Float,
-        fringing: Float,
-        shadowTintR: Float,
-        shadowTintG: Float,
-        shadowTintB: Float,
-        shadowTintStrength: Float,
-        highlightTintR: Float,
-        highlightTintG: Float,
-        highlightTintB: Float,
-        highlightTintStrength: Float
-    ) {
-        renderer.setFilmEffects(
-            filmCurve, contrast, saturation, bloomStrength, fringing,
-            shadowTintR, shadowTintG, shadowTintB, shadowTintStrength,
-            highlightTintR, highlightTintG, highlightTintB, highlightTintStrength
-        )
-    }
-
     /**
-     * Push the DREAM-core extras (soft-focus blur + milky pastel haze
-     * overlay) onto the GPU renderer. Both new effects run on the live
-     * preview so the user sees them gracing the viewfinder immediately
-     * when they tap a dreamcore-style preset. Other presets pass all
-     * zeros so the shader branches skip these stages entirely.
+     * Push one immutable render-parameter snapshot (preset look + user WB /
+     * exposure) to the GPU renderer. Both the live preview and the CPU
+     * capture pipeline build the same [RetroRenderParams], so the viewfinder
+     * and the saved JPEG share a single source of truth.
      */
-    fun setDreamcoreEffects(
-        softFocus: Float,
-        milkyMix: Float,
-        milkyTintR: Float,
-        milkyTintG: Float,
-        milkyTintB: Float
-    ) {
-        renderer.setDreamcoreEffects(softFocus, milkyMix, milkyTintR, milkyTintG, milkyTintB)
+    fun setRenderParams(params: RetroRenderParams) {
+        renderer.setRenderParams(params)
     }
 
     fun setLut(lut: CubeLut?) {

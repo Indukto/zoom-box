@@ -64,6 +64,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import com.example.color.CubeLut
 import com.example.color.CubeLutParser
 import com.example.color.LutPreviewView
+import com.example.color.toRetroRenderParams
 import com.example.FilmPreset
 import com.example.zoom.CaptureExtension
 import com.example.zoom.LensCatalog
@@ -470,48 +471,24 @@ fun CameraPreviewView(
         }
     }
 
-    // Push white-balance + exposure into the GL renderer every time they
-    // change. The renderer marshals the values onto the GL thread.
-    LaunchedEffect(temperature, tint, exposure) {
-        lutPreviewView.setWhiteBalance(temperature, tint, exposure)
+    // Push one immutable render-parameter snapshot (preset look + user WB /
+    // exposure) into the GL renderer. This mirrors the capture pipeline,
+    // which flattens the same preset + adjustments into the same
+    // RetroRenderParams, so the live viewfinder and the saved JPEG agree.
+    LaunchedEffect(activePreset, temperature, tint, exposure) {
+        lutPreviewView.setRenderParams(
+            activePreset.toRetroRenderParams(
+                temperature = temperature,
+                tint = tint,
+                exposure = exposure
+            )
+        )
     }
 
     // Push the active LUT into the GL renderer. Loads (and caches) the LUT
     // from assets on first use.
     LaunchedEffect(activeLut) {
         lutPreviewView.setLut(activeLut)
-    }
-
-    // Push per-preset film effect parameters to the GPU renderer whenever
-    // the preset changes. These include film curve, contrast, saturation,
-    // bloom/halation, chromatic fringing, and split toning values.
-    LaunchedEffect(activePreset) {
-        lutPreviewView.setFilmEffects(
-            filmCurve = activePreset.defaultFilmCurve,
-            contrast = activePreset.defaultContrast,
-            saturation = activePreset.defaultSaturation,
-            bloomStrength = activePreset.defaultBloom,
-            fringing = activePreset.defaultFringing,
-            shadowTintR = activePreset.shadowTintR,
-            shadowTintG = activePreset.shadowTintG,
-            shadowTintB = activePreset.shadowTintB,
-            shadowTintStrength = activePreset.shadowTintStrength,
-            highlightTintR = activePreset.highlightTintR,
-            highlightTintG = activePreset.highlightTintG,
-            highlightTintB = activePreset.highlightTintB,
-            highlightTintStrength = activePreset.highlightTintStrength
-        )
-        // Push the dreamcore-style extras (soft-focus blur + milky pastel
-        // haze) alongside the regular film-effect uniforms so the live
-        // viewfinder matches what the post-capture JPEG will look like.
-        // Other presets pass zeros so the shader `if` branches short-circuit.
-        lutPreviewView.setDreamcoreEffects(
-            softFocus = activePreset.defaultSoftFocus,
-            milkyMix = activePreset.defaultMilkyMix,
-            milkyTintR = activePreset.milkyTintR,
-            milkyTintG = activePreset.milkyTintG,
-            milkyTintB = activePreset.milkyTintB
-        )
     }
 
     // Mirror the front-camera preview horizontally to match the stock

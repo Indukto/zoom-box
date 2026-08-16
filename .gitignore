@@ -27,3 +27,6 @@ debug.keystore
 
 # Freebuff desktop app local SQLite state — never commit.
 .freebuff/
+
+# Local reference clone used for comparison; ignore the entire checkout.
+/third_party/dazz-retro-camera/

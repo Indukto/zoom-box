@@ -38,17 +38,26 @@ class LutPreviewRenderer(
         private set
 
     // --- GL program state ---
+    // DAZZ's renderer uses two passes: copy the external camera texture into
+    // a stable 2D texture first, then run all multi-sample effects from that
+    // snapshot. Sampling the OES texture repeatedly in one fragment shader can
+    // produce unstable frames on tile-based GPUs (Mali/Adreno).
+    private var copyProgram = 0
+    private var copyAPositionLoc = 0
+    private var copyATexCoordLoc = 0
+    private var copyUTextureLoc = 0
+    private var copyUStMatrixLoc = 0
+    private var copyUTexCropLoc = 0
+
     private var program = 0
     private var aPositionLoc = 0
     private var aTexCoordLoc = 0
     private var uTextureLoc = 0
-    private var uStMatrixLoc = 0
     private var uTemperatureLoc = 0
     private var uTintLoc = 0
     private var uExposureLoc = 0
     private var uLutEnabledLoc = 0
     private var uLutLoc = 0
-    private var uTexCropLoc = 0
     private var uViewSizeLoc = 0
 
     // ── New effect uniforms ──
@@ -73,10 +82,24 @@ class LutPreviewRenderer(
     private var uMilkyTintGLoc = 0
     private var uMilkyTintBLoc = 0
 
+    // ── Opt-in artifact uniforms (highlight roll-off, fade, film grain) ──
+    private var uHighlightRolloffLoc = 0
+    private var uFadeLoc = 0
+    private var uGrainStrengthLoc = 0
+    private var uGrainChromaLoc = 0
+
     private var inputTexture = 0
     private var lutTexture = 0
     private var lutWidth = 0  // 0 == no LUT uploaded yet
     private var has3dTextures = false  // false when GPU lacks GL_OES_texture_3D
+
+    // Intermediate render target for the OES -> 2D copy pass. It is sized to
+    // the GLSurfaceView viewport and recreated whenever the EGL surface size
+    // changes. All access happens on the GL thread.
+    private var intermediateFbo = 0
+    private var intermediateTexture = 0
+    private var intermediateWidth = 0
+    private var intermediateHeight = 0
 
     // --- Per-frame inputs ---
     private val stMatrix = FloatArray(16)
@@ -110,7 +133,15 @@ class LutPreviewRenderer(
     @Volatile private var milkyTintG = 0f
     @Volatile private var milkyTintB = 0f
 
-    // Pending LUT (set from UI thread, consumed on GL thread).
+    // ── Opt-in artifact inputs. Grain stays 0 in the live preview (only the
+    //    GPU capture processor feeds non-zero grain), so the viewfinder keeps
+    //    its grain-free look even for grainy film presets. ──
+    @Volatile private var highlightRolloff = 0f
+    @Volatile private var fade = 0f
+
+    // The active LUT is retained so it can be re-uploaded after an EGL
+    // context recreation. The pending value is consumed only on the GL thread.
+    @Volatile private var activeLut: CubeLut? = null
     @Volatile private var pendingLut: CubeLut? = null
 
     // Surface-buffer aspect (set by SurfaceProvider), used for FILL_CENTER crop.
@@ -122,76 +153,37 @@ class LutPreviewRenderer(
     // ------------------------------------------------------------------
     // Public API (called from the UI/compose thread)
 
-    /** White-balance + exposure. Bounds: temp/tint ∈ [-2,2], exposure ∈ [-3,3]. */
-    fun setWhiteBalance(temp: Float, tintVal: Float, exposureVal: Float) {
-        temperature = temp
-        tint = tintVal
-        exposure = exposureVal
-        glSurfaceView.requestRender()
-    }
-
     /**
-     * Set all film effect parameters for the current preset.
-     * These are applied in the shader between exposure and vignette.
+     * Set every color/tone parameter for the current preset in one batch.
+     * This is the single entry point shared with the CPU capture pipeline:
+     * both paths consume the same [RetroRenderParams] snapshot so the live
+     * viewfinder and the saved JPEG stay in sync. WB/exposure, film effects,
+     * and dreamcore extras previously arrived through three separate setters.
      */
-    fun setFilmEffects(
-        filmCurveVal: Float,
-        contrastVal: Float,
-        saturationVal: Float,
-        bloomStrengthVal: Float,
-        fringingVal: Float,
-        shadowTintRVal: Float,
-        shadowTintGVal: Float,
-        shadowTintBVal: Float,
-        shadowTintStrengthVal: Float,
-        highlightTintRVal: Float,
-        highlightTintGVal: Float,
-        highlightTintBVal: Float,
-        highlightTintStrengthVal: Float
-    ) {
-        filmCurve = filmCurveVal
-        contrast = contrastVal
-        saturation = saturationVal
-        bloomStrength = bloomStrengthVal
-        fringing = fringingVal
-        shadowTintR = shadowTintRVal
-        shadowTintG = shadowTintGVal
-        shadowTintB = shadowTintBVal
-        shadowTintStrength = shadowTintStrengthVal
-        highlightTintR = highlightTintRVal
-        highlightTintG = highlightTintGVal
-        highlightTintB = highlightTintBVal
-        highlightTintStrength = highlightTintStrengthVal
-        glSurfaceView.requestRender()
-    }
-
-    /**
-     * Set the dreamcore-style extras for the current preset:
-     *   - [softFocusVal]: 0 = sharp, 1 = full 3x3 box blur applied to the
-     *     WB+exposed signal (added before tone-mapping so the lift and
-     *     saturation also feel the blur — matches the gauzy dreamcore
-     *     softness without needing a separable Gaussian resource pass).
-     *   - [milkyMixVal] + [milkyTintRVal]/[milkyTintGVal]/[milkyTintBVal]:
-     *     a pastel cream overlay applied as the LAST stage of the shader
-     *     (after LUT), weighted toward shadows (so warm-cream tones wash
-     *     into the dark areas while highlights stay punchier). 0 = inert.
-     *
-     * External callers (e.g. CameraPreviewView's preset effect sync)
-     * invoke this whenever [FilmPreset.activePreset] changes; the new
-     * values take effect on the next render frame.
-     */
-    fun setDreamcoreEffects(
-        softFocusVal: Float,
-        milkyMixVal: Float,
-        milkyTintRVal: Float,
-        milkyTintGVal: Float,
-        milkyTintBVal: Float
-    ) {
-        softFocus = softFocusVal
-        milkyMix = milkyMixVal
-        milkyTintR = milkyTintRVal
-        milkyTintG = milkyTintGVal
-        milkyTintB = milkyTintBVal
+    fun setRenderParams(params: RetroRenderParams) {
+        temperature = params.temperature
+        tint = params.tint
+        exposure = params.exposure
+        filmCurve = params.filmCurve
+        contrast = params.contrast
+        saturation = params.saturation
+        bloomStrength = params.bloom
+        fringing = params.fringing
+        shadowTintR = params.shadowTintR
+        shadowTintG = params.shadowTintG
+        shadowTintB = params.shadowTintB
+        shadowTintStrength = params.shadowTintStrength
+        highlightTintR = params.highlightTintR
+        highlightTintG = params.highlightTintG
+        highlightTintB = params.highlightTintB
+        highlightTintStrength = params.highlightTintStrength
+        softFocus = params.softFocus
+        milkyMix = params.milkyMix
+        milkyTintR = params.milkyTintR
+        milkyTintG = params.milkyTintG
+        milkyTintB = params.milkyTintB
+        highlightRolloff = params.highlightRolloff
+        fade = params.fade
         glSurfaceView.requestRender()
     }
 
@@ -205,6 +197,7 @@ class LutPreviewRenderer(
      * The upload happens on the GL thread on the next frame.
      */
     fun setLut(lut: CubeLut?) {
+        activeLut = lut
         pendingLut = lut
         glSurfaceView.requestRender()
     }
@@ -235,27 +228,53 @@ class LutPreviewRenderer(
     // GLSurfaceView.Renderer
 
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
-        // Detect 3D-texture support. The full FRAG_SHADER uses sampler3D;
-        // some emulator GPUs lack GL_OES_texture_3D. Fall back to a
-        // simpler shader (WB + exposure + vignette only) on those devices.
-        program = createProgram(VERT_SHADER, FRAG_SHADER)
+        // A GLSurfaceView may recreate its EGL context after pause/resume.
+        // Release the old SurfaceTexture first, then delete any resources that
+        // still belong to the current context. Deletion is harmless after a
+        // context loss, while doing it here also avoids leaks if the same EGL
+        // context survives a surface recreation.
+        surfaceTexture?.let { old ->
+            try { old.setOnFrameAvailableListener(null) } catch (_: Exception) {}
+            try { old.release() } catch (_: Exception) {}
+        }
+        surfaceTexture = null
+        surfaceTextureReady = false
+        destroyGlResources()
+
+        // A context loss invalidates the uploaded 3D texture, but not the
+        // immutable CubeLut value held by the UI. Re-upload it on the first
+        // frame of the new context unless a newer request is already pending.
+        if (pendingLut == null) pendingLut = activeLut
+
+        // Pass 1: external OES camera frame -> stable 2D texture.
+        copyProgram = createProgram(VERT_SHADER, COPY_FRAGMENT_SHADER)
+        require(copyProgram != 0) { "Failed to compile camera copy program" }
+
+        // Pass 2: effect shader samples sampler2D only. If the device cannot
+        // compile the 3D-LUT variant, keep the same two-pass architecture and
+        // fall back to the no-LUT effect shader.
+        program = createProgram(EFFECT_VERT_SHADER, FRAG_SHADER)
         has3dTextures = program != 0
         if (!has3dTextures) {
             Log.w(TAG, "GL_OES_texture_3D not supported; LUT preview disabled")
-            program = createProgram(VERT_SHADER, FRAG_SHADER_NO_3D)
+            program = createProgram(EFFECT_VERT_SHADER, FRAG_SHADER_NO_3D)
         }
         require(program != 0) { "Failed to compile LUT preview program" }
+
+        copyAPositionLoc = GLES20.glGetAttribLocation(copyProgram, "aPosition")
+        copyATexCoordLoc = GLES20.glGetAttribLocation(copyProgram, "aTexCoord")
+        copyUTextureLoc = GLES20.glGetUniformLocation(copyProgram, "uTexture")
+        copyUStMatrixLoc = GLES20.glGetUniformLocation(copyProgram, "uStMatrix")
+        copyUTexCropLoc = GLES20.glGetUniformLocation(copyProgram, "uTexCrop")
 
         aPositionLoc = GLES20.glGetAttribLocation(program, "aPosition")
         aTexCoordLoc = GLES20.glGetAttribLocation(program, "aTexCoord")
         uTextureLoc = GLES20.glGetUniformLocation(program, "uTexture")
-        uStMatrixLoc = GLES20.glGetUniformLocation(program, "uStMatrix")
         uTemperatureLoc = GLES20.glGetUniformLocation(program, "uTemperature")
         uTintLoc = GLES20.glGetUniformLocation(program, "uTint")
         uExposureLoc = GLES20.glGetUniformLocation(program, "uExposure")
         uLutEnabledLoc = GLES20.glGetUniformLocation(program, "uLutEnabled")
         uLutLoc = GLES20.glGetUniformLocation(program, "uLut")
-        uTexCropLoc = GLES20.glGetUniformLocation(program, "uTexCrop")
         uViewSizeLoc = GLES20.glGetUniformLocation(program, "uViewSize")
 
         // ── New effect uniform locations ──
@@ -279,6 +298,12 @@ class LutPreviewRenderer(
         uMilkyTintRLoc = GLES20.glGetUniformLocation(program, "uMilkyTintR")
         uMilkyTintGLoc = GLES20.glGetUniformLocation(program, "uMilkyTintG")
         uMilkyTintBLoc = GLES20.glGetUniformLocation(program, "uMilkyTintB")
+
+        // ── Opt-in artifact uniform locations ──
+        uHighlightRolloffLoc = GLES20.glGetUniformLocation(program, "uHighlightRolloff")
+        uFadeLoc = GLES20.glGetUniformLocation(program, "uFade")
+        uGrainStrengthLoc = GLES20.glGetUniformLocation(program, "uGrainStrength")
+        uGrainChromaLoc = GLES20.glGetUniformLocation(program, "uGrainChroma")
 
         // Drain any stale GL errors from EGL-context creation or the program
         // link above. GL errors are sticky flags that survive across bind
@@ -330,43 +355,78 @@ class LutPreviewRenderer(
         viewWidth = width
         viewHeight = height
         GLES20.glViewport(0, 0, width, height)
+        ensureIntermediateTarget(width, height)
     }
 
     override fun onDrawFrame(gl: GL10?) {
-        // Upload any pending LUT.
+        // Upload any pending LUT on the GL thread.
         pendingLut?.let { uploadLut(it); pendingLut = null }
 
         val st = surfaceTexture ?: return
-        GLES20.glClearColor(0f, 0f, 0f, 1f)
-        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
-
         try {
+            // The external texture must be consumed once per frame before it is
+            // copied. This also prevents the SurfaceTexture queue from backing
+            // up while the effect pass is doing its extra samples.
             st.updateTexImage()
+            st.getTransformMatrix(stMatrix)
         } catch (e: Exception) {
             // SurfaceTexture may be released during a rebind; just skip this frame.
             return
         }
-        st.getTransformMatrix(stMatrix)
 
-        GLES20.glUseProgram(program)
+        if (viewWidth <= 0 || viewHeight <= 0) return
+        if (intermediateFbo == 0 ||
+            intermediateWidth != viewWidth || intermediateHeight != viewHeight
+        ) {
+            ensureIntermediateTarget(viewWidth, viewHeight)
+        }
 
-        // Vertex coords (a fullscreen triangle pair).
+        if (intermediateFbo == 0 || intermediateTexture == 0) {
+            // FBO creation is expected to work on every GLES implementation,
+            // but keep a live ungraded preview rather than showing a permanent
+            // black screen if a vendor driver rejects the target.
+            drawCameraFallback()
+            return
+        }
+
+        drawCopyPass()
+        drawEffectPass()
+    }
+
+    /** Copies one camera frame from the external OES texture into the stable 2D FBO texture. */
+    private fun drawCopyPass() {
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, intermediateFbo)
+        GLES20.glViewport(0, 0, intermediateWidth, intermediateHeight)
+        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
+        GLES20.glUseProgram(copyProgram)
+
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, inputTexture)
-        GLES20.glUniform1i(uTextureLoc, 0)
-        GLES20.glUniformMatrix4fv(uStMatrixLoc, 1, false, stMatrix, 0)
+        GLES20.glUniform1i(copyUTextureLoc, 0)
+        GLES20.glUniformMatrix4fv(copyUStMatrixLoc, 1, false, stMatrix, 0)
 
-        // Tex crop: FILL_CENTER. We compute the sub-rect of the camera buffer
-        // that fills the view without letterboxing, in normalized coords.
         val crop = computeFillCenterCrop()
-        GLES20.glUniform4f(uTexCropLoc, crop[0], crop[1], crop[2], crop[3])
+        GLES20.glUniform4f(copyUTexCropLoc, crop[0], crop[1], crop[2], crop[3])
+        drawQuad(copyAPositionLoc, copyATexCoordLoc, quadTexCoordBuf(flipH))
+    }
 
+    /** Runs the existing effect shader over the copied 2D frame and presents it. */
+    private fun drawEffectPass() {
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
+        GLES20.glViewport(0, 0, viewWidth, viewHeight)
+        GLES20.glClearColor(0f, 0f, 0f, 1f)
+        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
+        GLES20.glUseProgram(program)
+
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, intermediateTexture)
+        GLES20.glUniform1i(uTextureLoc, 0)
         GLES20.glUniform1f(uTemperatureLoc, temperature)
         GLES20.glUniform1f(uTintLoc, tint)
         GLES20.glUniform1f(uExposureLoc, exposure)
         GLES20.glUniform2f(uViewSizeLoc, viewWidth.toFloat(), viewHeight.toFloat())
 
-        // ── Upload new effect uniforms ──
+        // ── Upload film effect uniforms ──
         GLES20.glUniform1f(uFilmCurveLoc, filmCurve)
         GLES20.glUniform1f(uContrastLoc, contrast)
         GLES20.glUniform1f(uSaturationLoc, saturation)
@@ -381,12 +441,20 @@ class LutPreviewRenderer(
         GLES20.glUniform1f(uHighlightTintBLoc, highlightTintB)
         GLES20.glUniform1f(uHighlightTintStrengthLoc, highlightTintStrength)
 
-        // ── Dreamcore-style extras (uniform upload) ──
+        // ── Upload dreamcore uniforms ──
         GLES20.glUniform1f(uSoftFocusLoc, softFocus)
         GLES20.glUniform1f(uMilkyMixLoc, milkyMix)
         GLES20.glUniform1f(uMilkyTintRLoc, milkyTintR)
         GLES20.glUniform1f(uMilkyTintGLoc, milkyTintG)
         GLES20.glUniform1f(uMilkyTintBLoc, milkyTintB)
+
+        // ── Upload opt-in artifact uniforms. Grain is forced to 0 here: the
+        //    live viewfinder intentionally stays grain-free (grain is a
+        //    capture-time finish applied to the saved JPEG). ──
+        GLES20.glUniform1f(uHighlightRolloffLoc, highlightRolloff)
+        GLES20.glUniform1f(uFadeLoc, fade)
+        GLES20.glUniform1f(uGrainStrengthLoc, 0f)
+        GLES20.glUniform1f(uGrainChromaLoc, 0f)
 
         if (has3dTextures && lutEnabled && lutWidth > 0) {
             GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
@@ -397,21 +465,44 @@ class LutPreviewRenderer(
             GLES20.glUniform1i(uLutEnabledLoc, 0)
         }
 
-        quadPositionBuf().position(0)
-        GLES20.glEnableVertexAttribArray(aPositionLoc)
-        GLES20.glVertexAttribPointer(aPositionLoc, 2, GLES20.GL_FLOAT, false, 0, quadPositionBuf())
-
-        quadTexCoordBuf(flipH).position(0)
-        GLES20.glEnableVertexAttribArray(aTexCoordLoc)
-        GLES20.glVertexAttribPointer(aTexCoordLoc, 2, GLES20.GL_FLOAT, false, 0, quadTexCoordBuf(flipH))
-
-        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
-
-        GLES20.glDisableVertexAttribArray(aPositionLoc)
-        GLES20.glDisableVertexAttribArray(aTexCoordLoc)
+        // The copy pass owns the camera transform, crop, and front-camera
+        // mirror. The effect pass reads a full, already-oriented 2D texture.
+        drawQuad(aPositionLoc, aTexCoordLoc, quadTexCoordBuf(false))
     }
 
-    /** Releases the SurfaceTexture when the camera session is torn down. */
+    /** Ungraded but correctly oriented fallback used only if an FBO is unavailable. */
+    private fun drawCameraFallback() {
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
+        GLES20.glViewport(0, 0, viewWidth, viewHeight)
+        GLES20.glClearColor(0f, 0f, 0f, 1f)
+        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
+        GLES20.glUseProgram(copyProgram)
+
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
+        GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, inputTexture)
+        GLES20.glUniform1i(copyUTextureLoc, 0)
+        GLES20.glUniformMatrix4fv(copyUStMatrixLoc, 1, false, stMatrix, 0)
+        val crop = computeFillCenterCrop()
+        GLES20.glUniform4f(copyUTexCropLoc, crop[0], crop[1], crop[2], crop[3])
+        drawQuad(copyAPositionLoc, copyATexCoordLoc, quadTexCoordBuf(flipH))
+    }
+
+    private fun drawQuad(positionLoc: Int, texCoordLoc: Int, texCoords: FloatBuffer) {
+        if (positionLoc < 0 || texCoordLoc < 0) return
+        val positions = quadPositionBuf()
+        positions.position(0)
+        texCoords.position(0)
+
+        GLES20.glEnableVertexAttribArray(positionLoc)
+        GLES20.glVertexAttribPointer(positionLoc, 2, GLES20.GL_FLOAT, false, 0, positions)
+        GLES20.glEnableVertexAttribArray(texCoordLoc)
+        GLES20.glVertexAttribPointer(texCoordLoc, 2, GLES20.GL_FLOAT, false, 0, texCoords)
+        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
+        GLES20.glDisableVertexAttribArray(positionLoc)
+        GLES20.glDisableVertexAttribArray(texCoordLoc)
+    }
+
+    /** Releases the SurfaceTexture and all GL resources when the camera session is torn down. */
     fun releaseSurfaceTexture() {
         val st = surfaceTexture
         if (st != null) {
@@ -420,10 +511,98 @@ class LutPreviewRenderer(
         }
         surfaceTexture = null
         surfaceTextureReady = false
+        destroyGlResources()
     }
 
     // ------------------------------------------------------------------
     // Internals
+
+    /** Creates or resizes the intermediate RGBA texture used by the copy pass. */
+    private fun ensureIntermediateTarget(width: Int, height: Int) {
+        if (width <= 0 || height <= 0) return
+        if (intermediateFbo != 0 &&
+            intermediateWidth == width && intermediateHeight == height
+        ) return
+
+        destroyIntermediateTarget()
+
+        val textureIds = IntArray(1)
+        GLES20.glGenTextures(1, textureIds, 0)
+        intermediateTexture = textureIds[0]
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, intermediateTexture)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
+        GLES20.glTexImage2D(
+            GLES20.GL_TEXTURE_2D,
+            0,
+            GLES20.GL_RGBA,
+            width,
+            height,
+            0,
+            GLES20.GL_RGBA,
+            GLES20.GL_UNSIGNED_BYTE,
+            null
+        )
+
+        val fboIds = IntArray(1)
+        GLES20.glGenFramebuffers(1, fboIds, 0)
+        intermediateFbo = fboIds[0]
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, intermediateFbo)
+        GLES20.glFramebufferTexture2D(
+            GLES20.GL_FRAMEBUFFER,
+            GLES20.GL_COLOR_ATTACHMENT0,
+            GLES20.GL_TEXTURE_2D,
+            intermediateTexture,
+            0
+        )
+        val status = GLES20.glCheckFramebufferStatus(GLES20.GL_FRAMEBUFFER)
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
+
+        if (status != GLES20.GL_FRAMEBUFFER_COMPLETE) {
+            Log.e(TAG, "Intermediate preview FBO is incomplete: 0x${Integer.toHexString(status)}")
+            destroyIntermediateTarget()
+            return
+        }
+
+        intermediateWidth = width
+        intermediateHeight = height
+        Log.d(TAG, "Intermediate preview FBO ready: ${width}x${height}")
+    }
+
+    private fun destroyIntermediateTarget() {
+        if (intermediateFbo != 0) {
+            GLES20.glDeleteFramebuffers(1, intArrayOf(intermediateFbo), 0)
+        }
+        if (intermediateTexture != 0) {
+            GLES20.glDeleteTextures(1, intArrayOf(intermediateTexture), 0)
+        }
+        intermediateFbo = 0
+        intermediateTexture = 0
+        intermediateWidth = 0
+        intermediateHeight = 0
+    }
+
+    /** Deletes resources owned by the current GL context. Must run on the GL thread. */
+    private fun destroyGlResources() {
+        destroyIntermediateTarget()
+        if (inputTexture != 0) {
+            GLES20.glDeleteTextures(1, intArrayOf(inputTexture), 0)
+        }
+        if (lutTexture != 0) {
+            GLES20.glDeleteTextures(1, intArrayOf(lutTexture), 0)
+        }
+        if (copyProgram != 0) GLES20.glDeleteProgram(copyProgram)
+        if (program != 0) GLES20.glDeleteProgram(program)
+        inputTexture = 0
+        lutTexture = 0
+        lutWidth = 0
+        lutEnabled = false
+        copyProgram = 0
+        program = 0
+        has3dTextures = false
+    }
 
     private fun uploadLut(lut: CubeLut) {
         if (!has3dTextures) return  // GPU doesn't support 3D textures
@@ -581,6 +760,30 @@ class LutPreviewRenderer(
     companion object {
         private const val TAG = "LutPreviewRenderer"
 
+        // Pass 1 fragment shader: sample the camera's external OES texture
+        // exactly once and write a stable RGBA frame into the intermediate FBO.
+        private const val COPY_FRAGMENT_SHADER = """
+            #extension GL_OES_EGL_image_external : require
+            precision mediump float;
+            uniform samplerExternalOES uTexture;
+            varying vec2 vTexCoord;
+            void main() {
+                gl_FragColor = texture2D(uTexture, vTexCoord);
+            }
+        """
+
+        // Pass 2 vertex shader: the copy pass already applied the camera
+        // transform, crop, and mirror, so effects sample the 2D texture as-is.
+        internal const val EFFECT_VERT_SHADER = """
+            attribute vec4 aPosition;
+            attribute vec2 aTexCoord;
+            varying vec2 vTexCoord;
+            void main() {
+                gl_Position = aPosition;
+                vTexCoord = aTexCoord;
+            }
+        """
+
         // Quad vertices (clip space) → fullscreen triangle strip.
         private const val VERT_SHADER = """
             uniform mat4 uStMatrix;
@@ -604,12 +807,11 @@ class LutPreviewRenderer(
         // Uses GL_OES_EGL_image_external for the camera texture and
         // GL_OES_texture_3D for the LUT. Vignette math matches the CPU
         // applyRetroFilter RadialGradient.
-        private const val FRAG_SHADER = """
-            #extension GL_OES_EGL_image_external : require
+        internal const val FRAG_SHADER = """
             #extension GL_OES_texture_3D : enable
             precision mediump float;
             precision mediump sampler3D;
-            uniform samplerExternalOES uTexture;
+            uniform sampler2D uTexture;
             uniform mediump sampler3D uLut;
             uniform float uTemperature;
             uniform float uTint;
@@ -639,6 +841,12 @@ class LutPreviewRenderer(
             uniform float uMilkyTintG;
             uniform float uMilkyTintB;
 
+            // ── Opt-in artifact uniforms (highlight roll-off, fade, grain) ──
+            uniform float uHighlightRolloff;
+            uniform float uFade;
+            uniform float uGrainStrength;
+            uniform float uGrainChroma;
+
             varying vec2 vTexCoord;
 
             // ── Filmic S-curve ──
@@ -650,6 +858,21 @@ class LutPreviewRenderer(
                 float midPush = (x - 0.5) * s * 0.15;
                 result += midPush;
                 return clamp(result, 0.0, 1.0);
+            }
+
+            // ── Filmic highlight roll-off ──
+            // Compresses values above a soft ~0.7 knee into a rounded
+            // shoulder. At roll-off = 0 the knee is identity (no-op).
+            float rolloffChannel(float x) {
+                if (x <= 0.7) return x;
+                float t = (x - 0.7) / 0.3;
+                float shoulder = t - uHighlightRolloff * t * (1.0 - t);
+                return 0.7 + shoulder * 0.3;
+            }
+
+            // ── Per-pixel hash for film grain ──
+            float hash(vec2 p) {
+                return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
             }
 
             void main() {
@@ -719,6 +942,14 @@ class LutPreviewRenderer(
                     c = clamp(c, 0.0, 1.0);
                 }
 
+                // ── 5.5. Highlight roll-off (filmic shoulder) ──
+                // Rounds off the brightest stops so they never clip hard.
+                if (uHighlightRolloff > 0.0) {
+                    c.r = rolloffChannel(c.r);
+                    c.g = rolloffChannel(c.g);
+                    c.b = rolloffChannel(c.b);
+                }
+
                 // ── 6. Vignette ──
                 vec2 center = uViewSize * 0.5;
                 float dist = distance(gl_FragCoord.xy, center);
@@ -762,6 +993,33 @@ class LutPreviewRenderer(
                 }
                 c = clamp(c, 0.0, 1.0);
 
+                // ── 8.5. Fade (black-point lift) ──
+                // Lifts shadows toward mid-gray while mid-tones and
+                // highlights are left nearly untouched. Identical formula
+                // on CPU and GPU so preview and capture stay in sync.
+                if (uFade > 0.0) {
+                    c.r += uFade * (0.5 - c.r) * (1.0 - c.r);
+                    c.g += uFade * (0.5 - c.g) * (1.0 - c.g);
+                    c.b += uFade * (0.5 - c.b) * (1.0 - c.b);
+                    c = clamp(c, 0.0, 1.0);
+                }
+
+                // ── 8.7. Film grain (capture finish; 0 in live preview) ──
+                if (uGrainStrength > 0.0) {
+                    float n = hash(gl_FragCoord.xy + vec2(0.13, 0.71));
+                    float mono = (n - 0.5) * 2.0 * uGrainStrength * 0.15;
+                    c.rgb += vec3(mono);
+                    if (uGrainChroma > 0.0) {
+                        float nr = hash(gl_FragCoord.xy + vec2(7.1, 3.7));
+                        float ng = hash(gl_FragCoord.xy + vec2(91.3, 47.2));
+                        float nb = hash(gl_FragCoord.xy + vec2(13.4, 71.9));
+                        c.r += (nr - 0.5) * 2.0 * uGrainStrength * uGrainChroma * 0.1;
+                        c.g += (ng - 0.5) * 2.0 * uGrainStrength * uGrainChroma * 0.1;
+                        c.b += (nb - 0.5) * 2.0 * uGrainStrength * uGrainChroma * 0.1;
+                    }
+                    c = clamp(c, 0.0, 1.0);
+                }
+
                 // ── 9. 3D LUT ──
                 if (uLutEnabled == 1) {
                     c = texture3D(uLut, c).rgb;
@@ -788,11 +1046,12 @@ class LutPreviewRenderer(
         // Fallback fragment shader for GPUs that lack GL_OES_texture_3D
         // (e.g. some Android Emulator GPU profiles). Identical to
         // FRAG_SHADER except the 3D LUT stage is removed entirely —
-        // only WB + exposure + film effects + vignette are applied.
-        private const val FRAG_SHADER_NO_3D = """
-            #extension GL_OES_EGL_image_external : require
+        // only WB + exposure + film effects + vignette are applied. The
+        // camera frame is still sampled from the copied 2D texture because
+        // the OES-to-2D copy remains active on this fallback path.
+        internal const val FRAG_SHADER_NO_3D = """
             precision mediump float;
-            uniform samplerExternalOES uTexture;
+            uniform sampler2D uTexture;
             uniform float uTemperature;
             uniform float uTint;
             uniform float uExposure;
@@ -820,6 +1079,12 @@ class LutPreviewRenderer(
             uniform float uMilkyTintG;
             uniform float uMilkyTintB;
 
+            // ── Opt-in artifact uniforms (highlight roll-off, fade, grain) ──
+            uniform float uHighlightRolloff;
+            uniform float uFade;
+            uniform float uGrainStrength;
+            uniform float uGrainChroma;
+
             varying vec2 vTexCoord;
 
             // ── Filmic S-curve ──
@@ -831,6 +1096,21 @@ class LutPreviewRenderer(
                 float midPush = (x - 0.5) * s * 0.15;
                 result += midPush;
                 return clamp(result, 0.0, 1.0);
+            }
+
+            // ── Filmic highlight roll-off ──
+            // Compresses values above a soft ~0.7 knee into a rounded
+            // shoulder. At roll-off = 0 the knee is identity (no-op).
+            float rolloffChannel(float x) {
+                if (x <= 0.7) return x;
+                float t = (x - 0.7) / 0.3;
+                float shoulder = t - uHighlightRolloff * t * (1.0 - t);
+                return 0.7 + shoulder * 0.3;
+            }
+
+            // ── Per-pixel hash for film grain ──
+            float hash(vec2 p) {
+                return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
             }
 
             void main() {
@@ -896,6 +1176,14 @@ class LutPreviewRenderer(
                     c = clamp(c, 0.0, 1.0);
                 }
 
+                // ── 5.5. Highlight roll-off (filmic shoulder) ──
+                // Rounds off the brightest stops so they never clip hard.
+                if (uHighlightRolloff > 0.0) {
+                    c.r = rolloffChannel(c.r);
+                    c.g = rolloffChannel(c.g);
+                    c.b = rolloffChannel(c.b);
+                }
+
                 // ── 6. Vignette ──
                 vec2 center = uViewSize * 0.5;
                 float dist = distance(gl_FragCoord.xy, center);
@@ -938,6 +1226,33 @@ class LutPreviewRenderer(
                     c.b += uHighlightTintB * highlightW * uHighlightTintStrength;
                 }
                 c = clamp(c, 0.0, 1.0);
+
+                // ── 8.5. Fade (black-point lift) ──
+                // Lifts shadows toward mid-gray while mid-tones and
+                // highlights are left nearly untouched. Identical formula
+                // on CPU and GPU so preview and capture stay in sync.
+                if (uFade > 0.0) {
+                    c.r += uFade * (0.5 - c.r) * (1.0 - c.r);
+                    c.g += uFade * (0.5 - c.g) * (1.0 - c.g);
+                    c.b += uFade * (0.5 - c.b) * (1.0 - c.b);
+                    c = clamp(c, 0.0, 1.0);
+                }
+
+                // ── 8.7. Film grain (capture finish; 0 in live preview) ──
+                if (uGrainStrength > 0.0) {
+                    float n = hash(gl_FragCoord.xy + vec2(0.13, 0.71));
+                    float mono = (n - 0.5) * 2.0 * uGrainStrength * 0.15;
+                    c.rgb += vec3(mono);
+                    if (uGrainChroma > 0.0) {
+                        float nr = hash(gl_FragCoord.xy + vec2(7.1, 3.7));
+                        float ng = hash(gl_FragCoord.xy + vec2(91.3, 47.2));
+                        float nb = hash(gl_FragCoord.xy + vec2(13.4, 71.9));
+                        c.r += (nr - 0.5) * 2.0 * uGrainStrength * uGrainChroma * 0.1;
+                        c.g += (ng - 0.5) * 2.0 * uGrainStrength * uGrainChroma * 0.1;
+                        c.b += (nb - 0.5) * 2.0 * uGrainStrength * uGrainChroma * 0.1;
+                    }
+                    c = clamp(c, 0.0, 1.0);
+                }
 
                 // ── 10. Milky pastel haze overlay (dreamcore) ──
                 // Last stage: blend toward the milky tint, weighted toward

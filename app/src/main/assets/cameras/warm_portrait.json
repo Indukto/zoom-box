@@ -1,0 +1,27 @@
+{
+  "id": "warm_portrait",
+  "displayName": "Warm Portrait",
+  "category": "color-negative",
+  "look": {
+    "lutPath": "luts/kodak_portra_160_vc.cube",
+    "filmCurve": 0.20,
+    "contrast": 1.05,
+    "saturation": 1.0,
+    "bloom": 0.18,
+    "fringing": 0.0,
+    "shadowTintR": 0.0,
+    "shadowTintG": 0.0,
+    "shadowTintB": 0.025,
+    "shadowTintStrength": 0.06,
+    "highlightTintR": 0.04,
+    "highlightTintG": 0.02,
+    "highlightTintB": 0.0,
+    "highlightTintStrength": 0.08,
+    "softFocus": 0.0,
+    "milkyMix": 0.0,
+    "grainStrength": 0.05,
+    "grainChroma": 0.3,
+    "highlightRolloff": 0.0,
+    "fade": 0.0
+  }
+}
