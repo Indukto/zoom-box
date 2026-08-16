@@ -1387,15 +1387,21 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     /**
-     * RAW capture entry point. Routes the shutter through [RawCapture.captureDng]
-     * and inserts the resulting .dng into the gallery as image/x-adobe-dng.
-     * Skips the JPEG post-processing pipeline (no retro filter / crop).
+     * RAW capture entry point. Routes the shutter through [RawCapture.captureDng],
+     * inserts the resulting .dng into the gallery as image/x-adobe-dng, and —
+     * because a DNG can't carry the retro filter — runs the companion JPEG
+     * through the same [processAndSavePhoto] post-processing pipeline as a
+     * normal shot so the gallery shows a correctly-oriented, filtered photo.
      */
     fun captureAndSaveRaw(
         context: Context,
         logicalCameraId: String,
         physicalCameraId: String,
-        focalLengthMm: Int
+        focalLengthMm: Int,
+        boxWidthFraction: Float,
+        screenWidth: Float,
+        screenHeight: Float,
+        captureLensNativeFocalMm: Float?
     ) {
         _isCapturing.value = true
         // Mirror the timer onto the shutter-press state so the button visuals
@@ -1413,32 +1419,40 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
             // Sensor-tracked physical rotation (Display.getRotation() is
             // pinned to ROTATION_0 under the portrait lock).
             targetRotation = _physicalRotation.value,
-            onCaptured = { dngFile ->
+            onCaptured = { dngFile, jpegFile ->
                 // Release the shutter visual the instant the DNG lands on
-                // disk (mirrors the JPEG path's semantics where
-                // processAndSavePhoto's first line calls endCapture()). The
-                // MediaStore copy + loadPhotos + toast below are "save to
-                // gallery" / "show toast" — they're post-capture bookkeeping
-                // and belong in the background, mirror'd to how the JPEG
-                // path's LUT/encode/save runs after endCapture().
+                // disk. The DNG goes to the RAW/ gallery subfolder; the JPEG
+                // companion then runs through the standard filter pipeline so
+                // RAW capture produces the same retro/LUT look, zoom crop and
+                // orientation as a normal shot.
+                // No toast here: the JPEG path is silent on success, and the
+                // RAW popup was inconsistent with the rest of the app.
                 _captureInFlight.value = false
                 saveDngToGallery(context, dngFile)
-                loadPhotos(context)
-                android.widget.Toast.makeText(context, "RAW saved: ${dngFile.name}", android.widget.Toast.LENGTH_SHORT).show()
-                _isCapturing.value = false
+                if (jpegFile != null) {
+                    // processAndSavePhoto manages `_isCapturing` and the
+                    // gallery refresh itself (mirrors the JPEG path).
+                    processAndSavePhoto(
+                        context = context,
+                        rawFile = jpegFile,
+                        boxWidthFraction = boxWidthFraction,
+                        screenWidth = screenWidth,
+                        screenHeight = screenHeight,
+                        captureFocalLength = focalLengthMm,
+                        captureLensNativeFocalMm = captureLensNativeFocalMm
+                    )
+                } else {
+                    loadPhotos(context)
+                    _isCapturing.value = false
+                }
             },
             onError = { e ->
                 // Mirror: release the press on first line so a failure
-                // doesn't leave the shutter disabled. The `_isCapturing`
-                // reset is still last, after the toast/toast (existing
-                // behavior preserved).
+                // doesn't leave the shutter disabled. Log-only, matching the
+                // JPEG path which reports capture errors to logcat rather
+                // than surfacing a popup.
                 Log.e("CameraViewModel", "RAW capture failed", e)
                 _captureInFlight.value = false
-                android.widget.Toast.makeText(
-                    context,
-                    "RAW capture failed: ${e.localizedMessage ?: "unknown error"}",
-                    android.widget.Toast.LENGTH_SHORT
-                ).show()
                 _isCapturing.value = false
             }
         )

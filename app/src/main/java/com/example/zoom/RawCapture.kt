@@ -22,6 +22,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.Log
+import android.util.Size
 import android.view.Surface
 import android.view.WindowManager
 import java.io.File
@@ -34,36 +35,43 @@ import java.util.Locale
 /**
  * Captures a single RAW bayer frame and writes it to a DNG file.
  *
- * Replaces the legacy (dead) `captureWithCamera2()` JPEG path with a real
- * RAW pipeline:
- *   1. Open the logical camera and configure a RAW_SENSOR ImageReader.
+ * A matching JPEG is captured in the same still request so the caller can run
+ * it through the app's normal retro-filter / crop pipeline: a DNG can't carry
+ * a LUT or tone curve, so the JPEG is what the gallery displays, while the DNG
+ * remains the unprocessed "Pro" output.
+ *
+ *   1. Open the logical camera and configure a RAW_SENSOR ImageReader plus a
+ *      small YUV preview reader (for 3A convergence) and a JPEG reader.
  *   2. For multi-camera devices, target the requested physical lens via
  *      `OutputConfiguration.setPhysicalCameraId` (API 28+).
- *   3. Run a precapture 3A convergence so exposure/AF have settled.
- *   4. Submit a single TEMPLATE_STILL_CAPTURE RAW capture.
- *   5. Pair the returned Image + TotalCaptureResult and emit a DNG via
- *      [DngCreator], oriented to the device rotation.
+ *   3. Run a repeating preview until AE/AWB converge, then submit a single
+ *      TEMPLATE_STILL_CAPTURE that targets both the RAW and JPEG surfaces.
+ *   4. Pair the returned RAW Image + TotalCaptureResult and emit a DNG via
+ *      [DngCreator], oriented to the device rotation. The JPEG is written
+ *      straight to disk with its EXIF orientation baked in by the HAL.
  *
- * The result is a `.dng` saved to `Pictures/` in external files dir, mirroring
- * the storage convention of the JPEG pipeline. The JPEG post-processing
- * (retro filter, crop, gallery insert) is NOT applied to DNGs — RAW is a
- * parallel "Pro" output.
+ * The `.dng`/`.jpg` pair is saved to `Pictures/` in the app's external files
+ * dir, mirroring the storage convention of the JPEG pipeline.
  */
 object RawCapture {
 
     private const val TAG = "RawCapture"
+
+    /** Safety cap on how long we wait for 3A to converge before capturing. */
+    private const val CONVERGE_TIMEOUT_MS = 2000L
 
     /**
      * @param context Activity/application context
      * @param logicalCameraId The logical Camera2 id (e.g. "0")
      * @param physicalCameraId The target physical lens id (may equal logical
      *        if the device has no logical multi-camera)
-     * @param focalLengthMm Native focal length, used only to label the filename
+     * @param focalLengthMm Native focal length, used to label the filename
      * @param flashMode 0 = auto, 1 = on, 2 = off
      * @param targetRotation Current physical device rotation (Surface.ROTATION_*),
      *     sensor-tracked by the caller — Display.getRotation() stays ROTATION_0
      *     while the activity is locked to portrait, so it can't be used here
-     * @param onCaptured Invoked with the written .dng file
+     * @param onCaptured Invoked with the written .dng file and its companion
+     *     .jpg (the latter is null when the device offered no JPEG output size)
      * @param onError Invoked on any failure (capability, open, session, capture)
      */
     @SuppressLint("MissingPermission")
@@ -74,25 +82,30 @@ object RawCapture {
         focalLengthMm: Int,
         flashMode: Int,
         targetRotation: Int,
-        onCaptured: (File) -> Unit,
+        onCaptured: (dngFile: File, jpegFile: File?) -> Unit,
         onError: (Exception) -> Unit
     ) {
         val directory = context.getExternalFilesDir(android.os.Environment.DIRECTORY_PICTURES)
             ?: context.cacheDir
         val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-        val photoFile = File(directory, "RETRO_RAW_${timeStamp}_${focalLengthMm}mm.dng")
+        val dngFile = File(directory, "RETRO_RAW_${timeStamp}_${focalLengthMm}mm.dng")
+        val jpegFile = File(directory, "RETRO_JPEG_${timeStamp}_${focalLengthMm}mm.jpg")
 
         val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
         val cameraThread = HandlerThread("RawCapture").apply { start() }
         val cameraHandler = Handler(cameraThread.looper)
 
         var imageReader: ImageReader? = null
+        var previewReader: ImageReader? = null
+        var jpegReader: ImageReader? = null
         var camera: CameraDevice? = null
         var session: CameraCaptureSession? = null
         val finished = java.util.concurrent.atomic.AtomicBoolean(false)
 
         fun cleanup() {
             try { imageReader?.close() } catch (_: Exception) {}
+            try { previewReader?.close() } catch (_: Exception) {}
+            try { jpegReader?.close() } catch (_: Exception) {}
             try {
                 // If the session is still active, closing the device might trigger
                 // HAL errors. Closing the session first is safer, but on some
@@ -112,10 +125,10 @@ object RawCapture {
             }
         }
 
-        fun succeedOnce(file: File) {
+        fun succeedOnce(dng: File, jpeg: File?) {
             if (finished.compareAndSet(false, true)) {
                 cleanup()
-                onCaptured(file)
+                onCaptured(dng, jpeg)
             }
         }
 
@@ -141,6 +154,25 @@ object RawCapture {
 
             imageReader = ImageReader.newInstance(size.width, size.height, ImageFormat.RAW_SENSOR, 2)
 
+            // A small YUV preview target lets the HAL run a repeating 3A
+            // request before the still frame. Without it, the very first
+            // TEMPLATE_STILL_CAPTURE fires before AE/AWB have converged and
+            // the resulting image is underexposed ("dark"). The RAW reader
+            // can't double as this target — its tiny maxImages buffer would
+            // fill instantly and block the still capture.
+            val previewSize = configMap?.getOutputSizes(ImageFormat.YUV_420_888)
+                ?.minByOrNull { it.width * it.height }
+                ?: Size(640, 480)
+            previewReader = ImageReader.newInstance(previewSize.width, previewSize.height, ImageFormat.YUV_420_888, 2)
+
+            // Companion JPEG so the caller can apply the retro filter / crop
+            // and hand the gallery a displayable, correctly-oriented photo.
+            val jpegSize = configMap?.getOutputSizes(ImageFormat.JPEG)
+                ?.maxByOrNull { it.width * it.height }
+            jpegReader = jpegSize?.let {
+                ImageReader.newInstance(it.width, it.height, ImageFormat.JPEG, 2)
+            }
+
             val sensorOrientation = physicalChars.get(CameraCharacteristics.SENSOR_ORIENTATION) ?: 0
             val deviceRotation = when (targetRotation) {
                 Surface.ROTATION_90 -> 90
@@ -148,10 +180,14 @@ object RawCapture {
                 Surface.ROTATION_270 -> 270
                 else -> 0
             }
-            // DNG orientation: rotate sensor image into device-natural, then by display rotation.
-            // DngCreator.setOrientation() expects EXIF orientation values, not raw degrees:
-            //   0° → 1, 90° → 6, 180° → 3, 270° → 8
-            val dngCwRotation = (sensorOrientation + deviceRotation + 360) % 360
+            // JPEG-standard recipe: (sensorOrientation - deviceRotation) — the
+            // same value CameraX's getSensorRotationDegrees() computes — gives
+            // the clockwise rotation that makes the image upright. It is used
+            // both for CaptureRequest.JPEG_ORIENTATION (degrees) and, mapped
+            // to EXIF, for the DNG orientation tag.
+            val dngCwRotation = (sensorOrientation - deviceRotation + 360) % 360
+            // DngCreator.setOrientation() expects EXIF orientation values, not
+            // raw degrees: 0° → 1, 90° → 6, 180° → 3, 270° → 8.
             val dngExifOrientation = when (dngCwRotation) {
                 90 -> 6
                 180 -> 3
@@ -159,25 +195,30 @@ object RawCapture {
                 else -> 1
             }
 
-            // Pair the Image and TotalCaptureResult before writing the DNG.
-            // Either may arrive first; both are required by DngCreator.
+            // Pair the RAW Image, TotalCaptureResult, and companion JPEG before
+            // finishing. Any of the three may arrive first; all are required.
             var pendingImage: Image? = null
             var pendingResult: TotalCaptureResult? = null
+            var pendingJpeg: File? = null
+            var dngDone = false
+            var jpegDone = (jpegReader == null)
 
-            fun tryWriteDng() {
+            fun tryFinish() {
                 val img = pendingImage ?: return
                 val res = pendingResult ?: return
-                Log.d(TAG, "Both RAW image and metadata arrived. Writing DNG...")
+                if (dngDone || !jpegDone) return
+                Log.d(TAG, "RAW image, metadata and JPEG all present. Writing DNG...")
                 try {
                     val dng = DngCreator(physicalChars, res)
                     dng.setDescription("ZoomBox Camera RAW capture")
                     dng.setOrientation(dngExifOrientation)
-                    FileOutputStream(photoFile).use { out ->
+                    FileOutputStream(dngFile).use { out ->
                         dng.writeImage(out, img)
                     }
                     dng.close()
                     img.close()
-                    succeedOnce(photoFile)
+                    dngDone = true
+                    succeedOnce(dngFile, pendingJpeg)
                 } catch (e: Exception) {
                     Log.e(TAG, "DNG write failed", e)
                     try { img.close() } catch (_: Exception) {}
@@ -190,11 +231,35 @@ object RawCapture {
                     val image = reader.acquireLatestImage() ?: return@setOnImageAvailableListener
                     Log.d(TAG, "RAW image arrived: ${image.width}x${image.height}")
                     pendingImage = image
-                    tryWriteDng()
+                    tryFinish()
                 } catch (e: Exception) {
                     Log.e(TAG, "Error reading RAW image", e)
                     failOnce(e)
                 }
+            }, cameraHandler)
+
+            jpegReader?.setOnImageAvailableListener({ reader ->
+                try {
+                    val image = reader.acquireLatestImage()
+                    if (image != null) {
+                        try {
+                            val buffer = image.planes[0].buffer
+                            val bytes = ByteArray(buffer.remaining())
+                            buffer.get(bytes)
+                            FileOutputStream(jpegFile).use { out -> out.write(bytes) }
+                            pendingJpeg = jpegFile
+                            Log.d(TAG, "JPEG companion saved: ${jpegFile.name}")
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error writing JPEG companion", e)
+                        } finally {
+                            image.close()
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error reading JPEG companion", e)
+                }
+                jpegDone = true
+                tryFinish()
             }, cameraHandler)
 
             cameraManager.openCamera(logicalCameraId, object : CameraDevice.StateCallback() {
@@ -209,12 +274,16 @@ object RawCapture {
                                     camera = device,
                                     characteristics = characteristics,
                                     readerSurface = imageReader.surface,
+                                    previewSurface = previewReader.surface,
+                                    previewReader = previewReader,
+                                    jpegSurface = jpegReader?.surface,
+                                    jpegOrientation = dngCwRotation,
                                     flashMode = flashMode,
                                     handler = cameraHandler,
                                     onStillResult = { result ->
                                         Log.d(TAG, "RAW TotalCaptureResult arrived")
                                         pendingResult = result
-                                        tryWriteDng()
+                                        tryFinish()
                                     },
                                     onFailure = { reason ->
                                         failOnce(RuntimeException("RAW capture failed: $reason"))
@@ -232,10 +301,15 @@ object RawCapture {
                         ) {
                             val outputConfig = OutputConfiguration(imageReader.surface)
                             outputConfig.setPhysicalCameraId(physicalCameraId)
+                            // RAW targets the requested physical lens; the
+                            // preview/3A and JPEG surfaces stay on the logical camera.
+                            val outputs = mutableListOf(outputConfig)
+                            outputs.add(OutputConfiguration(previewReader.surface))
+                            jpegReader?.let { outputs.add(OutputConfiguration(it.surface)) }
                             val executor = java.util.concurrent.Executor { cmd -> cameraHandler.post(cmd) }
                             val sessionConfig = SessionConfiguration(
                                 SessionConfiguration.SESSION_REGULAR,
-                                listOf(outputConfig),
+                                outputs,
                                 executor,
                                 sessionCallback
                             )
@@ -248,7 +322,14 @@ object RawCapture {
                             // modern API without a minSdk bump to 28.
                             @Suppress("DEPRECATION")
                             device.createCaptureSession(
-                                listOf(imageReader.surface), sessionCallback, cameraHandler)
+                                listOfNotNull(
+                                    imageReader.surface,
+                                    previewReader.surface,
+                                    jpegReader?.surface
+                                ),
+                                sessionCallback,
+                                cameraHandler
+                            )
                         }
                     } catch (e: Exception) {
                         Log.e(TAG, "RAW session setup failed", e)
@@ -309,61 +390,127 @@ object RawCapture {
     }
 
     /**
-     * Fires a single TEMPLATE_STILL_CAPTURE for the RAW sensor.
+     * Converges 3A on a repeating preview request, then fires the RAW still.
      *
-     * We do NOT run a repeating preview or AE precapture sequence here because
-     * the RAW_SENSOR ImageReader has a very small buffer (maxImages=2). A
-     * repeating request targeting the reader surface would fill those slots
-     * instantly, causing "max images 2 has already been acquired" when the
-     * actual still capture tries to deliver its result.
+     * The previous version fired a single TEMPLATE_STILL_CAPTURE immediately
+     * after opening the camera. On many HALs that first frame arrives before
+     * auto-exposure / auto-white-balance have settled, so the DNG records an
+     * underexposed, badly-balanced frame ("dark" output). Fix:
      *
-     * TEMPLATE_STILL_CAPTURE already handles 3A convergence internally on
-     * most HALs, so a direct capture is sufficient and avoids the buffer
-     * exhaustion problem.
+     *   1. Run a repeating TEMPLATE_PREVIEW request against a small YUV
+     *      [previewReader] surface so the HAL converges AE + AWB. The RAW
+     *      reader is deliberately NOT a preview target — its maxImages=2
+     *      buffer would fill instantly and block the still capture.
+     *   2. Release each preview frame straight back to the reader so the
+     *      producer never stalls.
+     *   3. Once AE and AWB report converged (or the safety timeout elapses),
+     *      stop the repeating request and submit the RAW TEMPLATE_STILL_CAPTURE
+     *      against [readerSurface] (plus [jpegSurface] when present).
      */
     private fun runPrecaptureThenStill(
         session: CameraCaptureSession,
         camera: CameraDevice,
         characteristics: CameraCharacteristics,
         readerSurface: Surface,
+        previewSurface: Surface,
+        previewReader: ImageReader,
+        jpegSurface: Surface?,
+        jpegOrientation: Int,
         flashMode: Int,
         handler: Handler,
         onStillResult: (TotalCaptureResult) -> Unit,
         onFailure: (Int) -> Unit
     ) {
-        try {
-            val req = camera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE)
-            req.addTarget(readerSurface)
-            req.set(CaptureRequest.CONTROL_AE_LOCK, false)
-            req.set(CaptureRequest.CONTROL_AWB_LOCK, false)
-            when (flashMode) {
-                0 -> req.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH)
-                1 -> req.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON_ALWAYS_FLASH)
-                else -> {
-                    req.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
-                    req.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_OFF)
-                }
-            }
-            applyRawQualityKeys(req, characteristics)
+        val converged = java.util.concurrent.atomic.AtomicBoolean(false)
+        val stillSubmitted = java.util.concurrent.atomic.AtomicBoolean(false)
 
-            session.capture(req.build(), object : CameraCaptureSession.CaptureCallback() {
+        fun submitStillCapture() {
+            if (!stillSubmitted.compareAndSet(false, true)) return
+            try { session.stopRepeating() } catch (_: Exception) {}
+            try {
+                val req = camera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE)
+                req.addTarget(readerSurface)
+                jpegSurface?.let { req.addTarget(it) }
+                // Bake the upright rotation into the JPEG's EXIF so the
+                // filter pipeline can decode and rotate it like a CameraX shot.
+                req.set(CaptureRequest.JPEG_ORIENTATION, jpegOrientation)
+                req.set(CaptureRequest.CONTROL_AE_LOCK, false)
+                req.set(CaptureRequest.CONTROL_AWB_LOCK, false)
+                when (flashMode) {
+                    0 -> req.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH)
+                    1 -> req.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON_ALWAYS_FLASH)
+                    else -> {
+                        req.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
+                        req.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_OFF)
+                    }
+                }
+                applyRawQualityKeys(req, characteristics)
+
+                session.capture(req.build(), object : CameraCaptureSession.CaptureCallback() {
+                    override fun onCaptureCompleted(
+                        session: CameraCaptureSession,
+                        request: CaptureRequest,
+                        result: TotalCaptureResult
+                    ) {
+                        onStillResult(result)
+                    }
+
+                    override fun onCaptureFailed(
+                        session: CameraCaptureSession,
+                        request: CaptureRequest, failure: CaptureFailure
+                    ) {
+                        onFailure(failure.reason)
+                    }
+                }, handler)
+            } catch (e: Exception) {
+                Log.e(TAG, "Still capture failed", e)
+                onFailure(-1)
+            }
+        }
+
+        try {
+            val preview = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
+            preview.addTarget(previewSurface)
+            preview.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_AUTO)
+            preview.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
+            preview.set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_AUTO)
+            preview.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
+            preview.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_OFF)
+
+            session.setRepeatingRequest(preview.build(), object : CameraCaptureSession.CaptureCallback() {
                 override fun onCaptureCompleted(
                     session: CameraCaptureSession,
                     request: CaptureRequest,
                     result: TotalCaptureResult
                 ) {
-                    onStillResult(result)
-                }
+                    // Hand the preview buffer back to the reader so the HAL
+                    // never stalls on a full queue.
+                    try { previewReader.acquireLatestImage()?.close() } catch (_: Exception) {}
 
-                override fun onCaptureFailed(
-                    session: CameraCaptureSession,
-                    request: CaptureRequest, failure: CaptureFailure
-                ) {
-                    onFailure(failure.reason)
+                    val aeState = result.get(CaptureResult.CONTROL_AE_STATE)
+                    val awbState = result.get(CaptureResult.CONTROL_AWB_STATE)
+                    val aeConverged = aeState == CaptureResult.CONTROL_AE_STATE_CONVERGED ||
+                            aeState == CaptureResult.CONTROL_AE_STATE_FLASH_REQUIRED ||
+                            aeState == CaptureResult.CONTROL_AE_STATE_LOCKED
+                    val awbConverged = awbState == CaptureResult.CONTROL_AWB_STATE_CONVERGED ||
+                            awbState == CaptureResult.CONTROL_AWB_STATE_LOCKED ||
+                            awbState == CaptureResult.CONTROL_AWB_STATE_INACTIVE
+                    if (aeConverged && awbConverged && converged.compareAndSet(false, true)) {
+                        submitStillCapture()
+                    }
                 }
             }, handler)
+
+            // Safety net for HALs that never report a converged 3A state, so
+            // RAW capture can't hang indefinitely on quirky devices.
+            handler.postDelayed({
+                if (converged.compareAndSet(false, true)) {
+                    Log.w(TAG, "3A convergence timed out; capturing RAW anyway")
+                    submitStillCapture()
+                }
+            }, CONVERGE_TIMEOUT_MS)
         } catch (e: Exception) {
-            Log.e(TAG, "Still capture failed", e)
+            Log.e(TAG, "RAW 3A preview failed", e)
             onFailure(-1)
         }
     }

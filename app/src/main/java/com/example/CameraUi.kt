@@ -2181,7 +2181,11 @@ fun CameraActiveScreen(
                     context = context,
                     logicalCameraId = currentLens.logicalCameraId,
                     physicalCameraId = currentLens.physicalCameraId,
-                    focalLengthMm = effectiveFocalLength
+                    focalLengthMm = effectiveFocalLength,
+                    boxWidthFraction = animatedBoxWidthFraction,
+                    screenWidth = totalWidth.value,
+                    screenHeight = totalHeight.value,
+                    captureLensNativeFocalMm = nativeFocalForCrop
                 )
             } else {
                 val captureDevice = activeImageCapture
