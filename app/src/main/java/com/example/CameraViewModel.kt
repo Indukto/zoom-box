@@ -181,8 +181,8 @@ enum class FilmPreset(
     val defaultMilkyMix: Float = 0f,
     /**
      * Per-channel color of the milky haze overlay (R, G, B independent),
-     * each in [0, 1]. DREAMY picks a pastel magnolia cream; other presets
-     * default to 0 (but the overlay is skipped entirely when
+     * each in [0, 1]. Presets default to 0 (the overlay is skipped
+     * entirely when
      * [defaultMilkyMix] = 0 so the zero defaults are inert).
      */
     val milkyTintR: Float = 0f,
@@ -308,60 +308,6 @@ enum class FilmPreset(
         highlightTintR = 0.04f, highlightTintG = 0.025f, highlightTintB = 0.0f,  // golden highlights
         highlightTintStrength = 0.10f,
         defaultFringing = 0.002f
-    ),
-    /**
-     * Dreamcore inspired preset — soft, hazy, high-key pastel look without
-     * any LUT. Replaces the previous "Dreamy" golden-hour LUT profile: the
-     * new variant is built entirely from per-pixel math so the live preview
-     * and the saved JPEG agree exactly (no asset parse / upload race at
-     * preset-switch time).
-     *
-     * Recipe, in pipeline order:
-     *  1. Slight overexposure (defaultExposure +0.5) to lift everything
-     *     into the high-key range that dreamcore images typically occupy.
-     *  2. Strong film S-curve (0.55) — pronounced toe and shoulder so the
-     *     previously-clipped shadow side is lifted and the highlight side
-     *     rolls off softly instead of clipping flat white.
-     *  3. Very low contrast (0.70) — keeps the image gauzy rather than
-     *     punchy; shadows and highlights stay close to midtones.
-     *  4. Aggressively desaturated (0.55) — colors bleed strongly toward
-     *     pastel.
-     *  5. Strongest bloom of any preset (0.78) — heavy halation around
-     *     bright highlights is the dreamcore signature.
-     *  6. Split-toning ~2x stronger than other presets: cyan-blue shadows
-     *     (the cool tonal anchor of the room/phone-booth reference images)
-     *     and pink-peach highlights (the warm tonal anchor).
-     *  7. Soft-focus blur (0.65) — 3x3 box blur applied to the WB+exposed
-     *     signal so the picture reads as slightly out-of-focus, matching
-     *     the dreamy diffused sharpness.
-     *  8. Milky pastel haze overlay (0.30) muted toward a magnolia cream
-     *     (#EBDBF2-ish in normalised floats) — pastel "frosted glass"
-     *     on dark areas, gentle wash on highlights.
-     *
-     * Note: `assetPath = ""` (no LUT) — the per-pixel math is the entire
-     * grade now. See [loadLut] which short-circuits on blank asset paths.
-     */
-    DREAMY(
-        "Dreamy",
-        "",  // ← No LUT; grade built from per-pixel effects only.
-        defaultTemp = 0f,
-        defaultTint = 0f,
-        defaultExposure = 0.5f,            // mild over-exposure for high-key feel
-        defaultGrainStrength = 0.04f,      // very light grain — dreamcore reads clean
-        defaultGrainChroma = 0.25f,
-        defaultFilmCurve = 0.55f,          // strong toe lift + soft shoulder
-        defaultContrast = 0.70f,           // very low, never punchy
-        defaultSaturation = 0.55f,         // pulled strongly to pastel
-        defaultBloom = 0.78f,              // heaviest halation of any preset
-        shadowTintR = -0.005f, shadowTintG = 0.012f, shadowTintB = 0.060f,  // cyan-blue shadows
-        shadowTintStrength = 0.20f,        // ~2x standard presets
-        highlightTintR = 0.07f, highlightTintG = 0.025f, highlightTintB = 0.005f, // pink-peach highlights
-        highlightTintStrength = 0.18f,     // ~2x standard presets
-        defaultFringing = 0.008f,
-        // ─ Dreamcore-specific ──────────────────────────────────────────
-        defaultSoftFocus = 0.65f,          // hazy, slightly out of focus
-        defaultMilkyMix = 0.30f,           // pastel "frosted glass" overlay
-        milkyTintR = 0.92f, milkyTintG = 0.86f, milkyTintB = 0.95f,      // magnolia cream
     ),
 
     /**
@@ -1689,10 +1635,11 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                     preset.defaultSaturation != 1.0f || preset.defaultBloom > 0f ||
                     preset.shadowTintStrength > 0f || preset.highlightTintStrength > 0f ||
                     preset.defaultFringing > 0f ||
-                    // ── Dreamcore-style extras also force the post-process
-                    //    filter pass even when every other preset knob is
-                    //    neutral — without this guard DREAMY's soft-focus
-                    //    blur and milky haze would be silently skipped
+                    // ── Soft-focus / milky-haze extras also force the
+                    //    post-process filter pass even when every other
+                    //    preset knob is neutral — without this guard a
+                    //    preset's soft-focus blur and milky haze would
+                    //    be silently skipped
                     //    on a non-grad-baseline image (no LUT, no grain,
                     //    no S-curve, etc. under default settings).
                     preset.defaultSoftFocus > 0f || preset.defaultMilkyMix > 0f) {
@@ -2156,8 +2103,8 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         // pre-capture snapshot freezes neighbours at their input values,
         // so each pixel's blur sees a true box-3x3 window of the
         // pre-blur bitmap. Memory cost is one extra IntArray (≈12 MB
-        // for a 3 MP capture); only allocated when softFocus > 0 (i.e.
-        // DREAMY) so other presets pay nothing.
+        // for a 3 MP capture); only allocated when softFocus > 0 so
+        // other presets pay nothing.
         val softFocusActive = softFocus > 0f
         if (softFocusActive) {
             val snap = buffers.softFocusSnapshot?.let { if (it.size >= pixelCount) it else null }
