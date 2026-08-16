@@ -35,12 +35,26 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.MyApplication">
 
+        <!--
+            The UI is locked to portrait (screenOrientation="portrait") so the
+            viewfinder and controls never rotate with the device. Saved photos
+            are still oriented correctly for how the phone is held: under an
+            orientation lock Display.getRotation() keeps reporting ROTATION_0,
+            so the app tracks the PHYSICAL device orientation with an
+            OrientationEventListener (sensor) instead. Every capture path
+            reads that tracked rotation live — triggerImageCapture refreshes
+            the CameraX target rotation at capture time, and the DNG
+            (DngCreator EXIF) path receives it the same way. So holding the
+            phone sideways saves a landscape photo while the UI stays upright.
+            configChanges is kept so the activity is never recreated (the
+            camera session stays bound; Compose recomposes naturally).
+        -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:screenOrientation="portrait"
-            android:configChanges="screenSize|keyboardHidden"
+            android:configChanges="orientation|screenLayout|smallestScreenSize|screenSize|keyboardHidden"
             android:theme="@style/Theme.MyApplication">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
