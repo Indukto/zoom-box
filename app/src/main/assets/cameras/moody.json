@@ -1,0 +1,31 @@
+{
+  "id": "moody",
+  "displayName": "Moody",
+  "category": "moody",
+  "look": {
+    "lutPath": "luts/moody.cube",
+    "filmCurve": 0.50,
+    "contrast": 1.40,
+    "saturation": 0.85,
+    "bloom": 0.08,
+    "fringing": 0.0,
+    "shadowTintR": 0.0,
+    "shadowTintG": 0.0,
+    "shadowTintB": 0.04,
+    "shadowTintStrength": 0.15,
+    "highlightTintR": 0.06,
+    "highlightTintG": 0.03,
+    "highlightTintB": 0.0,
+    "highlightTintStrength": 0.12,
+    "softFocus": 0.0,
+    "milkyMix": 0.0,
+    "grainStrength": 0.12,
+    "grainChroma": 0.15,
+    "highlightRolloff": 0.0,
+    "fade": 0.0,
+    "vignette": 1.0,
+    "dust": 0.0,
+    "scratch": 0.0,
+    "lightLeak": 0.0
+  }
+}

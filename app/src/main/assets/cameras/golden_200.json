@@ -1,0 +1,31 @@
+{
+  "id": "golden_200",
+  "displayName": "Golden 200",
+  "category": "color-negative",
+  "look": {
+    "lutPath": "luts/golden_200.cube",
+    "filmCurve": 0.25,
+    "contrast": 1.15,
+    "saturation": 1.25,
+    "bloom": 0.10,
+    "fringing": 0.002,
+    "shadowTintR": 0.0,
+    "shadowTintG": 0.0,
+    "shadowTintB": 0.02,
+    "shadowTintStrength": 0.05,
+    "highlightTintR": 0.05,
+    "highlightTintG": 0.02,
+    "highlightTintB": 0.0,
+    "highlightTintStrength": 0.08,
+    "softFocus": 0.0,
+    "milkyMix": 0.0,
+    "grainStrength": 0.10,
+    "grainChroma": 0.30,
+    "highlightRolloff": 0.0,
+    "fade": 0.0,
+    "vignette": 1.05,
+    "dust": 0.0,
+    "scratch": 0.0,
+    "lightLeak": 0.0
+  }
+}

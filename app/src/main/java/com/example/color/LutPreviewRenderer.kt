@@ -87,6 +87,10 @@ class LutPreviewRenderer(
     private var uFadeLoc = 0
     private var uGrainStrengthLoc = 0
     private var uGrainChromaLoc = 0
+    private var uVignetteLoc = 0
+    private var uDustLoc = 0
+    private var uScratchLoc = 0
+    private var uLightLeakLoc = 0
 
     private var inputTexture = 0
     private var lutTexture = 0
@@ -133,11 +137,17 @@ class LutPreviewRenderer(
     @Volatile private var milkyTintG = 0f
     @Volatile private var milkyTintB = 0f
 
-    // ── Opt-in artifact inputs. Grain stays 0 in the live preview (only the
-    //    GPU capture processor feeds non-zero grain), so the viewfinder keeps
-    //    its grain-free look even for grainy film presets. ──
+    // ── Opt-in artifact inputs. Grain is now rendered in the live preview so
+    //    the viewfinder matches the saved JPEG's film texture; dust, scratches,
+    //    and light leaks are capture-only overlays (kept at 0 here). ──
     @Volatile private var highlightRolloff = 0f
     @Volatile private var fade = 0f
+    @Volatile private var vignette = 1f
+    @Volatile private var dust = 0f
+    @Volatile private var scratch = 0f
+    @Volatile private var lightLeak = 0f
+    @Volatile private var grainStrength = 0f
+    @Volatile private var grainChroma = 0f
 
     // The active LUT is retained so it can be re-uploaded after an EGL
     // context recreation. The pending value is consumed only on the GL thread.
@@ -184,6 +194,12 @@ class LutPreviewRenderer(
         milkyTintB = params.milkyTintB
         highlightRolloff = params.highlightRolloff
         fade = params.fade
+        vignette = params.vignette
+        dust = params.dust
+        scratch = params.scratch
+        lightLeak = params.lightLeak
+        grainStrength = params.grainStrength
+        grainChroma = params.grainChroma
         glSurfaceView.requestRender()
     }
 
@@ -304,6 +320,10 @@ class LutPreviewRenderer(
         uFadeLoc = GLES20.glGetUniformLocation(program, "uFade")
         uGrainStrengthLoc = GLES20.glGetUniformLocation(program, "uGrainStrength")
         uGrainChromaLoc = GLES20.glGetUniformLocation(program, "uGrainChroma")
+        uVignetteLoc = GLES20.glGetUniformLocation(program, "uVignette")
+        uDustLoc = GLES20.glGetUniformLocation(program, "uDust")
+        uScratchLoc = GLES20.glGetUniformLocation(program, "uScratch")
+        uLightLeakLoc = GLES20.glGetUniformLocation(program, "uLightLeak")
 
         // Drain any stale GL errors from EGL-context creation or the program
         // link above. GL errors are sticky flags that survive across bind
@@ -448,13 +468,17 @@ class LutPreviewRenderer(
         GLES20.glUniform1f(uMilkyTintGLoc, milkyTintG)
         GLES20.glUniform1f(uMilkyTintBLoc, milkyTintB)
 
-        // ── Upload opt-in artifact uniforms. Grain is forced to 0 here: the
-        //    live viewfinder intentionally stays grain-free (grain is a
-        //    capture-time finish applied to the saved JPEG). ──
+        // ── Upload opt-in artifact uniforms. Grain is rendered live so the
+        //    viewfinder matches the saved JPEG; dust/scratch/light-leak are
+        //    capture-only overlays and stay 0 in the preview. ──
         GLES20.glUniform1f(uHighlightRolloffLoc, highlightRolloff)
         GLES20.glUniform1f(uFadeLoc, fade)
-        GLES20.glUniform1f(uGrainStrengthLoc, 0f)
-        GLES20.glUniform1f(uGrainChromaLoc, 0f)
+        GLES20.glUniform1f(uGrainStrengthLoc, grainStrength)
+        GLES20.glUniform1f(uGrainChromaLoc, grainChroma)
+        GLES20.glUniform1f(uVignetteLoc, vignette)
+        GLES20.glUniform1f(uDustLoc, 0f)
+        GLES20.glUniform1f(uScratchLoc, 0f)
+        GLES20.glUniform1f(uLightLeakLoc, 0f)
 
         if (has3dTextures && lutEnabled && lutWidth > 0) {
             GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
@@ -846,6 +870,10 @@ class LutPreviewRenderer(
             uniform float uFade;
             uniform float uGrainStrength;
             uniform float uGrainChroma;
+            uniform float uVignette;
+            uniform float uDust;
+            uniform float uScratch;
+            uniform float uLightLeak;
 
             varying vec2 vTexCoord;
 
@@ -870,9 +898,58 @@ class LutPreviewRenderer(
                 return 0.7 + shoulder * 0.3;
             }
 
-            // ── Per-pixel hash for film grain ──
+            // ── Portable float hash + value noise (matches the CPU grain) ──
             float hash(vec2 p) {
                 return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+            }
+            float smootherstepNoise(float t) {
+                return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+            }
+            float valueNoise(vec2 p) {
+                vec2 i = floor(p);
+                vec2 f = fract(p);
+                vec2 s = vec2(smootherstepNoise(f.x), smootherstepNoise(f.y));
+                float n00 = hash(i);
+                float n10 = hash(i + vec2(1.0, 0.0));
+                float n01 = hash(i + vec2(0.0, 1.0));
+                float n11 = hash(i + vec2(1.0, 1.0));
+                float nx0 = mix(n00, n10, s.x);
+                float nx1 = mix(n01, n11, s.x);
+                return mix(nx0, nx1, s.y);
+            }
+            // ── Procedural overlays: dust, scratches, light leak ──
+            float dustAmount(vec2 p) {
+                float cell = 64.0;
+                vec2 id = floor(p / cell);
+                vec2 uv = fract(p / cell);
+                if (hash(id) < 0.62) return 0.0;
+                float cx = hash(id + vec2(13.7, 0.0));
+                float cy = hash(id + vec2(0.0, 57.1));
+                float rad = 0.05 + hash(id + vec2(23.3, 91.7)) * 0.14;
+                float d = length(uv - vec2(cx, cy));
+                float mask = 1.0 - smoothstep(rad * 0.4, rad, d);
+                return mask * (0.6 + hash(id + vec2(71.9, 3.1)) * 0.4);
+            }
+            float scratchAmount(vec2 p) {
+                float result = 0.0;
+                for (int i = 0; i < 5; i++) {
+                    float band = float(i);
+                    float sx = hash(vec2(band, 3.3));
+                    float present = step(0.5, hash(vec2(band, 9.1)));
+                    float dx = abs(p.x - sx * uViewSize.x);
+                    float widthPx = 1.0 + hash(vec2(band, 7.7)) * 4.0;
+                    float line = 1.0 - smoothstep(widthPx * 0.3, widthPx, dx);
+                    float flicker = 0.6 + 0.4 * hash(vec2(floor(p.y / 10.0), band));
+                    result = max(result, present * line * flicker);
+                }
+                return result;
+            }
+            vec3 lightLeakColor(vec2 p) {
+                vec2 ndc = (p - uViewSize * 0.5) / (uViewSize * 0.5);
+                float tl = 1.0 - smoothstep(0.15, 1.5, length(ndc + vec2(1.0, 1.0)));
+                float br = 1.0 - smoothstep(0.15, 1.5, length(ndc - vec2(1.0, 1.0)));
+                float m = clamp(tl * 0.75 + br * 0.4, 0.0, 1.0);
+                return vec3(1.0, 0.55, 0.22) * m;
             }
 
             void main() {
@@ -955,7 +1032,7 @@ class LutPreviewRenderer(
                 float dist = distance(gl_FragCoord.xy, center);
                 float maxRadius = 0.72 * max(uViewSize.x, uViewSize.y);
                 float t = (dist / maxRadius - 0.55) / 0.45;
-                t = clamp(t, 0.0, 1.0);
+                t = clamp(t * uVignette, 0.0, 1.0);
                 // Subtle film falloff: keep corners readable without removing
                 // the analog frame character.
                 float shaderA = t * (95.0 / 255.0);
@@ -1004,18 +1081,23 @@ class LutPreviewRenderer(
                     c = clamp(c, 0.0, 1.0);
                 }
 
-                // ── 8.7. Film grain (capture finish; 0 in live preview) ──
+                // ── 8.7. Film grain (matches the CPU two-octave value noise) ──
                 if (uGrainStrength > 0.0) {
-                    float n = hash(gl_FragCoord.xy + vec2(0.13, 0.71));
-                    float mono = (n - 0.5) * 2.0 * uGrainStrength * 0.15;
-                    c.rgb += vec3(mono);
+                    float lum = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+                    float midMask = 1.0 - 4.0 * (lum - 0.5) * (lum - 0.5);
+                    float midMaskClamped = max(midMask, 0.4);
+                    float fine = valueNoise(gl_FragCoord.xy * 1.05);
+                    float medium = valueNoise(gl_FragCoord.xy * 0.32 + vec2(31.7, 17.3));
+                    float monoCentered = (fine + medium) - 1.0;
+                    float amp = uGrainStrength * (1.2 + 2.0 * midMaskClamped) * 11.0;
+                    c.rgb += vec3(monoCentered * amp / 255.0);
                     if (uGrainChroma > 0.0) {
-                        float nr = hash(gl_FragCoord.xy + vec2(7.1, 3.7));
-                        float ng = hash(gl_FragCoord.xy + vec2(91.3, 47.2));
-                        float nb = hash(gl_FragCoord.xy + vec2(13.4, 71.9));
-                        c.r += (nr - 0.5) * 2.0 * uGrainStrength * uGrainChroma * 0.1;
-                        c.g += (ng - 0.5) * 2.0 * uGrainStrength * uGrainChroma * 0.1;
-                        c.b += (nb - 0.5) * 2.0 * uGrainStrength * uGrainChroma * 0.1;
+                        float nr = valueNoise(gl_FragCoord.xy * 1.13 + vec2(7.1, 3.7));
+                        float ng = valueNoise(gl_FragCoord.xy * 0.97 + vec2(91.3, 47.2));
+                        float nb = valueNoise(gl_FragCoord.xy * 1.21 + vec2(13.4, 71.9));
+                        c.r += (nr - 0.5) * amp * uGrainChroma / 255.0;
+                        c.g += (ng - 0.5) * amp * uGrainChroma / 255.0;
+                        c.b += (nb - 0.5) * amp * uGrainChroma / 255.0;
                     }
                     c = clamp(c, 0.0, 1.0);
                 }
@@ -1038,6 +1120,20 @@ class LutPreviewRenderer(
                     float milkyStrength = (1.0 - milkyLuma) * uMilkyMix * 1.2 + uMilkyMix * 0.25;
                     c = mix(c, milkyColor, clamp(milkyStrength, 0.0, 1.0));
                 }
+
+                // ── 11. Procedural overlays (dust, scratches, light leak) ──
+                // Applied on top of the graded image as a capture-time finish;
+                // the live preview pins these uniforms to 0.
+                if (uDust > 0.0) {
+                    c.rgb -= vec3(dustAmount(gl_FragCoord.xy) * uDust * 0.45);
+                }
+                if (uScratch > 0.0) {
+                    c.rgb -= vec3(scratchAmount(gl_FragCoord.xy) * uScratch * 0.55);
+                }
+                if (uLightLeak > 0.0) {
+                    c.rgb += lightLeakColor(gl_FragCoord.xy) * uLightLeak * 0.35;
+                }
+                c = clamp(c, 0.0, 1.0);
 
                 gl_FragColor = vec4(c, 1.0);
             }
@@ -1084,6 +1180,10 @@ class LutPreviewRenderer(
             uniform float uFade;
             uniform float uGrainStrength;
             uniform float uGrainChroma;
+            uniform float uVignette;
+            uniform float uDust;
+            uniform float uScratch;
+            uniform float uLightLeak;
 
             varying vec2 vTexCoord;
 
@@ -1108,9 +1208,58 @@ class LutPreviewRenderer(
                 return 0.7 + shoulder * 0.3;
             }
 
-            // ── Per-pixel hash for film grain ──
+            // ── Portable float hash + value noise (matches the CPU grain) ──
             float hash(vec2 p) {
                 return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+            }
+            float smootherstepNoise(float t) {
+                return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+            }
+            float valueNoise(vec2 p) {
+                vec2 i = floor(p);
+                vec2 f = fract(p);
+                vec2 s = vec2(smootherstepNoise(f.x), smootherstepNoise(f.y));
+                float n00 = hash(i);
+                float n10 = hash(i + vec2(1.0, 0.0));
+                float n01 = hash(i + vec2(0.0, 1.0));
+                float n11 = hash(i + vec2(1.0, 1.0));
+                float nx0 = mix(n00, n10, s.x);
+                float nx1 = mix(n01, n11, s.x);
+                return mix(nx0, nx1, s.y);
+            }
+            // ── Procedural overlays: dust, scratches, light leak ──
+            float dustAmount(vec2 p) {
+                float cell = 64.0;
+                vec2 id = floor(p / cell);
+                vec2 uv = fract(p / cell);
+                if (hash(id) < 0.62) return 0.0;
+                float cx = hash(id + vec2(13.7, 0.0));
+                float cy = hash(id + vec2(0.0, 57.1));
+                float rad = 0.05 + hash(id + vec2(23.3, 91.7)) * 0.14;
+                float d = length(uv - vec2(cx, cy));
+                float mask = 1.0 - smoothstep(rad * 0.4, rad, d);
+                return mask * (0.6 + hash(id + vec2(71.9, 3.1)) * 0.4);
+            }
+            float scratchAmount(vec2 p) {
+                float result = 0.0;
+                for (int i = 0; i < 5; i++) {
+                    float band = float(i);
+                    float sx = hash(vec2(band, 3.3));
+                    float present = step(0.5, hash(vec2(band, 9.1)));
+                    float dx = abs(p.x - sx * uViewSize.x);
+                    float widthPx = 1.0 + hash(vec2(band, 7.7)) * 4.0;
+                    float line = 1.0 - smoothstep(widthPx * 0.3, widthPx, dx);
+                    float flicker = 0.6 + 0.4 * hash(vec2(floor(p.y / 10.0), band));
+                    result = max(result, present * line * flicker);
+                }
+                return result;
+            }
+            vec3 lightLeakColor(vec2 p) {
+                vec2 ndc = (p - uViewSize * 0.5) / (uViewSize * 0.5);
+                float tl = 1.0 - smoothstep(0.15, 1.5, length(ndc + vec2(1.0, 1.0)));
+                float br = 1.0 - smoothstep(0.15, 1.5, length(ndc - vec2(1.0, 1.0)));
+                float m = clamp(tl * 0.75 + br * 0.4, 0.0, 1.0);
+                return vec3(1.0, 0.55, 0.22) * m;
             }
 
             void main() {
@@ -1189,7 +1338,7 @@ class LutPreviewRenderer(
                 float dist = distance(gl_FragCoord.xy, center);
                 float maxRadius = 0.72 * max(uViewSize.x, uViewSize.y);
                 float t = (dist / maxRadius - 0.55) / 0.45;
-                t = clamp(t, 0.0, 1.0);
+                t = clamp(t * uVignette, 0.0, 1.0);
                 // Subtle film falloff: keep corners readable without removing
                 // the analog frame character.
                 float shaderA = t * (95.0 / 255.0);
@@ -1238,18 +1387,23 @@ class LutPreviewRenderer(
                     c = clamp(c, 0.0, 1.0);
                 }
 
-                // ── 8.7. Film grain (capture finish; 0 in live preview) ──
+                // ── 8.7. Film grain (matches the CPU two-octave value noise) ──
                 if (uGrainStrength > 0.0) {
-                    float n = hash(gl_FragCoord.xy + vec2(0.13, 0.71));
-                    float mono = (n - 0.5) * 2.0 * uGrainStrength * 0.15;
-                    c.rgb += vec3(mono);
+                    float lum = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+                    float midMask = 1.0 - 4.0 * (lum - 0.5) * (lum - 0.5);
+                    float midMaskClamped = max(midMask, 0.4);
+                    float fine = valueNoise(gl_FragCoord.xy * 1.05);
+                    float medium = valueNoise(gl_FragCoord.xy * 0.32 + vec2(31.7, 17.3));
+                    float monoCentered = (fine + medium) - 1.0;
+                    float amp = uGrainStrength * (1.2 + 2.0 * midMaskClamped) * 11.0;
+                    c.rgb += vec3(monoCentered * amp / 255.0);
                     if (uGrainChroma > 0.0) {
-                        float nr = hash(gl_FragCoord.xy + vec2(7.1, 3.7));
-                        float ng = hash(gl_FragCoord.xy + vec2(91.3, 47.2));
-                        float nb = hash(gl_FragCoord.xy + vec2(13.4, 71.9));
-                        c.r += (nr - 0.5) * 2.0 * uGrainStrength * uGrainChroma * 0.1;
-                        c.g += (ng - 0.5) * 2.0 * uGrainStrength * uGrainChroma * 0.1;
-                        c.b += (nb - 0.5) * 2.0 * uGrainStrength * uGrainChroma * 0.1;
+                        float nr = valueNoise(gl_FragCoord.xy * 1.13 + vec2(7.1, 3.7));
+                        float ng = valueNoise(gl_FragCoord.xy * 0.97 + vec2(91.3, 47.2));
+                        float nb = valueNoise(gl_FragCoord.xy * 1.21 + vec2(13.4, 71.9));
+                        c.r += (nr - 0.5) * amp * uGrainChroma / 255.0;
+                        c.g += (ng - 0.5) * amp * uGrainChroma / 255.0;
+                        c.b += (nb - 0.5) * amp * uGrainChroma / 255.0;
                     }
                     c = clamp(c, 0.0, 1.0);
                 }
@@ -1268,6 +1422,20 @@ class LutPreviewRenderer(
                     float milkyStrength = (1.0 - milkyLuma) * uMilkyMix * 1.2 + uMilkyMix * 0.25;
                     c = mix(c, milkyColor, clamp(milkyStrength, 0.0, 1.0));
                 }
+
+                // ── 11. Procedural overlays (dust, scratches, light leak) ──
+                // Applied on top of the graded image as a capture-time finish;
+                // the live preview pins these uniforms to 0.
+                if (uDust > 0.0) {
+                    c.rgb -= vec3(dustAmount(gl_FragCoord.xy) * uDust * 0.45);
+                }
+                if (uScratch > 0.0) {
+                    c.rgb -= vec3(scratchAmount(gl_FragCoord.xy) * uScratch * 0.55);
+                }
+                if (uLightLeak > 0.0) {
+                    c.rgb += lightLeakColor(gl_FragCoord.xy) * uLightLeak * 0.35;
+                }
+                c = clamp(c, 0.0, 1.0);
 
                 gl_FragColor = vec4(c, 1.0);
             }

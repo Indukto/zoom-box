@@ -1,0 +1,31 @@
+{
+  "id": "instant_vintage",
+  "displayName": "Instant Vintage",
+  "category": "instant",
+  "look": {
+    "lutPath": "luts/polaroid_669_++.cube",
+    "filmCurve": 0.20,
+    "contrast": 1.15,
+    "saturation": 1.20,
+    "bloom": 0.20,
+    "fringing": 0.008,
+    "shadowTintR": 0.0,
+    "shadowTintG": 0.0,
+    "shadowTintB": 0.015,
+    "shadowTintStrength": 0.05,
+    "highlightTintR": 0.03,
+    "highlightTintG": 0.01,
+    "highlightTintB": 0.0,
+    "highlightTintStrength": 0.07,
+    "softFocus": 0.0,
+    "milkyMix": 0.0,
+    "grainStrength": 0.10,
+    "grainChroma": 0.25,
+    "highlightRolloff": 0.0,
+    "fade": 0.0,
+    "vignette": 1.0,
+    "dust": 0.0,
+    "scratch": 0.0,
+    "lightLeak": 0.0
+  }
+}

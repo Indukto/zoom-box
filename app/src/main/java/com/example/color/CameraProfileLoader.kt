@@ -28,7 +28,8 @@ import org.json.JSONObject
  *     "highlightTintR": 0.04, "highlightTintG": 0.02, "highlightTintB": 0.0,
  *     "highlightTintStrength": 0.08,
  *     "grainStrength": 0.05, "grainChroma": 0.3,
- *     "highlightRolloff": 0.0, "fade": 0.0
+ *     "highlightRolloff": 0.0, "fade": 0.0,
+ *     "vignette": 1.0, "dust": 0.0, "scratch": 0.0, "lightLeak": 0.0
  *   }
  * }
  * ```
@@ -72,7 +73,11 @@ object CameraProfileLoader {
             grainStrength = look.optDouble("grainStrength", 0.0).toFloat(),
             grainChroma = look.optDouble("grainChroma", 0.0).toFloat(),
             highlightRolloff = look.optDouble("highlightRolloff", 0.0).toFloat(),
-            fade = look.optDouble("fade", 0.0).toFloat()
+            fade = look.optDouble("fade", 0.0).toFloat(),
+            vignette = look.optDouble("vignette", 1.0).toFloat(),
+            dust = look.optDouble("dust", 0.0).toFloat(),
+            scratch = look.optDouble("scratch", 0.0).toFloat(),
+            lightLeak = look.optDouble("lightLeak", 0.0).toFloat()
         )
     }
 }

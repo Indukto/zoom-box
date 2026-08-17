@@ -1,0 +1,31 @@
+{
+  "id": "monochrome_400",
+  "displayName": "Monochrome 400",
+  "category": "black-and-white",
+  "look": {
+    "lutPath": "luts/kodak_bw_400_cn.cube",
+    "filmCurve": 0.35,
+    "contrast": 1.35,
+    "saturation": 0.0,
+    "bloom": 0.0,
+    "fringing": 0.0,
+    "shadowTintR": 0.0,
+    "shadowTintG": 0.0,
+    "shadowTintB": 0.0,
+    "shadowTintStrength": 0.0,
+    "highlightTintR": 0.0,
+    "highlightTintG": 0.0,
+    "highlightTintB": 0.0,
+    "highlightTintStrength": 0.0,
+    "softFocus": 0.0,
+    "milkyMix": 0.0,
+    "grainStrength": 0.32,
+    "grainChroma": 0.0,
+    "highlightRolloff": 0.0,
+    "fade": 0.0,
+    "vignette": 1.0,
+    "dust": 0.0,
+    "scratch": 0.0,
+    "lightLeak": 0.0
+  }
+}

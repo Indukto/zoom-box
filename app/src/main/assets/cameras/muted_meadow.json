@@ -1,0 +1,31 @@
+{
+  "id": "muted_meadow",
+  "displayName": "Muted Meadow",
+  "category": "color-negative",
+  "look": {
+    "lutPath": "luts/Muted Meadow.cube",
+    "filmCurve": 0.15,
+    "contrast": 1.05,
+    "saturation": 0.70,
+    "bloom": 0.10,
+    "fringing": 0.0,
+    "shadowTintR": 0.0,
+    "shadowTintG": 0.015,
+    "shadowTintB": 0.02,
+    "shadowTintStrength": 0.08,
+    "highlightTintR": 0.02,
+    "highlightTintG": 0.01,
+    "highlightTintB": 0.0,
+    "highlightTintStrength": 0.05,
+    "softFocus": 0.0,
+    "milkyMix": 0.0,
+    "grainStrength": 0.06,
+    "grainChroma": 0.20,
+    "highlightRolloff": 0.0,
+    "fade": 0.0,
+    "vignette": 1.0,
+    "dust": 0.0,
+    "scratch": 0.0,
+    "lightLeak": 0.0
+  }
+}

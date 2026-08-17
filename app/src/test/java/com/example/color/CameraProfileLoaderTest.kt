@@ -118,4 +118,42 @@ class CameraProfileLoaderTest {
         assertEquals(1.0f, adjusted.contrast, 0f)
         assertEquals("", adjusted.lutPath)
     }
+
+    @Test
+    fun `artifact fields parse and match the enum adapter`() {
+        val json = """
+            {
+              "id": "ccd_digicam",
+              "displayName": "CCD Digicam",
+              "category": "digital",
+              "look": {
+                "lutPath": "luts/ccd_digicam.cube",
+                "filmCurve": 0.30,
+                "contrast": 1.10,
+                "saturation": 0.85,
+                "bloom": 0.02,
+                "shadowTintG": 0.01,
+                "shadowTintB": 0.02,
+                "shadowTintStrength": 0.06,
+                "highlightTintR": 0.02,
+                "highlightTintG": 0.03,
+                "highlightTintB": 0.04,
+                "highlightTintStrength": 0.05,
+                "grainStrength": 0.04,
+                "grainChroma": 0.35,
+                "vignette": 1.12,
+                "dust": 0.20,
+                "scratch": 0.0,
+                "lightLeak": 0.08
+              }
+            }
+        """.trimIndent()
+        val fromJson = CameraProfileLoader.parse(json).look
+        val fromEnum = FilmPreset.CCD_DIGICAM.toRetroRenderParams()
+
+        assertEquals(fromEnum, fromJson)
+        assertEquals(1.12f, fromJson.vignette, 0f)
+        assertEquals(0.20f, fromJson.dust, 0f)
+        assertEquals(0.08f, fromJson.lightLeak, 0f)
+    }
 }

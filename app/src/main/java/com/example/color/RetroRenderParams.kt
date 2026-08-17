@@ -56,6 +56,14 @@ data class RetroRenderParams(
     val highlightRolloff: Float = 0f,
     /** Black-point fade in [0,1]; lifts shadows toward mid-gray. */
     val fade: Float = 0f,
+    /** Vignette strength multiplier; 1.0 reproduces the original falloff. */
+    val vignette: Float = 1f,
+    /** Procedural dust specks in [0,1]. */
+    val dust: Float = 0f,
+    /** Procedural vertical film scratches in [0,1]. */
+    val scratch: Float = 0f,
+    /** Warm corner light leak in [0,1]. */
+    val lightLeak: Float = 0f,
     // ── LUT identity ──
     /** Asset path of the `.cube` LUT; empty string = pass-through (no LUT). */
     val lutPath: String = ""
@@ -75,7 +83,8 @@ data class RetroRenderParams(
                 shadowTintStrength > 0f || highlightTintStrength > 0f ||
                 softFocus > 0f || milkyMix > 0f ||
                 grainStrength > 0f ||
-                highlightRolloff > 0f || fade > 0f
+                highlightRolloff > 0f || fade > 0f ||
+                vignette != 1f || dust > 0f || scratch > 0f || lightLeak > 0f
 }
 
 /**
@@ -113,5 +122,9 @@ fun FilmPreset.toRetroRenderParams(
     grainChroma = defaultGrainChroma,
     highlightRolloff = defaultHighlightRolloff,
     fade = defaultFade,
+    vignette = defaultVignette,
+    dust = defaultDust,
+    scratch = defaultScratch,
+    lightLeak = defaultLightLeak,
     lutPath = assetPath
 )

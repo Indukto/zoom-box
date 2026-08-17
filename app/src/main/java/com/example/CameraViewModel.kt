@@ -203,7 +203,18 @@ enum class FilmPreset(
      * Black-point fade in [0, 1]. Lifts shadows toward mid-gray while
      * leaving mid-tones and highlights nearly untouched; 0 = no fade.
      */
-    val defaultFade: Float = 0f) {
+    val defaultFade: Float = 0f,
+    /**
+     * Vignette strength multiplier. 1.0 reproduces the original built-in
+     * falloff; 0 disables it, >1 darkens the corners more.
+     */
+    val defaultVignette: Float = 1f,
+    /** Procedural dust-speck strength in [0, 1]. */
+    val defaultDust: Float = 0f,
+    /** Procedural vertical film-scratch strength in [0, 1]. */
+    val defaultScratch: Float = 0f,
+    /** Warm corner light-leak strength in [0, 1]. */
+    val defaultLightLeak: Float = 0f) {
 
     WARM_PORTRAIT(
         "Warm Portrait",
@@ -324,6 +335,83 @@ enum class FilmPreset(
         highlightTintR = 0.04f, highlightTintG = 0.025f, highlightTintB = 0.0f,  // golden highlights
         highlightTintStrength = 0.10f,
         defaultFringing = 0.002f
+    ),
+    GOLDEN_200(
+        "Golden 200",
+        "luts/golden_200.cube",
+        defaultGrainStrength = 0.10f,
+        defaultGrainChroma = 0.30f,
+        defaultFilmCurve = 0.25f,
+        defaultContrast = 1.15f,
+        defaultSaturation = 1.25f,
+        defaultBloom = 0.10f,
+        shadowTintR = 0.0f, shadowTintG = 0.0f, shadowTintB = 0.02f,  // cool blue shadows
+        shadowTintStrength = 0.05f,
+        highlightTintR = 0.05f, highlightTintG = 0.02f, highlightTintB = 0.0f,  // warm highlights
+        highlightTintStrength = 0.08f,
+        defaultFringing = 0.002f,
+        defaultVignette = 1.05f
+    ),
+    STREET_MONO_400(
+        "Street Mono 400",
+        "luts/street_mono_400.cube",
+        defaultGrainStrength = 0.35f,
+        defaultGrainChroma = 0f,          // strict mono — chroma speckles look wrong on B&W
+        defaultFilmCurve = 0.40f,
+        defaultContrast = 1.45f,
+        defaultSaturation = 0.0f,
+        defaultBloom = 0.0f,
+        defaultVignette = 1.10f
+    ),
+    VIVID_COOL_400(
+        "Vivid Cool 400",
+        "luts/vivid_cool_400.cube",
+        defaultGrainStrength = 0.06f,
+        defaultGrainChroma = 0.20f,
+        defaultFilmCurve = 0.18f,
+        defaultContrast = 1.10f,
+        defaultSaturation = 1.25f,
+        defaultBloom = 0.05f,
+        shadowTintR = 0.0f, shadowTintG = 0.02f, shadowTintB = 0.03f,  // cyan-green shadows
+        shadowTintStrength = 0.07f,
+        highlightTintR = 0.0f, highlightTintG = 0.03f, highlightTintB = 0.01f,  // yellow-green highlights
+        highlightTintStrength = 0.06f,
+        defaultFringing = 0.001f,
+        defaultVignette = 1.05f
+    ),
+    CCD_DIGICAM(
+        "CCD Digicam",
+        "luts/ccd_digicam.cube",
+        defaultGrainStrength = 0.04f,
+        defaultGrainChroma = 0.35f,       // digital chroma speckle, not film dye cloud
+        defaultFilmCurve = 0.30f,
+        defaultContrast = 1.10f,
+        defaultSaturation = 0.85f,
+        defaultBloom = 0.02f,
+        shadowTintR = 0.0f, shadowTintG = 0.01f, shadowTintB = 0.02f,  // subtle cool shadows
+        shadowTintStrength = 0.06f,
+        highlightTintR = 0.02f, highlightTintG = 0.03f, highlightTintB = 0.04f,  // cool highlights
+        highlightTintStrength = 0.05f,
+        defaultVignette = 1.12f,
+        defaultDust = 0.20f,
+        defaultLightLeak = 0.08f
+    ),
+    PASTEL_INSTANT(
+        "Pastel Instant",
+        "luts/pastel_instant.cube",
+        defaultGrainStrength = 0.08f,
+        defaultGrainChroma = 0.25f,
+        defaultFilmCurve = 0.15f,
+        defaultContrast = 0.95f,
+        defaultSaturation = 1.05f,
+        defaultBloom = 0.20f,
+        highlightTintR = 0.05f, highlightTintG = 0.03f, highlightTintB = 0.01f,  // warm highlights
+        highlightTintStrength = 0.10f,
+        defaultMilkyMix = 0.12f,
+        milkyTintR = 0.98f, milkyTintG = 0.93f, milkyTintB = 0.85f,
+        defaultFade = 0.06f,
+        defaultVignette = 1.15f,
+        defaultLightLeak = 0.15f
     ),
 
     /**
@@ -1994,6 +2082,10 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         val milkyTintB = params.milkyTintB
         val highlightRolloff = params.highlightRolloff
         val fade = params.fade
+        val vignette = params.vignette
+        val dust = params.dust
+        val scratch = params.scratch
+        val lightLeak = params.lightLeak
 
         val w = this.width
         val h = this.height
@@ -2300,9 +2392,12 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
 
                         // ── 5. Halation / Bloom (luma-based additive glow) ──
                         // Simplified: compute luma, extract brights, tint warm, add.
+                        // Uses the same 3rd-order smoothstep as the GL shader so
+                        // the CPU and GPU bloom match instead of diverging on a
+                        // linear vs. smooth ramp.
                         if (bloomActive) {
                             val luma = rf * 0.299f + gf * 0.587f + bf * 0.114f
-                            val brightMask = ((luma - 0.3f) / 0.5f).coerceIn(0f, 1f)
+                            val brightMask = smoothstep3(0.3f, 0.8f, luma)
                             val warmGlowR = brightMask * bloomStrength * luma * 1.0f
                             val warmGlowG = brightMask * bloomStrength * luma * 0.7f
                             val warmGlowB = brightMask * bloomStrength * luma * 0.3f
@@ -2333,7 +2428,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                         val distSq = dx * dx + rowDy2[y]
                         if (distSq > innerRadiusSq) {
                             val dist = kotlin.math.sqrt(distSq)
-                            val radialT = (dist * maxRadiusInv - vigInner) / vigRange
+                            val radialT = ((dist * maxRadiusInv - vigInner) / vigRange) * vignette
                             if (radialT > 0f) {
                                 val clampedT = if (radialT > 1f) 1f else radialT
                                 val shaderA = clampedT * vigFadeMax
@@ -2414,7 +2509,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                         // ── 9. Film Grain ──
                         if (grainStrength > 0f) {
                             // ── Realistic silver-halide film grain ────────────
-                            val lum = (r8 + g8 + b8) / 765f
+                            val lum = (r8 * 0.299f + g8 * 0.587f + b8 * 0.114f) / 255f
                             val midMask = 1f - 4f * (lum - 0.5f) * (lum - 0.5f) // [0, 1]
                             val midMaskClamped = midMask.coerceAtLeast(0.4f)
 
@@ -2551,6 +2646,94 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
             }.awaitAll()
         }
 
+            // ── Procedural overlay pass (dust / scratches / light leak) ──
+            // Applied in a second parallel sweep after the graded pixels
+            // (including the LUT and milky haze) are final, so the main
+            // per-pixel loop stays single-purpose. These overlays are
+            // position-only: they don't read neighbours, so an in-place
+            // pass over `pixels` is safe.
+            if (dust > 0f || scratch > 0f || lightLeak > 0f) {
+                coroutineScope {
+                    (0 until numChunks).map { chunk ->
+                        val start = chunk * chunkSize
+                        val end = (start + chunkSize).coerceAtMost(total)
+                        async(Dispatchers.Default) {
+                            var p = start
+                            while (p < end) {
+                                val x = p % w
+                                val y = p / w
+                                val c = pixels[p]
+                                val a = (c ushr 24) and 0xFF
+                                var rr = ((c ushr 16) and 0xFF) / 255f
+                                var gg = ((c ushr 8) and 0xFF) / 255f
+                                var bb = (c and 0xFF) / 255f
+
+                                if (dust > 0f) {
+                                    val cell = 64
+                                    val idX = x / cell
+                                    val idY = y / cell
+                                    val uvX = (x - idX * cell).toFloat() / cell
+                                    val uvY = (y - idY * cell).toFloat() / cell
+                                    val rnd = hashF(idX.toFloat(), idY.toFloat())
+                                    if (rnd >= 0.62f) {
+                                        val dcx = hashF(idX + 13.7f, idY.toFloat())
+                                        val dcy = hashF(idX.toFloat(), idY + 57.1f)
+                                        val rad = 0.05f + hashF(idX + 23.3f, idY + 91.7f) * 0.14f
+                                        val ddx = uvX - dcx
+                                        val ddy = uvY - dcy
+                                        val d = kotlin.math.sqrt(ddx * ddx + ddy * ddy)
+                                        val mask = 1f - smoothstep3(rad * 0.4f, rad, d)
+                                        val amount = mask * (0.6f + hashF(idX + 71.9f, idY + 3.1f) * 0.4f)
+                                        rr -= amount * dust * 0.45f
+                                        gg -= amount * dust * 0.45f
+                                        bb -= amount * dust * 0.45f
+                                    }
+                                }
+                                if (scratch > 0f) {
+                                    var best = 0f
+                                    for (i in 0 until 5) {
+                                        val band = i.toFloat()
+                                        val sx = hashF(band, 3.3f)
+                                        val present = if (hashF(band, 9.1f) >= 0.5f) 1f else 0f
+                                        val dxp = kotlin.math.abs(x - sx * w)
+                                        val widthPx = 1f + hashF(band, 7.7f) * 4f
+                                        val line = 1f - smoothstep3(widthPx * 0.3f, widthPx, dxp)
+                                        val flicker = 0.6f + 0.4f * hashF(kotlin.math.floor(y / 10f), band)
+                                        val s = present * line * flicker
+                                        if (s > best) best = s
+                                    }
+                                    rr -= best * scratch * 0.55f
+                                    gg -= best * scratch * 0.55f
+                                    bb -= best * scratch * 0.55f
+                                }
+                                if (lightLeak > 0f) {
+                                    val ndcX = (x - cx) / (w * 0.5f)
+                                    val ndcY = (y - cy) / (h * 0.5f)
+                                    val tlx = ndcX + 1f
+                                    val tly = ndcY + 1f
+                                    val tlLen = kotlin.math.sqrt(tlx * tlx + tly * tly)
+                                    val brx = ndcX - 1f
+                                    val bry = ndcY - 1f
+                                    val brLen = kotlin.math.sqrt(brx * brx + bry * bry)
+                                    val tl = 1f - smoothstep3(0.15f, 1.5f, tlLen)
+                                    val br = 1f - smoothstep3(0.15f, 1.5f, brLen)
+                                    val m = (tl * 0.75f + br * 0.4f).coerceIn(0f, 1f)
+                                    rr += 1.0f * m * lightLeak * 0.35f
+                                    gg += 0.55f * m * lightLeak * 0.35f
+                                    bb += 0.22f * m * lightLeak * 0.35f
+                                }
+
+                                val fr8 = (rr * 255f + 0.5f).toInt().coerceIn(0, 255)
+                                val fg8 = (gg * 255f + 0.5f).toInt().coerceIn(0, 255)
+                                val fb8 = (bb * 255f + 0.5f).toInt().coerceIn(0, 255)
+                                pixels[p] = (a shl 24) or (fr8 shl 16) or (fg8 shl 8) or fb8
+                                p++
+                            }
+                        }
+                    }.awaitAll()
+                }
+            }
+
             target.setPixels(pixels, 0, w, 0, 0, w, h)
 
             // The LUT trilinear blend is now folded into the parallel chunks
@@ -2566,28 +2749,29 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     /**
-     * MurmurHash-3 style 32-bit integer hash mixing two independent large
-     * primes (one per axis) into a single uniform random in [0, 1).
+     * Portable float hash matching the GLSL `hash(vec2)` used by the live
+     * preview and GPU capture shaders:
+     * `fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453)`.
      *
-     * Why two primes (and not `iy * 137` like the previous scheme): using a
-     * small prime for Y produces visible horizontal banding in the noise
-     * output because neighbouring rows hash to almost-the-same buckets.
-     * Two unrelated large primes decorrelate the axes so the grain looks
-     * like 2-D independent noise.
-     *
-     * Bit-width safety: Kotlin/JVM `Int` is signed and silently wraps on
-     * overflow — that's exactly what we want from a hash. Only the final
-     * `ushr` is critical (vs `shr`) so the sign bit never sneaks into the
-     * normalized float, otherwise half the pixels would receive negative
-     * "grain" deltas only.
+     * Replaced the previous 32-bit integer Murmur-style hash so the CPU and
+     * GPU film-grain key off the same noise field and therefore match within
+     * float precision. `sin`/`floor` run in double precision on the JVM and
+     * are narrowed back to Float, which mirrors the shader's mediump path
+     * closely enough for grain.
      */
-    private fun hash2D(x: Int, y: Int): Float {
-        var h = x * 0x27d4eb2d xor y * 0x165667b1
-        h = h xor (h ushr 13)
-        h *= 0x85ebca6b.toInt()
-        h = h xor (h ushr 16)
-        // 24-bit mantissa: enough resolution per pixel and never negative.
-        return ((h ushr 8) and 0xFFFFFF) / 16777216f
+    private fun hashF(x: Float, y: Float): Float {
+        val dot = x * 127.1f + y * 311.7f
+        val s = kotlin.math.sin(dot.toDouble()).toFloat() * 43758.5453f
+        return s - kotlin.math.floor(s.toDouble()).toFloat()
+    }
+
+    /** 5th-order smootherstep, matching the shader's `smootherstepNoise`. */
+    private fun smootherstep(t: Float): Float = t * t * t * (t * (t * 6f - 15f) + 10f)
+
+    /** GLSL `smoothstep(edge0, edge1, x)` equivalent (3rd-order). */
+    private fun smoothstep3(edge0: Float, edge1: Float, x: Float): Float {
+        val t = ((x - edge0) / (edge1 - edge0)).coerceIn(0f, 1f)
+        return t * t * (3f - 2f * t)
     }
 
     /**
@@ -2610,13 +2794,13 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         val iy = y.toInt()
         val fx = x - ix
         val fy = y - iy
-        val sx = fx * fx * fx * (fx * (fx * 6f - 15f) + 10f)
-        val sy = fy * fy * fy * (fy * (fy * 6f - 15f) + 10f)
+        val sx = smootherstep(fx)
+        val sy = smootherstep(fy)
 
-        val n00 = hash2D(ix, iy)
-        val n10 = hash2D(ix + 1, iy)
-        val n01 = hash2D(ix, iy + 1)
-        val n11 = hash2D(ix + 1, iy + 1)
+        val n00 = hashF(ix.toFloat(), iy.toFloat())
+        val n10 = hashF((ix + 1).toFloat(), iy.toFloat())
+        val n01 = hashF(ix.toFloat(), (iy + 1).toFloat())
+        val n11 = hashF((ix + 1).toFloat(), (iy + 1).toFloat())
 
         val nx0 = n00 + (n10 - n00) * sx
         val nx1 = n01 + (n11 - n01) * sx

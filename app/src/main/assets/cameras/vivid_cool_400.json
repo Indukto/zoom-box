@@ -1,0 +1,31 @@
+{
+  "id": "vivid_cool_400",
+  "displayName": "Vivid Cool 400",
+  "category": "color-negative",
+  "look": {
+    "lutPath": "luts/vivid_cool_400.cube",
+    "filmCurve": 0.18,
+    "contrast": 1.10,
+    "saturation": 1.25,
+    "bloom": 0.05,
+    "fringing": 0.001,
+    "shadowTintR": 0.0,
+    "shadowTintG": 0.02,
+    "shadowTintB": 0.03,
+    "shadowTintStrength": 0.07,
+    "highlightTintR": 0.0,
+    "highlightTintG": 0.03,
+    "highlightTintB": 0.01,
+    "highlightTintStrength": 0.06,
+    "softFocus": 0.0,
+    "milkyMix": 0.0,
+    "grainStrength": 0.06,
+    "grainChroma": 0.20,
+    "highlightRolloff": 0.0,
+    "fade": 0.0,
+    "vignette": 1.05,
+    "dust": 0.0,
+    "scratch": 0.0,
+    "lightLeak": 0.0
+  }
+}

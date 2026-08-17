@@ -1,0 +1,31 @@
+{
+  "id": "instant_classic",
+  "displayName": "Instant Classic",
+  "category": "instant",
+  "look": {
+    "lutPath": "luts/polaroid_px-680.cube",
+    "filmCurve": 0.20,
+    "contrast": 1.10,
+    "saturation": 1.15,
+    "bloom": 0.25,
+    "fringing": 0.006,
+    "shadowTintR": 0.0,
+    "shadowTintG": 0.005,
+    "shadowTintB": 0.01,
+    "shadowTintStrength": 0.04,
+    "highlightTintR": 0.04,
+    "highlightTintG": 0.015,
+    "highlightTintB": 0.0,
+    "highlightTintStrength": 0.06,
+    "softFocus": 0.0,
+    "milkyMix": 0.0,
+    "grainStrength": 0.18,
+    "grainChroma": 0.35,
+    "highlightRolloff": 0.0,
+    "fade": 0.0,
+    "vignette": 1.0,
+    "dust": 0.0,
+    "scratch": 0.0,
+    "lightLeak": 0.0
+  }
+}

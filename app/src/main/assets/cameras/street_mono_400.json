@@ -1,0 +1,31 @@
+{
+  "id": "street_mono_400",
+  "displayName": "Street Mono 400",
+  "category": "black-and-white",
+  "look": {
+    "lutPath": "luts/street_mono_400.cube",
+    "filmCurve": 0.40,
+    "contrast": 1.45,
+    "saturation": 0.0,
+    "bloom": 0.0,
+    "fringing": 0.0,
+    "shadowTintR": 0.0,
+    "shadowTintG": 0.0,
+    "shadowTintB": 0.0,
+    "shadowTintStrength": 0.0,
+    "highlightTintR": 0.0,
+    "highlightTintG": 0.0,
+    "highlightTintB": 0.0,
+    "highlightTintStrength": 0.0,
+    "softFocus": 0.0,
+    "milkyMix": 0.0,
+    "grainStrength": 0.35,
+    "grainChroma": 0.0,
+    "highlightRolloff": 0.0,
+    "fade": 0.0,
+    "vignette": 1.10,
+    "dust": 0.0,
+    "scratch": 0.0,
+    "lightLeak": 0.0
+  }
+}

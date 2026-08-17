@@ -36,6 +36,10 @@ class RetroRenderParamsTest {
         assertEquals(0f, p.milkyMix, 0f)
         assertEquals(0f, p.grainStrength, 0f)
         assertEquals(0f, p.grainChroma, 0f)
+        assertEquals(1f, p.vignette, 0f)
+        assertEquals(0f, p.dust, 0f)
+        assertEquals(0f, p.scratch, 0f)
+        assertEquals(0f, p.lightLeak, 0f)
         assertFalse(p.needsProcessing)
     }
 
@@ -65,6 +69,10 @@ class RetroRenderParamsTest {
         assertEquals(preset.milkyTintB, p.milkyTintB, 0f)
         assertEquals(preset.defaultGrainStrength, p.grainStrength, 0f)
         assertEquals(preset.defaultGrainChroma, p.grainChroma, 0f)
+        assertEquals(preset.defaultVignette, p.vignette, 0f)
+        assertEquals(preset.defaultDust, p.dust, 0f)
+        assertEquals(preset.defaultScratch, p.scratch, 0f)
+        assertEquals(preset.defaultLightLeak, p.lightLeak, 0f)
         assertTrue(p.needsProcessing)
     }
 
@@ -102,6 +110,13 @@ class RetroRenderParamsTest {
         assertTrue(RetroRenderParams(exposure = 0.01f).needsProcessing)
         assertTrue(RetroRenderParams(highlightRolloff = 0.01f).needsProcessing)
         assertTrue(RetroRenderParams(fade = 0.01f).needsProcessing)
+        assertTrue(RetroRenderParams(vignette = 0.9f).needsProcessing)
+        assertTrue(RetroRenderParams(vignette = 1.1f).needsProcessing)
+        assertTrue(RetroRenderParams(dust = 0.01f).needsProcessing)
+        assertTrue(RetroRenderParams(scratch = 0.01f).needsProcessing)
+        assertTrue(RetroRenderParams(lightLeak = 0.01f).needsProcessing)
+        // Vignette 1.0 is the neutral default and must not flip the flag.
+        assertFalse(RetroRenderParams(vignette = 1f).needsProcessing)
         // The LUT is checked separately by callers (a parse can return null),
         // so a lone LUT path must not flip needsProcessing.
         assertFalse(RetroRenderParams(lutPath = "luts/moody.cube").needsProcessing)
@@ -124,6 +139,29 @@ class RetroRenderParamsTest {
             assertEquals("${preset.name} temperature", 0.1f, p.temperature, 0f)
             assertEquals("${preset.name} tint", 0.2f, p.tint, 0f)
             assertEquals("${preset.name} exposure", 0.3f, p.exposure, 0f)
+            assertEquals("${preset.name} vignette", preset.defaultVignette, p.vignette, 0f)
+            assertEquals("${preset.name} dust", preset.defaultDust, p.dust, 0f)
+            assertEquals("${preset.name} scratch", preset.defaultScratch, p.scratch, 0f)
+            assertEquals("${preset.name} lightLeak", preset.defaultLightLeak, p.lightLeak, 0f)
         }
+    }
+
+    @Test
+    fun `new film styles carry their artifact and tone knobs`() {
+        val ccd = FilmPreset.CCD_DIGICAM.toRetroRenderParams()
+        assertEquals(0.20f, ccd.dust, 0f)
+        assertEquals(0.08f, ccd.lightLeak, 0f)
+        assertEquals(1.12f, ccd.vignette, 0f)
+
+        val pastel = FilmPreset.PASTEL_INSTANT.toRetroRenderParams()
+        assertEquals(0.06f, pastel.fade, 0f)
+        assertEquals(0.15f, pastel.lightLeak, 0f)
+        assertEquals(1.15f, pastel.vignette, 0f)
+        assertEquals(0.12f, pastel.milkyMix, 0f)
+
+        val street = FilmPreset.STREET_MONO_400.toRetroRenderParams()
+        assertEquals(1.10f, street.vignette, 0f)
+        assertEquals(0.35f, street.grainStrength, 0f)
+        assertEquals(0f, street.grainChroma, 0f)
     }
 }

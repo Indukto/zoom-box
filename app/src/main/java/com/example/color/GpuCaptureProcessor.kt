@@ -209,6 +209,10 @@ class GpuCaptureProcessor {
         // Grain is a capture-time finish; the live preview leaves it at 0.
         setFloatUniform(program, "uGrainStrength", params.grainStrength)
         setFloatUniform(program, "uGrainChroma", params.grainChroma)
+        setFloatUniform(program, "uVignette", params.vignette)
+        setFloatUniform(program, "uDust", params.dust)
+        setFloatUniform(program, "uScratch", params.scratch)
+        setFloatUniform(program, "uLightLeak", params.lightLeak)
 
         if (has3d && lutTexture != 0) {
             GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
