@@ -1,4 +1,67 @@
 <resources>
     <string name="app_name">ZoomBox Camera</string>
     <string name="camerax_attribution_label">Camera Capture and Processing</string>
+
+    <!-- Viewfinder overlays -->
+    <string name="color_balance_title">COLOR BALANCE</string>
+    <string name="wb_readout">%1$dK %2$s</string>
+    <string name="wb_auto_label">A</string>
+    <string name="wb_preset_daylight">Daylight</string>
+    <string name="wb_preset_incandescent">Incandescent</string>
+    <string name="exposure_title">EXPOSURE</string>
+    <string name="ev_readout">%1$s EV</string>
+    <string name="temperature_label">Temperature</string>
+    <string name="exposure_label">Exposure</string>
+    <string name="close_label">Close</string>
+    <string name="front_lens_label">FRONT</string>
+    <string name="focal_length_mm">%1$dmm</string>
+    <string name="self_timer_seconds">%1$ds</string>
+    <string name="timer_countdown">%1$d</string>
+
+    <!-- Viewfinder action bar -->
+    <string name="settings_label">Settings</string>
+    <string name="grid_label">Grid</string>
+    <string name="timer_off_label">Timer Off</string>
+    <string name="flash_label">Flash</string>
+    <string name="flip_camera_label">Flip Camera</string>
+    <string name="last_photo_label">Last photo</string>
+    <string name="no_photos_label">No photos</string>
+
+    <!-- Splash / permission screen -->
+    <string name="retro_camera_icon_desc">Retro Camera Icon</string>
+    <string name="splash_title">ZOOM CAMERA</string>
+    <string name="splash_tagline">RETRO FILM CAMERA</string>
+    <string name="splash_description">Capture vintage film-styled photos with our signature zoom box and warm retro filters. Grant camera access to begin.</string>
+    <string name="enable_camera">ENABLE CAMERA</string>
+    <string name="splash_footer">Zoom Cam · %1$s</string>
+
+    <!-- Film style picker -->
+    <string name="film_style">Film Style</string>
+
+    <!-- Delete confirmation -->
+    <string name="delete_photo_title">Delete photo?</string>
+    <string name="delete_photo_message">This photo will be permanently deleted from this device. This action cannot be undone.</string>
+    <string name="delete">Delete</string>
+    <string name="cancel">Cancel</string>
+
+    <!-- Photo viewer / gallery -->
+    <string name="close_viewfinder_desc">Close Viewfinder</string>
+    <string name="gallery_title">Gallery</string>
+    <string name="share_chooser_title">Share Retro Photo</string>
+    <string name="share_retro_capture_desc">Share retro capture</string>
+    <string name="delete_captured_photo_desc">Delete captured photo</string>
+    <string name="enlarged_capture_desc">Enlarged capture</string>
+    <string name="filmstrip_photo_desc">Filmstrip photo</string>
+
+    <!-- Settings -->
+    <string name="close_settings_desc">Close settings</string>
+    <string name="capture_section">CAPTURE</string>
+    <string name="raw_format_label">RAW Format</string>
+    <string name="raw_format_subtitle">Capture unprocessed sensor data for professional editing (DNG)</string>
+    <string name="aspect_ratio_section">ASPECT RATIO</string>
+    <string name="full_resolution_label">Save at full resolution</string>
+    <string name="gallery_section">GALLERY</string>
+    <string name="photo_frame_label">Photo Frame</string>
+    <string name="photo_frame_subtitle">Add the film-card frame in the gallery and bake it into saved photos</string>
+    <string name="zoom_camera_footer">Zoom • Camera</string>
 </resources>

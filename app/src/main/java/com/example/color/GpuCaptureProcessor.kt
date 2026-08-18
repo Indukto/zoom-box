@@ -11,6 +11,8 @@ import android.opengl.GLES30
 import android.util.Log
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.concurrent.Callable
+import java.util.concurrent.Executors
 
 /**
  * Runs the same film-effect fragment shader as the live preview over a decoded
@@ -23,6 +25,11 @@ import java.nio.ByteOrder
  * so preview and capture can never drift apart, and it applies film grain (a
  * capture-time finish the live viewfinder intentionally omits).
  *
+ * EGL setup is amortised across captures: all GL work runs on one dedicated
+ * thread ([glThread]) and the EGL display/context are created once and reused,
+ * so consecutive shutter taps don't pay eglInitialize/eglCreateContext again.
+ * The PBuffer surface is recreated only when the capture dimensions change.
+ *
  * Safety contract: [process] returns `null` on *any* EGL/shader/readback
  * failure instead of throwing, so the caller always has the CPU pipeline as a
  * fallback. It is still device-dependent code and should be validated on
@@ -30,6 +37,29 @@ import java.nio.ByteOrder
  */
 class GpuCaptureProcessor {
 
+    // A GL context can only be current on one thread at a time, and the capture
+    // pipeline runs on Dispatchers.IO whose worker thread may change between
+    // shots. Pinning all EGL work to this single thread is what makes context
+    // reuse safe; it also serialises captures, which is already guaranteed by
+    // the caller's single-capture guard.
+    private val glThread = Executors.newSingleThreadExecutor { r ->
+        Thread(r, "GpuCaptureThread").apply { isDaemon = true }
+    }
+
+    // EGL objects below are only ever touched from [glThread], so no extra
+    // synchronisation is needed.
+    private var display: EGLDisplay? = null
+    private var config: EGLConfig? = null
+    private var context: EGLContext? = null
+    private var surface: EGLSurface? = null
+    private var surfaceW = 0
+    private var surfaceH = 0
+
+    /**
+     * Grades [source] on the GL thread and returns the result, or `null` on
+     * any failure (the caller falls back to the CPU filter). Blocks the
+     * calling thread until the GPU work completes.
+     */
     fun process(
         source: Bitmap,
         params: RetroRenderParams,
@@ -39,14 +69,37 @@ class GpuCaptureProcessor {
         val h = source.height
         if (w <= 0 || h <= 0) return null
 
-        var display: EGLDisplay? = null
-        var context: EGLContext? = null
-        var surface: EGLSurface? = null
         return try {
-            display = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY) ?: return null
-            if (display == EGL14.EGL_NO_DISPLAY) return null
+            glThread.submit(Callable<Bitmap?> {
+                if (!ensureContext()) return@Callable null
+                if (!ensureSurface(w, h)) return@Callable null
+                val d = display!!
+                val s = surface!!
+                val c = context!!
+                if (!EGL14.eglMakeCurrent(d, s, s, c)) {
+                    Log.e(TAG, "eglMakeCurrent failed")
+                    return@Callable null
+                }
+                render(source, params, lut)
+            }).get()
+        } catch (e: Exception) {
+            Log.e(TAG, "GPU capture failed; CPU fallback will be used", e)
+            null
+        }
+    }
+
+    /**
+     * Creates (once) and returns the shared EGL display + context. Returns
+     * false on any failure; a failed attempt is not cached, so a later call
+     * retries from scratch.
+     */
+    private fun ensureContext(): Boolean {
+        if (display != null && context != null) return true
+        return try {
+            val d = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY) ?: return false
+            if (d == EGL14.EGL_NO_DISPLAY) return false
             val version = IntArray(2)
-            if (!EGL14.eglInitialize(display, version, 0, version, 1)) return null
+            if (!EGL14.eglInitialize(d, version, 0, version, 1)) return false
 
             val configAttribs = intArrayOf(
                 EGL14.EGL_RENDERABLE_TYPE, EGL14.EGL_OPENGL_ES2_BIT,
@@ -59,39 +112,88 @@ class GpuCaptureProcessor {
             )
             val configs = arrayOfNulls<EGLConfig>(1)
             val numConfigs = IntArray(1)
-            if (!EGL14.eglChooseConfig(display, configAttribs, 0, configs, 0, 1, numConfigs, 0) ||
+            if (!EGL14.eglChooseConfig(d, configAttribs, 0, configs, 0, 1, numConfigs, 0) ||
                 numConfigs[0] <= 0
-            ) return null
-            val config = configs[0] ?: return null
+            ) return false
+            val cfg = configs[0] ?: return false
 
             val contextAttribs = intArrayOf(EGL14.EGL_CONTEXT_CLIENT_VERSION, 2, EGL14.EGL_NONE)
-            context = EGL14.eglCreateContext(display, config, EGL14.EGL_NO_CONTEXT, contextAttribs, 0)
-            if (context == null || context == EGL14.EGL_NO_CONTEXT) return null
+            val c = EGL14.eglCreateContext(d, cfg, EGL14.EGL_NO_CONTEXT, contextAttribs, 0)
+            if (c == null || c == EGL14.EGL_NO_CONTEXT) return false
 
-            val surfaceAttribs = intArrayOf(
-                EGL14.EGL_WIDTH, w,
-                EGL14.EGL_HEIGHT, h,
-                EGL14.EGL_NONE
-            )
-            surface = EGL14.eglCreatePbufferSurface(display, config, surfaceAttribs, 0)
-            if (surface == null || surface == EGL14.EGL_NO_SURFACE) return null
-
-            if (!EGL14.eglMakeCurrent(display, surface, surface, context)) return null
-            render(source, params, lut)
+            display = d
+            config = cfg
+            context = c
+            true
         } catch (e: Exception) {
-            Log.e(TAG, "GPU capture failed; CPU fallback will be used", e)
-            null
-        } finally {
-            try {
-                if (display != null) {
-                    EGL14.eglMakeCurrent(display, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_CONTEXT)
-                    if (surface != null) EGL14.eglDestroySurface(display, surface)
-                    if (context != null) EGL14.eglDestroyContext(display, context)
-                    EGL14.eglTerminate(display)
+            Log.e(TAG, "EGL context setup failed", e)
+            false
+        }
+    }
+
+    /**
+     * Ensures a PBuffer surface of exactly [w] x [h] is current; recreates it
+     * when the previous capture had different dimensions. Returns false on
+     * failure.
+     */
+    private fun ensureSurface(w: Int, h: Int): Boolean {
+        if (surface != null && surfaceW == w && surfaceH == h) return true
+        destroySurface()
+        val d = display ?: return false
+        val cfg = config ?: return false
+        val surfaceAttribs = intArrayOf(
+            EGL14.EGL_WIDTH, w,
+            EGL14.EGL_HEIGHT, h,
+            EGL14.EGL_NONE
+        )
+        val s = EGL14.eglCreatePbufferSurface(d, cfg, surfaceAttribs, 0)
+        if (s == null || s == EGL14.EGL_NO_SURFACE) {
+            Log.e(TAG, "eglCreatePbufferSurface failed")
+            return false
+        }
+        surface = s
+        surfaceW = w
+        surfaceH = h
+        return true
+    }
+
+    private fun destroySurface() {
+        val d = display ?: return
+        val s = surface ?: return
+        try {
+            // A surface must not be destroyed while it is current.
+            EGL14.eglMakeCurrent(d, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_CONTEXT)
+            EGL14.eglDestroySurface(d, s)
+        } catch (_: Exception) {
+            // Best-effort teardown; a leaked PBuffer is preferable to a crash.
+        }
+        surface = null
+    }
+
+    /**
+     * Releases the GL thread and shared EGL resources. Idempotent; safe to
+     * call after a final [process]. Any capture in flight is drained first.
+     */
+    fun release() {
+        try {
+            glThread.submit {
+                destroySurface()
+                val d = display ?: return@submit
+                val c = context ?: return@submit
+                try {
+                    EGL14.eglMakeCurrent(d, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_CONTEXT)
+                    EGL14.eglDestroyContext(d, c)
+                    EGL14.eglTerminate(d)
+                } catch (_: Exception) {
+                    // Best-effort teardown; never mask an in-flight result.
                 }
-            } catch (_: Exception) {
-                // Best-effort teardown; never mask the original result.
+                display = null
+                config = null
+                context = null
             }
+            glThread.shutdown()
+        } catch (_: Exception) {
+            // Executor already shut down or rejected; nothing left to do.
         }
     }
 
@@ -128,6 +230,7 @@ class GpuCaptureProcessor {
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE)
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
+
         GLES20.glPixelStorei(GLES20.GL_UNPACK_ALIGNMENT, 1)
 
         val srcPixels = IntArray(w * h)
@@ -242,8 +345,8 @@ class GpuCaptureProcessor {
             out[i] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
         }
 
-        // Cleanup GL resources (the EGL surface/context are torn down by the
-        // caller's finally block).
+        // Cleanup per-capture GL resources (the EGL display/context/surface
+        // are kept and reused by [process] / [ensureSurface]).
         GLES20.glDeleteFramebuffers(1, fbo, 0)
         GLES20.glDeleteTextures(1, outputTex, 0)
         GLES20.glDeleteTextures(1, inputTex, 0)

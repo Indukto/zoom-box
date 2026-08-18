@@ -153,6 +153,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import kotlin.time.Duration.Companion.milliseconds
 import androidx.compose.ui.text.font.FontWeight
@@ -622,7 +623,7 @@ private fun WhiteBalancePanel(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "COLOR BALANCE",
+                text = stringResource(R.string.color_balance_title),
                 color = Color.White.copy(alpha = 0.85f),
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
@@ -642,7 +643,11 @@ private fun WhiteBalancePanel(
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
-                    text = "${kValue}K ${if (tintInt >= 0) " $tintInt" else "$tintInt"}",
+                    text = stringResource(
+                        R.string.wb_readout,
+                        kValue,
+                        if (tintInt >= 0) " $tintInt" else "$tintInt"
+                    ),
                     color = Color.White,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
@@ -670,7 +675,7 @@ private fun WhiteBalancePanel(
                     isSelected = temperature == 0f && tint == 0f
                 ) {
                     Text(
-                        text = "A",
+                        text = stringResource(R.string.wb_auto_label),
                         color = Color.White,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold
@@ -684,7 +689,7 @@ private fun WhiteBalancePanel(
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.WbSunny,
-                        contentDescription = "Daylight",
+                        contentDescription = stringResource(R.string.wb_preset_daylight),
                         tint = Color.White,
                         modifier = Modifier.size(16.dp)
                     )
@@ -697,7 +702,7 @@ private fun WhiteBalancePanel(
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Lightbulb,
-                        contentDescription = "Incandescent",
+                        contentDescription = stringResource(R.string.wb_preset_incandescent),
                         tint = Color.White,
                         modifier = Modifier.size(16.dp)
                     )
@@ -726,7 +731,7 @@ private fun ExposurePanel(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "EXPOSURE",
+                text = stringResource(R.string.exposure_title),
                 color = Color.White.copy(alpha = 0.85f),
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
@@ -737,7 +742,7 @@ private fun ExposurePanel(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "$evLabel EV",
+                    text = stringResource(R.string.ev_readout, evLabel),
                     color = Color.White,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
@@ -808,7 +813,7 @@ private fun MorphedPanelHeaderButton(
     IconButton(onClick = onClick, modifier = Modifier.size(24.dp)) {
         Icon(
             imageVector = icon,
-            contentDescription = "Close",
+            contentDescription = stringResource(R.string.close_label),
             tint = Color.White.copy(alpha = 0.75f),
             modifier = Modifier.size(14.dp)
         )
@@ -846,7 +851,7 @@ private fun FloatingBubbleRow(
         ) {
             Icon(
                 imageVector = Icons.Rounded.Thermostat,
-                contentDescription = "Temperature",
+                contentDescription = stringResource(R.string.temperature_label),
                 tint = if (temperature != 0f || tint != 0f) Color(0xFFFBBF24) else Color.White,
                 modifier = Modifier.size(22.dp)
             )
@@ -872,7 +877,7 @@ private fun FloatingBubbleRow(
                 // recomposition path. cycleLens() also short-circuits
                 // when isFrontCamera so the click is a no-op either way.
                 Text(
-                    text = "FRONT",
+                    text = stringResource(R.string.front_lens_label),
                     color = Color.White.copy(alpha = 0.55f),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
@@ -900,7 +905,7 @@ private fun FloatingBubbleRow(
         ) {
             Icon(
                 imageVector = Icons.Rounded.WbSunny,
-                contentDescription = "Exposure",
+                contentDescription = stringResource(R.string.exposure_label),
                 tint = if (exposure != 0f) Color(0xFFFBBF24) else Color.White,
                 modifier = Modifier.size(20.dp)
             )
@@ -1334,7 +1339,7 @@ fun CameraPermissionOnboarding(
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.CameraAlt,
-                        contentDescription = "Retro Camera Icon",
+                        contentDescription = stringResource(R.string.retro_camera_icon_desc),
                         tint = Color(0xFFF59E0B),
                         modifier = Modifier.size(48.dp)
                     )
@@ -1350,7 +1355,7 @@ fun CameraPermissionOnboarding(
                         slideInVertically(tween(500, easing = EaseInOutCubic)) { it / 2 }
             ) {
                 Text(
-                    text = "ZOOM CAMERA",
+                    text = stringResource(R.string.splash_title),
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
@@ -1368,7 +1373,7 @@ fun CameraPermissionOnboarding(
                         slideInVertically(tween(500, easing = EaseInOutCubic)) { it / 2 }
             ) {
                 Text(
-                    text = "RETRO FILM CAMERA",
+                    text = stringResource(R.string.splash_tagline),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Normal,
                     color = Color(0xFFF59E0B).copy(alpha = 0.7f),
@@ -1386,7 +1391,7 @@ fun CameraPermissionOnboarding(
                         slideInVertically(tween(600, easing = EaseInOutCubic)) { it / 2 }
             ) {
                 Text(
-                    text = "Capture vintage film-styled photos with our signature zoom box and warm retro filters. Grant camera access to begin.",
+                    text = stringResource(R.string.splash_description),
                     fontSize = 15.sp,
                     color = Color(0xFF9CA3AF),
                     textAlign = TextAlign.Center,
@@ -1422,7 +1427,7 @@ fun CameraPermissionOnboarding(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "ENABLE CAMERA",
+                        text = stringResource(R.string.enable_camera),
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
                         letterSpacing = 1.5.sp,
@@ -1442,7 +1447,7 @@ fun CameraPermissionOnboarding(
                 // BuildConfig.VERSION_NAME. Bump the gradle line and the
                 // splash footer reacts — see AppVersion.kt for the single
                 // source-of-truth story.
-                text = "Zoom Cam · ${AppVersion.display}",
+                text = stringResource(R.string.splash_footer, AppVersion.display),
                 color = Color(0xFFF59E0B).copy(alpha = 0.25f),
                 fontSize = 10.sp,
                 letterSpacing = 2.sp,
@@ -1767,7 +1772,7 @@ fun CameraActiveScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "$timerCountdown",
+                    text = stringResource(R.string.timer_countdown, timerCountdown),
                     color = Color(0xFFFBBF24),
                     fontSize = 80.sp,
                     fontWeight = FontWeight.Bold,
@@ -1901,7 +1906,7 @@ fun CameraActiveScreen(
 
             // Focal length above zoom box (rendered above black mask)
             Text(
-                text = "${effectiveFocalLength}mm",
+                text = stringResource(R.string.focal_length_mm, effectiveFocalLength),
                 color = Color.White,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
@@ -1943,8 +1948,7 @@ fun CameraActiveScreen(
                 modifier = Modifier.size(36.dp).testTag("settings_menu_button")
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.MoreVert,
-                    contentDescription = "Settings",
+                    imageVector = Icons.Rounded.MoreVert,                        contentDescription = stringResource(R.string.settings_label),
                     tint = Color.White,
                     modifier = Modifier.size(20.dp)
                 )
@@ -2270,7 +2274,7 @@ fun CameraActiveScreen(
                 ) {
                     Icon(
                         imageVector = if (showGridLines) Icons.Rounded.GridOn else Icons.Rounded.GridOff,
-                        contentDescription = "Grid",
+                        contentDescription = stringResource(R.string.grid_label),
                         tint = if (showGridLines) Color(0xFFFBBF24) else Color.White,
                         modifier = Modifier.size(18.dp)
                     )
@@ -2295,13 +2299,13 @@ fun CameraActiveScreen(
                     if (selfTimerMode == 0) {
                         Icon(
                             imageVector = Icons.Rounded.Timer,
-                            contentDescription = "Timer Off",
+                            contentDescription = stringResource(R.string.timer_off_label),
                             tint = Color.White,
                             modifier = Modifier.size(18.dp)
                         )
                     } else {
                         Text(
-                            text = "${selfTimerMode}s",
+                            text = stringResource(R.string.self_timer_seconds, selfTimerMode),
                             color = Color(0xFFFBBF24),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
@@ -2324,7 +2328,7 @@ fun CameraActiveScreen(
                             1    -> Icons.Rounded.FlashOn
                             else -> Icons.Rounded.FlashOff
                         },
-                        contentDescription = "Flash",
+                        contentDescription = stringResource(R.string.flash_label),
                         tint = if (flashMode == 2) Color.White else Color(0xFFFBBF24),
                         modifier = Modifier.size(18.dp)
                     )
@@ -2341,7 +2345,7 @@ fun CameraActiveScreen(
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.FlipCameraAndroid,
-                        contentDescription = "Flip Camera",
+                        contentDescription = stringResource(R.string.flip_camera_label),
                         tint = Color.White,
                         modifier = Modifier.size(18.dp)
                     )
@@ -2373,14 +2377,14 @@ fun CameraActiveScreen(
                     if (capturedPhotos.isNotEmpty()) {
                         Image(
                             painter = rememberAsyncImagePainter(model = capturedPhotos.first()),
-                            contentDescription = "Last photo",
+                            contentDescription = stringResource(R.string.last_photo_label),
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp))
                         )
                     } else {
                         Icon(
                             imageVector = Icons.Rounded.PhotoLibrary,
-                            contentDescription = "No photos",
+                            contentDescription = stringResource(R.string.no_photos_label),
                             tint = Color.Gray,
                             modifier = Modifier.size(22.dp)
                         )
@@ -2487,7 +2491,7 @@ fun CameraActiveScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "Film Style",
+                        text = stringResource(R.string.film_style),
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
@@ -2647,7 +2651,7 @@ fun CameraActiveScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            "Delete photo?",
+                            stringResource(R.string.delete_photo_title),
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp
@@ -2656,8 +2660,7 @@ fun CameraActiveScreen(
                 },
                 text = {
                     Text(
-                        "This photo will be permanently deleted from this device. " +
-                            "This action cannot be undone.",
+                        stringResource(R.string.delete_photo_message),
                         color = Color(0xFF9CA3AF),
                         fontSize = 14.sp
                     )
@@ -2679,12 +2682,12 @@ fun CameraActiveScreen(
                         ),
                         modifier = Modifier.testTag("confirm_delete_button")
                     ) {
-                        Text("Delete", fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.delete), fontWeight = FontWeight.Bold)
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { pendingDelete = null }) {
-                        Text("Cancel", color = Color.White)
+                        Text(stringResource(R.string.cancel), color = Color.White)
                     }
                 },
                 containerColor = Color(0xFF1E1E1E),
@@ -2765,11 +2768,11 @@ fun PhotoViewerOverlay(
                 onClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onClose() },
                 colors = IconButtonDefaults.iconButtonColors(containerColor = Color(0xFF1C1C1E))
             ) {
-                Icon(imageVector = Icons.Rounded.Close, contentDescription = "Close Viewfinder", tint = Color.White)
+                Icon(imageVector = Icons.Rounded.Close, contentDescription = stringResource(R.string.close_viewfinder_desc), tint = Color.White)
             }
 
             Text(
-                text = "Gallery",
+                text = stringResource(R.string.gallery_title),
                 fontSize = 15.sp, color = Color.White, fontWeight = FontWeight.Bold,
                 letterSpacing = 1.sp, fontFamily = FontFamily.Serif
             )
@@ -2786,12 +2789,12 @@ fun PhotoViewerOverlay(
                                     putExtra(Intent.EXTRA_STREAM, uri)
                                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                 }
-                                context.startActivity(Intent.createChooser(intent, "Share Retro Photo"))
+                                context.startActivity(Intent.createChooser(intent, context.getString(R.string.share_chooser_title)))
                             } catch (e: Exception) { Log.e("PhotoViewerOverlay", "Error sharing photo", e) }
                         },
                         colors = IconButtonDefaults.iconButtonColors(containerColor = Color(0xFF1C1C1E))
                     ) {
-                        Icon(imageVector = Icons.Rounded.Share, contentDescription = "Share retro capture", tint = Color.White, modifier = Modifier.size(18.dp))
+                        Icon(imageVector = Icons.Rounded.Share, contentDescription = stringResource(R.string.share_retro_capture_desc), tint = Color.White, modifier = Modifier.size(18.dp))
                     }
 
                     IconButton(
@@ -2799,7 +2802,7 @@ fun PhotoViewerOverlay(
                         colors = IconButtonDefaults.iconButtonColors(containerColor = Color(0xFF2A1C1C)),
                         modifier = Modifier.testTag("delete_photo_button")
                     ) {
-                        Icon(imageVector = Icons.Rounded.Delete, contentDescription = "Delete captured photo", tint = Color(0xFFEF4444), modifier = Modifier.size(18.dp))
+                        Icon(imageVector = Icons.Rounded.Delete, contentDescription = stringResource(R.string.delete_captured_photo_desc), tint = Color(0xFFEF4444), modifier = Modifier.size(18.dp))
                     }
                 }
             }
@@ -2860,7 +2863,7 @@ fun PhotoViewerOverlay(
                 val imgHeight = imgWidth / photoAspect
                 Image(
                     painter = rememberAsyncImagePainter(model = photo),
-                    contentDescription = "Enlarged capture",
+                    contentDescription = stringResource(R.string.enlarged_capture_desc),
                     contentScale = ContentScale.Fit,
                     modifier = Modifier.width(imgWidth).height(imgHeight)
                 )
@@ -2886,7 +2889,7 @@ fun PhotoViewerOverlay(
                                 scope.launch { pagerState.animateScrollToPage(idx) }
                             }
                     ) {
-                        Image(painter = rememberAsyncImagePainter(model = item), contentDescription = "Filmstrip photo", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                        Image(painter = rememberAsyncImagePainter(model = item), contentDescription = stringResource(R.string.filmstrip_photo_desc), contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                     }
                 }
             }
@@ -2938,14 +2941,14 @@ fun SettingsScreen(viewModel: CameraViewModel, onClose: () -> Unit) {
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Close,
-                        contentDescription = "Close settings",
+                        contentDescription = stringResource(R.string.close_settings_desc),
                         tint = Color.White,
                         modifier = Modifier.size(22.dp)
                     )
                 }
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "Settings",
+                    text = stringResource(R.string.settings_label),
                     color = Color.White,
                     fontSize = 22.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -2962,7 +2965,7 @@ fun SettingsScreen(viewModel: CameraViewModel, onClose: () -> Unit) {
                 shape = RoundedCornerShape(8.dp)
             ) {
                 Text(
-                    text = "CAPTURE",
+                    text = stringResource(R.string.capture_section),
                     color = Color.White.copy(alpha = 0.7f),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -2981,8 +2984,8 @@ fun SettingsScreen(viewModel: CameraViewModel, onClose: () -> Unit) {
                 Spacer(modifier = Modifier.height(4.dp))
 
                 SettingsRow(
-                    label = "RAW Format",
-                    subtitle = "Capture unprocessed sensor data for professional editing (DNG)",
+                    label = stringResource(R.string.raw_format_label),
+                    subtitle = stringResource(R.string.raw_format_subtitle),
                     checked = rawModeEnabled,
                     enabled = rawAvailableForCurrentLens && !isFrontCamera,
                     onCheckedChange = {
@@ -2992,7 +2995,7 @@ fun SettingsScreen(viewModel: CameraViewModel, onClose: () -> Unit) {
                 )
                 Spacer(modifier = Modifier.height(14.dp))
                 Text(
-                    text = "ASPECT RATIO",
+                    text = stringResource(R.string.aspect_ratio_section),
                     color = Color.White.copy(alpha = 0.7f),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -3008,7 +3011,7 @@ fun SettingsScreen(viewModel: CameraViewModel, onClose: () -> Unit) {
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 SettingsRow(
-                    label = "Save at full resolution",
+                    label = stringResource(R.string.full_resolution_label),
                     checked = outputResolution == OutputResolution.FULL,
                     enabled = true,
                     onCheckedChange = { wantFullRes ->
@@ -3021,7 +3024,7 @@ fun SettingsScreen(viewModel: CameraViewModel, onClose: () -> Unit) {
                 )
                 Spacer(modifier = Modifier.height(36.dp))
                 Text(
-                    text = "GALLERY",
+                    text = stringResource(R.string.gallery_section),
                     color = Color.White.copy(alpha = 0.7f),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -3029,8 +3032,8 @@ fun SettingsScreen(viewModel: CameraViewModel, onClose: () -> Unit) {
                     modifier = Modifier.padding(start = 4.dp, top = 4.dp, bottom = 6.dp)
                 )
                 SettingsRow(
-                    label = "Photo Frame",
-                    subtitle = "Add the film-card frame in the gallery and bake it into saved photos",
+                    label = stringResource(R.string.photo_frame_label),
+                    subtitle = stringResource(R.string.photo_frame_subtitle),
                     checked = showGalleryFrame,
                     enabled = true,
                     onCheckedChange = {
@@ -3041,7 +3044,7 @@ fun SettingsScreen(viewModel: CameraViewModel, onClose: () -> Unit) {
                 Spacer(modifier = Modifier.height(36.dp))
 
                 Text(
-                    text = "Zoom \u2022 Camera",
+                    text = stringResource(R.string.zoom_camera_footer),
                     color = Color.White.copy(alpha = 0.35f),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Normal,
