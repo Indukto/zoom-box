@@ -1,4 +1,11 @@
-# ZoomBox Camera
+<div align="center">
+  <img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" alt="Krate Logo" width="128"/>
+  <h1>Zoom Box Camera</h1>
+ 
+</div>
+
+
+
 
 Retro-themed Android camera app built with Jetpack Compose and CameraX. Uses a "Zoom Box" framing overlay that shows the exact crop area before capture, paired with vintage film color processing, 3D LUT grading, and manual controls.
 
