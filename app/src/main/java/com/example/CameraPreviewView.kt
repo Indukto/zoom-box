@@ -64,7 +64,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import com.example.color.CubeLut
 import com.example.color.CubeLutParser
 import com.example.color.LutPreviewView
-import com.example.color.toRetroRenderParams
+import com.example.color.RetroRenderParams
 import com.example.FilmPreset
 import com.example.zoom.CaptureExtension
 import com.example.zoom.LensCatalog
@@ -230,8 +230,7 @@ fun CameraPreviewView(
     activeExtension: CaptureExtension = CaptureExtension.NONE,
     isRawCapturing: Boolean = false,
     zoomEnabled: Boolean = true,
-    temperature: Float = 0f,
-    tint: Float = 0f,
+    renderParams: RetroRenderParams = RetroRenderParams(),
     activeLut: CubeLut? = null,
     activePreset: FilmPreset = FilmPreset.WARM_PORTRAIT,
     onZoomChanged: (Float) -> Unit,
@@ -472,17 +471,12 @@ fun CameraPreviewView(
     }
 
     // Push one immutable render-parameter snapshot (preset look + user WB /
-    // exposure) into the GL renderer. This mirrors the capture pipeline,
-    // which flattens the same preset + adjustments into the same
-    // RetroRenderParams, so the live viewfinder and the saved JPEG agree.
-    LaunchedEffect(activePreset, temperature, tint, exposure) {
-        lutPreviewView.setRenderParams(
-            activePreset.toRetroRenderParams(
-                temperature = temperature,
-                tint = tint,
-                exposure = exposure
-            )
-        )
+    // exposure) into the GL renderer. The snapshot is built by the caller
+    // from the same CameraProfileRegistry the capture pipeline uses, so the
+    // live viewfinder and the saved JPEG always agree — including for JSON
+    // look profiles.
+    LaunchedEffect(renderParams) {
+        lutPreviewView.setRenderParams(renderParams)
     }
 
     // Push the active LUT into the GL renderer. Loads (and caches) the LUT

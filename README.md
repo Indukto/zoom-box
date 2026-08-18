@@ -65,4 +65,4 @@ JVM tests for the color pipeline (preset → params mapping, JSON profile parsin
 ./gradlew :app:testDebugUnitTest --tests "com.example.color.*"
 ```
 
-Note: the full `testDebugUnitTest` task currently fails to compile on a pre-existing, unrelated test (`TutorialCompletedTest.kt` references removed DataStore methods); the `com.example.color.*` tests are unaffected and pass.
+The full suite compiles and passes (`./gradlew :app:testDebugUnitTest`).

@@ -17,8 +17,9 @@ import javax.microedition.khronos.opengles.GL10
  * GLSurfaceView.Renderer that samples the camera SurfaceTexture, applies
  * white-balance + exposure + 3D-LUT color grading in a fragment shader, and
  * blits the result to the screen. This is the live viewfinder counterpart of
- * [LutColorFilter]; the fragment shader performs the same color grade as the
- * CPU path but at full preview rate on the GPU.
+ * the CPU capture filter (`CameraViewModel.applyRetroFilter`) and the GPU
+ * capture processor ([GpuCaptureProcessor]); the fragment shader performs
+ * the same color grade as those paths but at full preview rate on the GPU.
  *
  * Lifecycle / threading notes:
  * - All GL calls happen on the GLSurfaceView render thread.

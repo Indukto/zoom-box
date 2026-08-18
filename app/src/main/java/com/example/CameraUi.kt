@@ -1512,11 +1512,22 @@ fun CameraActiveScreen(
     // save path operates through `snapshotFlow`.
 
     // Load the active preset's LUT for the live viewfinder GL shader.
+    // Goes through the JSON profile registry (loadPreviewLut) so a profile's
+    // lutPath — not just the enum's — drives the preview, matching capture.
     var previewLut by remember { mutableStateOf<CubeLut?>(null) }
     LaunchedEffect(activePreset) {
         previewLut = withContext(Dispatchers.IO) {
-            viewModel.loadLut(context, activePreset)
+            viewModel.loadPreviewLut(context, activePreset)
         }
+    }
+
+    // One immutable render snapshot for the GL viewfinder, built from the
+    // same CameraProfileRegistry the capture pipeline uses. Computed with
+    // `remember` keyed on the same inputs the capture path reads, so a JSON
+    // profile tweak changes preview and JPEG together instead of letting
+    // them drift (preview used to flatten the FilmPreset enum directly).
+    val previewRenderParams = remember(activePreset, temperature, tint, exposure) {
+        viewModel.previewRenderParams(activePreset, temperature, tint, exposure)
     }
 
     val mainExecutor = ContextCompat.getMainExecutor(context)
@@ -1736,8 +1747,7 @@ fun CameraActiveScreen(
             activeExtension = activeExtension,
             isRawCapturing = isCapturing && rawModeEnabled,
             zoomEnabled = !(showExpSlider || showTempSlider),
-            temperature = temperature,
-            tint = tint,
+            renderParams = previewRenderParams,
             activeLut = previewLut,
             activePreset = activePreset,
             onZoomChanged = { viewModel.setZoom(it) },

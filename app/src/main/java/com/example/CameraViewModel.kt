@@ -40,9 +40,8 @@ import com.example.color.CubeLutParser
 import com.example.color.CameraProfileRegistry
 import com.example.color.GpuCaptureProcessor
 import com.example.color.RetroRenderParams
-import com.example.color.toRetroRenderParams
-// LutColorFilter is no longer called here — its trilinear blend is now
-// inlined into applyRetroFilter's parallel chunks (one pixel pass total).
+// The former standalone LutColorFilter class was removed when its trilinear
+// blend got inlined into applyRetroFilter's parallel chunks (one pixel pass total).
 import com.example.zoom.AspectRatio
 import com.example.zoom.CaptureExtension
 import com.example.zoom.FovMapper
@@ -473,8 +472,11 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         /**
          * When true, captures try the GPU still pipeline
          * ([GpuCaptureProcessor]) first and fall back to the CPU filter on
-         * any EGL/shader failure. Kept off by default until the EGL path is
-         * validated against the CPU output on real Adreno/Mali hardware.
+         * any EGL/shader failure. Enabled by default with automatic CPU
+         * fallback; the known caveat is that GPU grain (hash noise) and CPU
+         * grain (value noise) still differ slightly — see DAZZ_PORT_ROUND2.md
+         * — so a golden-image parity pass is the remaining work before this
+         * path is considered byte-stable against the CPU result.
          */
         const val USE_GPU_CAPTURE = true
     }
@@ -1239,23 +1241,53 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
      * Returns null if the asset cannot be read (the pipeline then skips the
      * LUT step and falls back to the manual color filters only).
      */
-    fun loadLut(context: Context, preset: FilmPreset): CubeLut? {
+    fun loadLut(context: Context, preset: FilmPreset): CubeLut? =
+        loadLutByPath(context, preset.assetPath)
+
+    /**
+     * Loads the LUT the *live preview* should use for [preset]. Differs from
+     * [loadLut] in that it honours the JSON look profile: the registry's
+     * `lutPath` wins when the profile is bundled, so a JSON profile that
+     * points at a different `.cube` grades the viewfinder exactly like the
+     * capture pipeline instead of silently using the enum's LUT.
+     */
+    fun loadPreviewLut(context: Context, preset: FilmPreset): CubeLut? {
+        val profile = cameraProfileRegistry.profileFor(preset)
+        val path = profile.look.lutPath.ifBlank { preset.assetPath }
+        return loadLutByPath(context, path)
+    }
+
+    private fun loadLutByPath(context: Context, assetPath: String): CubeLut? {
         // Pass-through / no-grade preset (e.g. NORMAL): skip the parser
         // and the asset I/O entirely. Returning null here is what tells
         // both the live GL preview (`LutPreviewView.setLut(null)`) and
         // the post-capture `applyRetroFilter` (the `currentLut != null`
         // OR-chain guard) to skip the LUT step.
-        if (preset.assetPath.isBlank()) return null
-        cachedLuts[preset.assetPath]?.let { return it }
+        if (assetPath.isBlank()) return null
+        cachedLuts[assetPath]?.let { return it }
         return try {
-            val lut = CubeLutParser.parse(preset.assetPath, context)
-            cachedLuts[preset.assetPath] = lut
+            val lut = CubeLutParser.parse(assetPath, context)
+            cachedLuts[assetPath] = lut
             lut
         } catch (e: Exception) {
-            Log.e("CameraViewModel", "Failed to load LUT ${preset.assetPath}", e)
+            Log.e("CameraViewModel", "Failed to load LUT $assetPath", e)
             null
         }
     }
+
+    /**
+     * The render snapshot the *live viewfinder* should show for [preset].
+     * Goes through the same [CameraProfileRegistry] as the capture pipeline
+     * ([renderParamsFor]), so JSON look profiles drive preview and capture
+     * from one source of truth — the viewfinder can no longer drift from the
+     * saved JPEG when a profile is tweaked in `assets/cameras/`.
+     */
+    fun previewRenderParams(
+        preset: FilmPreset,
+        temperature: Float,
+        tint: Float,
+        exposure: Float
+    ): RetroRenderParams = cameraProfileRegistry.renderParamsFor(preset, temperature, tint, exposure)
     fun toggleFlash() {
         _flashMode.value = (_flashMode.value + 1) % 3
         viewModelScope.launch { prefsRepo.saveFlashMode(_flashMode.value) }
