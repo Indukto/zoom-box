@@ -59,9 +59,8 @@ class ExampleRobolectricTest {
 
   @Test
   fun test_bake_gallery_frame_enlarges_photo_with_cream_background() {
-    val viewModel = CameraViewModel(ApplicationProvider.getApplicationContext())
     val photo = Bitmap.createBitmap(360, 480, Bitmap.Config.ARGB_8888)
-    val framed = viewModel.bakeGalleryFrame(
+    val framed = bakeGalleryFrame(
       photo = photo,
       focalLength = 24,
       exposureTime = 1.0 / 1000.0,

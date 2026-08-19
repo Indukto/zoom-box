@@ -59,6 +59,9 @@
     <string name="raw_format_label">RAW Format</string>
     <string name="raw_format_subtitle">Capture unprocessed sensor data for professional editing (DNG)</string>
     <string name="aspect_ratio_section">ASPECT RATIO</string>
+    <string name="aspect_ratio_standard">Standard</string>
+    <string name="aspect_ratio_tall">Tall</string>
+    <string name="aspect_ratio_square">Square</string>
     <string name="full_resolution_label">Save at full resolution</string>
     <string name="gallery_section">GALLERY</string>
     <string name="photo_frame_label">Photo Frame</string>

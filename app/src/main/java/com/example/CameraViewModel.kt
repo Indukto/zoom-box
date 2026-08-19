@@ -11,21 +11,15 @@
 package com.example
 
 import android.app.Application
-import android.content.ContentValues
 import android.content.Context
 import android.database.ContentObserver
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.BitmapRegionDecoder
-import android.graphics.Canvas
 import android.graphics.Matrix
-import android.graphics.Paint
 import android.graphics.Rect
-import android.graphics.Typeface
 import android.media.MediaActionSound
 import android.media.ExifInterface
-import android.os.Build
-import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
@@ -64,381 +58,17 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import kotlin.math.PI
 import kotlin.time.Duration.Companion.milliseconds
-
-@Stable
-data class ExifData(
-    val focalLength: String = "--",
-    val shutterSpeed: String = "--",
-    val iso: String = "--",
-    /**
-     * EXIF orientation tag rendered as a short label ("90°", "180°",
-     * "270°", "Mirrored H/V", …). "--" when the tag is absent or NORMAL
-     * (which is what this app writes: pixels are baked upright at save
-     * time, so no rotation is needed for display).
-     */
-    val orientation: String = "--"
-)
-
-/**
- * A film profile backed by a 3D `.cube` LUT in `assets/`.
- *
- * The LUT defines the base color grade; the default slider values are applied
- * on top of it when the preset is selected and remain user-adjustable.
- */
-@Stable
-enum class FilmPreset(
-    val displayName: String,
-    val assetPath: String,
-    val defaultTemp: Float = 0f,
-    val defaultTint: Float = 0f,
-    val defaultExposure: Float = 0f,
-    /**
-     * Film-grain strength added on top of the LUT at save time, in [0, 1].
-     * Real film stocks have visible silver-halide / dye-cloud grain that
-     * varies with ISO and emulsion type — higher for instant / fast films,
-     * lower for slow color negatives. Creative presets get a subtle dose
-     * for a cohesive analog feel.
-     */
-    val defaultGrainStrength: Float = 0f,
-    /**
-     * Per-channel chromatic grain fraction in [0, 1] (R, G, B independent
-     * noise samples mixed into the monochrome delta). 0 = strictly achromatic
-     * grain (B&W negatives, where any chroma speckle looks wrong against the
-     * paper response). Higher values introduce colored "dye cloud" speckles,
-     * useful if a future color stock preset wants a warm-toned organic grain.
-     */
-    val defaultGrainChroma: Float = 0f,
-    // ── New per-preset tonal & creative parameters ──────────────────────
-    /**
-     * Film S-curve strength in [0, 1]. Applies a characteristic S-shaped
-     * tone response: a gentle toe lifts shadows, a smooth shoulder compresses
-     * highlights. 0 = linear (no curve). Real films have a pronounced S-curve
-     * in their D-log-E response.
-     */
-    val defaultFilmCurve: Float = 0f,
-    /**
-     * Per-preset contrast multiplier. 1.0 = neutral, <1.0 reduces contrast,
-     * >1.0 increases contrast. Applied after the LUT as a final tonal tweak.
-     */
-    val defaultContrast: Float = 1.0f,
-    /**
-     * Per-preset saturation multiplier. 1.0 = neutral, <1.0 desaturates,
-     * >1.0 saturates more. Applied after the LUT.
-     */
-    val defaultSaturation: Float = 1.0f,
-    /**
-     * Halation / bloom strength in [0, 1]. Simulates light scattering through
-     * film emulsion layers, creating a warm glow around bright highlights.
-     * Key characteristic of color negative stocks like Portra.
-     */
-    val defaultBloom: Float = 0f,
-    /**
-     * Split toning — shadow tint as (R, G, B) additive offset in [0, 1] range.
-     * These are added weighted by (1 - luma), so darker regions get more tint.
-     */
-    val shadowTintR: Float = 0f,
-    val shadowTintG: Float = 0f,
-    val shadowTintB: Float = 0f,
-    /**
-     * Shadow tint strength in [0, 1]. Scales the shadow color offset.
-     */
-    val shadowTintStrength: Float = 0f,
-    /**
-     * Split toning — highlight tint as (R, G, B) additive offset in [0, 1] range.
-     * These are added weighted by luma, so brighter regions get more tint.
-     */
-    val highlightTintR: Float = 0f,
-    val highlightTintG: Float = 0f,
-    val highlightTintB: Float = 0f,
-    /**
-     * Highlight tint strength in [0, 1]. Scales the highlight color offset.
-     */
-    val highlightTintStrength: Float = 0f,
-    /**
-     * Chromatic fringing strength in pixels (normalized to texture coords).
-     * Shifts the R and B channels relative to G to simulate color channel
-     * misregistration in instant film. 0 = no fringing.
-     */
-    val defaultFringing: Float = 0f,
-    // ── Dreamcore-style extras ────────────────────────────────────────────
-    /**
-     * Soft-focus blur strength in [0, 1]. Blends each pixel with a 3x3 box
-     * blur kernel of its (WB+exposed) neighbours so the image reads as
-     * slightly out-of-focus / hazy. 0 = sharp (no blur applied); 1 = full
-     * 3x3 box blur. Used by the dreamcore-style preset to simulate the
-     * characteristic gauzy / "almost-not-there" focus of dreamcore
-     * photography without resampling the full sensor.
-     */
-    val defaultSoftFocus: Float = 0f,
-    /**
-     * Strength of the milky pastel haze overlay in [0, 1]. Blends the
-     * output toward the [milkyTintR]/[milkyTintG]/[milkyTintB] cream color
-     * with strength weighted toward darker regions, producing the
-     * signature dreamcore "frosted glass" / pastel-wash look. 0 = no
-     * overlay.
-     */
-    val defaultMilkyMix: Float = 0f,
-    /**
-     * Per-channel color of the milky haze overlay (R, G, B independent),
-     * each in [0, 1]. Presets default to 0 (the overlay is skipped
-     * entirely when
-     * [defaultMilkyMix] = 0 so the zero defaults are inert).
-     */
-    val milkyTintR: Float = 0f,
-    val milkyTintG: Float = 0f,
-    val milkyTintB: Float = 0f,
-    // ── Opt-in artifacts (zero defaults keep existing presets pixel-identical) ──
-    /**
-     * Filmic highlight roll-off in [0, 1]. Compresses the highlights above
-     * a soft ~0.7 knee into a rounded shoulder; 0 = linear (no roll-off).
-     * Consumed identically by the live GL shader and the CPU capture filter.
-     */
-    val defaultHighlightRolloff: Float = 0f,
-    /**
-     * Black-point fade in [0, 1]. Lifts shadows toward mid-gray while
-     * leaving mid-tones and highlights nearly untouched; 0 = no fade.
-     */
-    val defaultFade: Float = 0f,
-    /**
-     * Vignette strength multiplier. 1.0 reproduces the original built-in
-     * falloff; 0 disables it, >1 darkens the corners more.
-     */
-    val defaultVignette: Float = 1f,
-    /** Procedural dust-speck strength in [0, 1]. */
-    val defaultDust: Float = 0f,
-    /** Procedural vertical film-scratch strength in [0, 1]. */
-    val defaultScratch: Float = 0f,
-    /** Warm corner light-leak strength in [0, 1]. */
-    val defaultLightLeak: Float = 0f) {
-
-    WARM_PORTRAIT(
-        "Warm Portrait",
-        "luts/kodak_portra_160_vc.cube",
-        defaultGrainStrength = 0.05f,
-        defaultGrainChroma = 0.3f,       // dye-cloud grain from color emulsion layers
-        defaultFilmCurve = 0.20f,
-        defaultContrast = 1.05f,
-        defaultSaturation = 1.0f,
-        defaultBloom = 0.18f,
-        shadowTintR = 0.0f, shadowTintG = 0.0f, shadowTintB = 0.025f,  // cool blue shadows
-        shadowTintStrength = 0.06f,
-        highlightTintR = 0.04f, highlightTintG = 0.02f, highlightTintB = 0.0f,  // warm highlights
-        highlightTintStrength = 0.08f,
-        defaultFringing = 0.0f
-    ),
-    MONOCHROME_400(
-        "Monochrome 400",
-        "luts/kodak_bw_400_cn.cube",
-        defaultGrainStrength = 0.32f,
-        defaultGrainChroma = 0f,          // strict mono — chroma speckles would look wrong on B&W
-        defaultFilmCurve = 0.35f,
-        defaultContrast = 1.35f,
-        defaultSaturation = 0.0f,
-        defaultBloom = 0.0f,
-        shadowTintR = 0f, shadowTintG = 0f, shadowTintB = 0f,
-        shadowTintStrength = 0f,
-        highlightTintR = 0f, highlightTintG = 0f, highlightTintB = 0f,
-        highlightTintStrength = 0f,
-        defaultFringing = 0.0f
-    ),
-    INSTANT_CLASSIC(
-        "Instant Classic",
-        "luts/polaroid_px-680.cube",
-        defaultGrainStrength = 0.18f,
-        defaultGrainChroma = 0.35f,       // high-ISO instant film has chunky dye clouds
-        defaultFilmCurve = 0.20f,
-        defaultContrast = 1.10f,
-        defaultSaturation = 1.15f,
-        defaultBloom = 0.25f,
-        shadowTintR = 0.0f, shadowTintG = 0.005f, shadowTintB = 0.01f,
-        shadowTintStrength = 0.04f,
-        highlightTintR = 0.04f, highlightTintG = 0.015f, highlightTintB = 0.0f,
-        highlightTintStrength = 0.06f,
-        defaultFringing = 0.006f
-    ),
-    CROSS_PROCESS(
-        "Cross Process",
-        "luts/kodak_elite_100_xpro.cube",
-        defaultGrainStrength = 0.08f,
-        defaultGrainChroma = 0.20f,       // cross-processing accentuates color grain
-        defaultFilmCurve = 0.25f,
-        defaultContrast = 1.20f,
-        defaultSaturation = 1.30f,
-        defaultBloom = 0.05f,
-        shadowTintR = 0.0f, shadowTintG = 0.015f, shadowTintB = 0.02f,  // green/cyan shadows
-        shadowTintStrength = 0.08f,
-        highlightTintR = 0.03f, highlightTintG = 0.02f, highlightTintB = 0.0f,  // warm highlights
-        highlightTintStrength = 0.07f,
-        defaultFringing = 0.003f
-    ),
-    INSTANT_VINTAGE(
-        "Instant Vintage",
-        "luts/polaroid_669_++.cube",
-        defaultGrainStrength = 0.10f,
-        defaultGrainChroma = 0.25f,       // peel-apart film with visible dye specks
-        defaultFilmCurve = 0.20f,
-        defaultContrast = 1.15f,
-        defaultSaturation = 1.20f,
-        defaultBloom = 0.20f,
-        shadowTintR = 0.0f, shadowTintG = 0.0f, shadowTintB = 0.015f,
-        shadowTintStrength = 0.05f,
-        highlightTintR = 0.03f, highlightTintG = 0.01f, highlightTintB = 0.0f,
-        highlightTintStrength = 0.07f,
-        defaultFringing = 0.008f
-    ),
-    MOODY(
-        "Moody",
-        "luts/moody.cube",
-        defaultGrainStrength = 0.12f,
-        defaultGrainChroma = 0.15f,       // light grain adds to the moody aesthetic
-        defaultFilmCurve = 0.50f,
-        defaultContrast = 1.40f,
-        defaultSaturation = 0.85f,
-        defaultBloom = 0.08f,
-        shadowTintR = 0.0f, shadowTintG = 0.0f, shadowTintB = 0.04f,  // strong blue shadows
-        shadowTintStrength = 0.15f,
-        highlightTintR = 0.06f, highlightTintG = 0.03f, highlightTintB = 0.0f,  // strong warm highlights
-        highlightTintStrength = 0.12f,
-        defaultFringing = 0.0f
-    ),
-    MUTED_MEADOW(
-        "Muted Meadow",
-        "luts/Muted Meadow.cube",
-        defaultGrainStrength = 0.06f,
-        defaultGrainChroma = 0.20f,
-        defaultFilmCurve = 0.15f,
-        defaultContrast = 1.05f,
-        defaultSaturation = 0.70f,
-        defaultBloom = 0.10f,
-        shadowTintR = 0.0f, shadowTintG = 0.015f, shadowTintB = 0.02f,  // teal shadows
-        shadowTintStrength = 0.08f,
-        highlightTintR = 0.02f, highlightTintG = 0.01f, highlightTintB = 0.0f,  // warm highlights
-        highlightTintStrength = 0.05f,
-        defaultFringing = 0.0f
-    ),
-    SUNLIT_SPILL(
-        "Sunlit Spill",
-        "luts/Sunlit Spill.cube",
-        defaultGrainStrength = 0.08f,
-        defaultGrainChroma = 0.25f,       // warm halation-style chroma grain
-        defaultFilmCurve = 0.10f,
-        defaultContrast = 1.0f,
-        defaultSaturation = 1.10f,
-        defaultBloom = 0.30f,
-        shadowTintR = 0.0f, shadowTintG = 0.0f, shadowTintB = 0.0f,  // neutral shadows
-        shadowTintStrength = 0.0f,
-        highlightTintR = 0.04f, highlightTintG = 0.025f, highlightTintB = 0.0f,  // golden highlights
-        highlightTintStrength = 0.10f,
-        defaultFringing = 0.002f
-    ),
-    GOLDEN_200(
-        "Golden 200",
-        "luts/golden_200.cube",
-        defaultGrainStrength = 0.10f,
-        defaultGrainChroma = 0.30f,
-        defaultFilmCurve = 0.25f,
-        defaultContrast = 1.15f,
-        defaultSaturation = 1.25f,
-        defaultBloom = 0.10f,
-        shadowTintR = 0.0f, shadowTintG = 0.0f, shadowTintB = 0.02f,  // cool blue shadows
-        shadowTintStrength = 0.05f,
-        highlightTintR = 0.05f, highlightTintG = 0.02f, highlightTintB = 0.0f,  // warm highlights
-        highlightTintStrength = 0.08f,
-        defaultFringing = 0.002f,
-        defaultVignette = 1.05f
-    ),
-    STREET_MONO_400(
-        "Street Mono 400",
-        "luts/street_mono_400.cube",
-        defaultGrainStrength = 0.35f,
-        defaultGrainChroma = 0f,          // strict mono — chroma speckles look wrong on B&W
-        defaultFilmCurve = 0.40f,
-        defaultContrast = 1.45f,
-        defaultSaturation = 0.0f,
-        defaultBloom = 0.0f,
-        defaultVignette = 1.10f
-    ),
-    VIVID_COOL_400(
-        "Vivid Cool 400",
-        "luts/vivid_cool_400.cube",
-        defaultGrainStrength = 0.06f,
-        defaultGrainChroma = 0.20f,
-        defaultFilmCurve = 0.18f,
-        defaultContrast = 1.10f,
-        defaultSaturation = 1.25f,
-        defaultBloom = 0.05f,
-        shadowTintR = 0.0f, shadowTintG = 0.02f, shadowTintB = 0.03f,  // cyan-green shadows
-        shadowTintStrength = 0.07f,
-        highlightTintR = 0.0f, highlightTintG = 0.03f, highlightTintB = 0.01f,  // yellow-green highlights
-        highlightTintStrength = 0.06f,
-        defaultFringing = 0.001f,
-        defaultVignette = 1.05f
-    ),
-    CCD_DIGICAM(
-        "CCD Digicam",
-        "luts/ccd_digicam.cube",
-        defaultGrainStrength = 0.04f,
-        defaultGrainChroma = 0.35f,       // digital chroma speckle, not film dye cloud
-        defaultFilmCurve = 0.30f,
-        defaultContrast = 1.10f,
-        defaultSaturation = 0.85f,
-        defaultBloom = 0.02f,
-        shadowTintR = 0.0f, shadowTintG = 0.01f, shadowTintB = 0.02f,  // subtle cool shadows
-        shadowTintStrength = 0.06f,
-        highlightTintR = 0.02f, highlightTintG = 0.03f, highlightTintB = 0.04f,  // cool highlights
-        highlightTintStrength = 0.05f,
-        defaultVignette = 1.12f,
-        defaultDust = 0.20f,
-        defaultLightLeak = 0.08f
-    ),
-    PASTEL_INSTANT(
-        "Pastel Instant",
-        "luts/pastel_instant.cube",
-        defaultGrainStrength = 0.08f,
-        defaultGrainChroma = 0.25f,
-        defaultFilmCurve = 0.15f,
-        defaultContrast = 0.95f,
-        defaultSaturation = 1.05f,
-        defaultBloom = 0.20f,
-        highlightTintR = 0.05f, highlightTintG = 0.03f, highlightTintB = 0.01f,  // warm highlights
-        highlightTintStrength = 0.10f,
-        defaultMilkyMix = 0.12f,
-        milkyTintR = 0.98f, milkyTintG = 0.93f, milkyTintB = 0.85f,
-        defaultFade = 0.06f,
-        defaultVignette = 1.15f,
-        defaultLightLeak = 0.15f
-    ),
-
-    /**
-     * Pass-through preset — no LUT, no grain, no film curve, identity
-     * contrast/saturation, no bloom, no split toning, no fringing. Picking
-     * this profile is equivalent to a stock phone camera: the sensor
-     * image is captured with raw white-balance applied and zero
-     * film-grade processing on top.
-     *
-     * Placed LAST in the enum (rather than first) so that the existing
-     * DataStore-persisted `filmStyleScrollIndex` / `activePreset` keep
-     * their old mapping for upgraded installs: index 0 stays
-     * WARM_PORTRAIT instead of silently shifting to NORMAL on relaunch.
-     *
-     * The blank `assetPath` is the signal to `loadLut()` to skip the
-     * CubeLutParser entirely (it short-circuits on `isBlank()` rather
-     * than throwing an IOException each time the preset is selected).
-     */
-    NORMAL(
-        "Normal",
-        ""
-    );
-}
 
 class CameraViewModel(application: Application) : AndroidViewModel(application) {
 
     private val prefsRepo = UserPreferencesRepository(application)
+
+    // All gallery / MediaStore file mechanics (scan, save, delete, EXIF)
+    // live in PhotoStore; the ViewModel keeps only the state-flow
+    // choreography around them.
+    private val photoStore = PhotoStore(application)
 
     // One GPU still processor for the ViewModel's lifetime: its EGL display /
     // context are created once and reused across captures on a dedicated
@@ -745,7 +375,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                     pendingGalleryRefresh?.cancel()
                     pendingGalleryRefresh = viewModelScope.launch(Dispatchers.IO) {
                         kotlinx.coroutines.delay(150.milliseconds)
-                        _capturedPhotos.value = listPhotoFiles(getApplication())
+                        _capturedPhotos.value = photoStore.listPhotos(skipOrphanCleanup = _isCapturing.value)
                     }
                 }
             }
@@ -792,241 +422,8 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
 
     fun loadPhotos(context: Context) {
         viewModelScope.launch(Dispatchers.IO) {
-            _capturedPhotos.value = listPhotoFiles(context)
+            _capturedPhotos.value = photoStore.listPhotos(skipOrphanCleanup = _isCapturing.value)
         }
-    }
-
-    /**
-     * Synchronous gallery scan shared by [loadPhotos] (async wrapper) and
-     * [deletePhoto] (which needs the post-delete list *now* to auto-advance
-     * the photo viewer's selection). Sorted newest-first to match the
-     * gallery / filmstrip where index 0 is the most recent capture.
-     */
-    private fun listPhotoFiles(context: Context): List<File> {
-        // Two locations hold our captures:
-        //   1. App-private: getExternalFilesDir(DIRECTORY_PICTURES) — working
-        //      copies written straight from the capture pipeline. File.listFiles
-        //      works fine here because we own the directory and it lives
-        //      inside our scope (`/sdcard/Android/data/<package>/files/...`).
-        //   2. Public-shared MediaStore mirror: Pictures/ZoomBoxCamera/ (plus
-        //      any subfolders, including the RAW/ tree). After an app reinstall
-        //      the private copy is wiped but the MediaStore entries survive —
-        //      and only MediaStore can see them on Android 10+ scoped storage
-        //      without READ_MEDIA_IMAGES.
-        val privateDir = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
-
-        // Local helper kept inside this method so its scope is obviously
-        // tied to the gallery scan; lift it back to the class only if some
-        // other method needs the same predicate.
-        fun isOurPhoto(file: File): Boolean =
-            file.isFile && file.extension.lowercase() in listOf("jpg", "jpeg", "dng")
-
-        val publicFiles = listPublicPhotosViaMediaStore(context)
-        // Drop orphan app-private cache mirrors whose MediaStore row has gone
-        // away (external delete via file manager, sideload via ADB, etc.).
-        // Without this pass, distinctBy-{name} below would resurrect those
-        // names from the private mirror after the corresponding public file
-        // disappears — the gallery would keep showing photos the user just
-        // removed from /sdcard/Pictures/ZoomBoxCamera/. Skip during an
-        // in-flight capture: the working copy is on disk before its
-        // MediaStore row exists, and we'd otherwise race-delete the photo
-        // the user is currently taking (see [_isCapturing]).
-        if (!_isCapturing.value) {
-            cleanupOrphanPrivateFiles(context, publicFiles.map { it.name }.toSet())
-        }
-        val privateFiles = privateDir?.listFiles(::isOurPhoto)?.toList() ?: emptyList()
-
-        // Public first, then private — distinctBy { it.name } keeps the
-        // public entry when both copies exist, so the file we hand to
-        // deletePhoto() is the canonical (reinstall-survived) path.
-        return (publicFiles + privateFiles)
-            .distinctBy { it.name }
-            .sortedByDescending { it.lastModified() }
-    }
-
-    /**
-     * Delete app-private cache mirrors whose MediaStore row is no longer
-     * present, so external deletes (file manager, MTP, Google Photos) are
-     * reflected in the in-app gallery even though the app-private copy is
-     * technically still on disk.
-     *
-     * The capture pipeline writes each photo to BOTH places
-     * (`getExternalFilesDir(DIRECTORY_PICTURES)/...` for the working copy and
-     * `Pictures/ZoomBoxCamera/...` via `MediaStore.insert` for the public
-     * mirror). If the user removes the public side, the working copy
-     * lingers and `listPhotoFiles`'s distinctBy-{name} pass falls back to
-     * it, re-surfacing the supposedly-deleted photo. This pass makes the
-     * external delete two-sided by also trashing the cache mirror.
-     *
-     * Done as a single bulk MediaStore query rather than one round-trip per
-     * private file: even on a heavily-used device a few hundred files would
-     * mean hundreds of binder calls, vs. one. We also scope the bulk probe to
-     * our own folder so a name collision with an unrelated MediaStore row
-     * (some other app's `IMG_20240301_120000.jpg` for instance) can't fool
-     * us into keeping a true orphan.
-     *
-     * Mid-capture safety: callers should skip this pass while
-     * [_isCapturing].value is true; between the working-copy rename and the
-     * MediaStore.insert call a file legitimately has no row yet, and we'd
-     * race-delete it.
-     */
-    private fun cleanupOrphanPrivateFiles(context: Context, publicFileNames: Set<String>) {
-        val privateDir = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES) ?: return
-        val candidateFiles = privateDir.listFiles()?.filter { f ->
-            f.isFile && f.extension.lowercase() in listOf("jpg", "jpeg", "dng")
-        } ?: return
-
-        // Candidates that aren't already covered by the public set need a
-        // MediaStore probe. Same slash-anchored scope as listPublicPhotos…
-        // so we don't accidentally accept a name that already exists
-        // somewhere else on the device.
-        val orphanCandidates = candidateFiles.filter { it.name !in publicFileNames }
-        if (orphanCandidates.isEmpty()) return
-
-        val resolver = context.contentResolver
-        val imageUri = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-        val folderBase = Environment.DIRECTORY_PICTURES.lowercase()
-        // Slash-anchored: = (bare or trailing-slash root) + LIKE "ZoomBoxCamera/%"
-        // Mirrors listPublicPhotosViaMediaStore so probe-cached rows match the
-        // same population the public query uses.
-        val selectionArgs = mutableListOf<String>()
-        val selection = buildString {
-            append(MediaStore.Images.Media.DISPLAY_NAME).append(" IN (")
-            repeat(orphanCandidates.size) { idx ->
-                if (idx > 0) append(", ")
-                append("?")
-                selectionArgs += orphanCandidates[idx].name
-            }
-            append(") AND (")
-            // 'Pictures/zoomboxcamera'
-            append("LOWER(").append(MediaStore.Images.Media.RELATIVE_PATH).append(") = ?")
-            selectionArgs += "$folderBase/zoomboxcamera"
-            append(" OR ")
-            // 'Pictures/zoomboxcamera/'
-            append("LOWER(").append(MediaStore.Images.Media.RELATIVE_PATH).append(") = ?")
-            selectionArgs += "$folderBase/zoomboxcamera/"
-            append(" OR ")
-            // 'Pictures/zoomboxcamera/...'
-            append("LOWER(").append(MediaStore.Images.Media.RELATIVE_PATH).append(") LIKE ?")
-            selectionArgs += "$folderBase/zoomboxcamera/%"
-            append(")")
-        }
-
-        // Probe once: collect all display names that have a row under our
-        // folder. Anything not in this set is an orphan.
-        val protectedNames: Set<String> = runCatching {
-            resolver.query(
-                imageUri,
-                arrayOf(MediaStore.Images.Media.DISPLAY_NAME),
-                selection,
-                selectionArgs.toTypedArray(),
-                null
-            )?.use { cursor ->
-                val idx = cursor.getColumnIndex(MediaStore.Images.Media.DISPLAY_NAME)
-                buildSet {
-                    while (cursor.moveToNext()) {
-                        val name = cursor.getString(idx)
-                        if (!name.isNullOrBlank()) add(name)
-                    }
-                }
-            }
-        }.getOrNull() ?: emptySet()
-
-        var deletedCount = 0
-        for (f in orphanCandidates) {
-            if (f.name in protectedNames) continue
-            val deleted = runCatching { f.delete() }.getOrDefault(false)
-            if (deleted) deletedCount++
-        }
-        if (deletedCount > 0) {
-            Log.i("CameraViewModel", "Cleaned up $deletedCount orphan private file(s)")
-        }
-    }
-
-    /**
-     * Query MediaStore for every image in (and under) `Pictures/ZoomBoxCamera/`
-     * and project the result back into `File` objects so the rest of the
-     * capture/delete pipeline keeps working with `File` references unchanged.
-     *
-     * Why MediaStore instead of `File.listFiles()` on the public tree:
-     *   - On Android 10+ scoped storage, `File.listFiles()` returns null/empty
-     *     on `/sdcard/Pictures/...` unless the app has MANAGE_EXTERNAL_STORAGE
-     *     or the corresponding READ_MEDIA_IMAGES / READ_EXTERNAL_STORAGE
-     *     permission. Our app previously assumed the public tree was readable
-     *     and would silently show an empty gallery whenever the user reinstalled
-     *     (UID changes → OS no longer treats us as the owner of pre-reinstall
-     *     rows, and File API falls back to "no access").
-     *   - MediaStore queries work for our own rows even without the runtime
-     *     permission (we implicitly own them) and naturally return both our
-     *     own files and any other-app file in the same folder once the
-     *     permission is granted.
-     *
-     * RELATIVE_PATH matching uses slash-anchored equality + LIKE so we cover
-     * every vendor normalizer without over-matching sibling folders:
-     *   - "Pictures/ZoomBoxCamera"        (= exact match for non-slash form)
-     *   - "Pictures/ZoomBoxCamera/"       (= exact match for AOSP normalised form)
-     *   - "Pictures/ZoomBoxCamera/RAW/"   (LIKE prefix for subfolders)
-     *   - any future subfolder the user might create (LIKE prefix)
-     * Importantly we reject similarly-named sibling folders like
-     * "Pictures/ZoomBoxCameraBackup/" or "Pictures/ZoomBoxCamera2/" because
-     * the LIKE pattern is anchored with the trailing slash instead of a bare
-     * `%` — otherwise those folders would also appear in the gallery.
-     * IS_PENDING = 0 filters out half-written rows that the capture pipeline
-     * hasn't finished copying yet — without this the gallery can briefly show
-     * a thumbnail pointing at a file that's still being flushed to disk.
-     */
-    private fun listPublicPhotosViaMediaStore(context: Context): List<File> {
-        val resolver = context.contentResolver
-        val collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-        val projection = arrayOf(
-            MediaStore.Images.Media._ID,
-            @Suppress("DEPRECATION") MediaStore.Images.Media.DATA
-        )
-        // IS_PENDING = 0 keeps in-flight writes out of the gallery.
-        // MIME_TYPE filter narrows to JPEG/DNG so we don't accidentally pick up
-        // any other image format a vendor MediaProvider stuffs under our folder.
-        // RELATIVE_PATH matching is slash-anchored: '=' fixes the bare root
-        // (some vendors keep "Pictures/ZoomBoxCamera" with no trailing slash;
-        // AOSP inserts "Pictures/ZoomBoxCamera/"); the two LIKE patterns only
-        // match true descendants ("ZoomBoxCamera/RAW/…", or any future
-        // subfolder like "ZoomBoxCamera/2024/…"). Without the slash anchor a
-        // sibling folder such as "Pictures/ZoomBoxCameraBackup/" or
-        // "Pictures/ZoomBoxCamera2/" would also satisfy the prefix match and
-        // we'd leak foreign images into the gallery.
-        val selection = "${MediaStore.Images.Media.IS_PENDING} = 0 " +
-            "AND (${MediaStore.Images.Media.MIME_TYPE} = ? " +
-                 "OR ${MediaStore.Images.Media.MIME_TYPE} = ?) " +
-            "AND (LOWER(${MediaStore.Images.Media.RELATIVE_PATH}) = ? " +
-                 "OR LOWER(${MediaStore.Images.Media.RELATIVE_PATH}) LIKE ? " +
-                 "OR LOWER(${MediaStore.Images.Media.RELATIVE_PATH}) LIKE ?)"
-        val args = arrayOf(
-            "image/jpeg", "image/x-adobe-dng",
-            "${Environment.DIRECTORY_PICTURES}/zoomboxcamera/".lowercase(),
-            "${Environment.DIRECTORY_PICTURES}/zoomboxcamera".lowercase(),
-            "${Environment.DIRECTORY_PICTURES}/zoomboxcamera/%".lowercase()
-        )
-        // DATE_ADDED DESC matches the newest-first gallery ordering
-        // (lastModified on File can drift if a user copies files in via MTP).
-        val sortOrder = "${MediaStore.Images.Media.DATE_ADDED} DESC"
-
-        return runCatching {
-            resolver.query(collection, projection, selection, args, sortOrder)?.use { cursor ->
-                @Suppress("DEPRECATION")
-                val dataIdx = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA)
-                val result = mutableListOf<File>()
-                while (cursor.moveToNext()) {
-                    @Suppress("DEPRECATION")
-                    val dataPath = cursor.getString(dataIdx)
-                    if (dataPath.isNullOrBlank()) continue
-                    val f = File(dataPath)
-                    // Skip rows whose on-disk file is gone — MediaStore rows
-                    // can outlive the actual file during a half-completed delete;
-                    // listing them in the gallery would dereference to nothing.
-                    if (f.exists()) result.add(f)
-                }
-                result
-            } ?: emptyList()
-        }.getOrDefault(emptyList())
     }
 
     fun getCurrentLensProfile(): com.example.zoom.LensProfile? {
@@ -1502,7 +899,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                 // No toast here: the JPEG path is silent on success, and the
                 // RAW popup was inconsistent with the rest of the app.
                 _captureInFlight.value = false
-                saveDngToGallery(context, dngFile)
+                photoStore.saveDng(dngFile)
                 if (jpegFile != null) {
                     // processAndSavePhoto manages `_isCapturing` and the
                     // gallery refresh itself (mirrors the JPEG path).
@@ -1530,34 +927,6 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                 _isCapturing.value = false
             }
         )
-    }
-
-    /**
-     * Inserts a .dng into MediaStore under Pictures/ZoomBoxCamera/RAW. RAW files
-     * are kept separate from JPEGs both by extension and by subfolder so the
-     * retro-roll filmstrip (which decodes JPEGs) isn't polluted.
-     */
-    private fun saveDngToGallery(context: Context, file: File) {
-        try {
-            val values = ContentValues().apply {
-                put(MediaStore.Images.Media.DISPLAY_NAME, file.name)
-                put(MediaStore.Images.Media.MIME_TYPE, "image/x-adobe-dng")
-                put(MediaStore.Images.Media.IS_PENDING, 1)
-                put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/ZoomBoxCamera/RAW")
-            }
-            val resolver = context.contentResolver
-            val contentUri =
-                MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-            val uri = resolver.insert(contentUri, values) ?: return
-            resolver.openOutputStream(uri)?.use { out ->
-                file.inputStream().use { `in` -> `in`.copyTo(out) }
-            }
-            values.clear()
-            values.put(MediaStore.Images.Media.IS_PENDING, 0)
-            resolver.update(uri, values, null, null)
-        } catch (e: Exception) {
-            Log.e("CameraViewModel", "Error saving DNG to gallery", e)
-        }
     }
 
     fun processAndSavePhoto(
@@ -1824,7 +1193,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                     exifOut.saveAttributes()
                 } catch (e: Exception) { Log.e("CameraViewModel", "Error writing EXIF", e) }
 
-                savePhotoToGallery(context, renamedFile)
+                photoStore.saveJpeg(renamedFile)
                 loadPhotos(context)
             } catch (e: Exception) {
                 Log.e("CameraViewModel", "Error processing photo", e)
@@ -1836,114 +1205,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    /**
-     * Draw the film-card frame onto a photo so it ships inside the saved JPEG
-     * (visible in every gallery app), matching the white card the in-app
-     * gallery draws when the Photo Frame setting is enabled: a cream
-     * background, a padded photo, and a footer with the device name (left)
-     * and an EXIF summary — focal length, shutter speed, ISO (right).
-     *
-     * Sizes are scaled from the photo width using a 360 dp reference width (a
-     * typical phone layout), so a 3 MP and a full-resolution capture both get
-     * proportionally identical frames. Orientation is intentionally omitted
-     * from the footer — saved photos are always tagged NORMAL.
-     */
-    internal fun bakeGalleryFrame(
-        photo: Bitmap,
-        focalLength: Int,
-        exposureTime: Double,
-        iso: Int
-    ): Bitmap {
-        val scale = photo.width / 360f
-        val pad = (12f * scale).toInt().coerceAtLeast(1)
-        val spacer = (14f * scale).toInt().coerceAtLeast(1)
-        val textSize = (12f * scale).toInt().coerceAtLeast(1)
-
-        val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            this.textSize = textSize.toFloat()
-            // Black at 55 % alpha — matches the gallery footer text.
-            color = 0x8C000000.toInt()
-            typeface = Typeface.create(Typeface.SERIF, Typeface.NORMAL)
-        }
-        val fm = textPaint.fontMetrics
-        val textHeight = (fm.descent - fm.ascent).toInt()
-
-        val frameW = photo.width + 2 * pad
-        val frameH = pad + photo.height + spacer + textHeight + pad
-
-        val frame = Bitmap.createBitmap(frameW, frameH, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(frame)
-        // Cream card background, same colour as the gallery card.
-        canvas.drawColor(0xFFF9FAF9.toInt())
-        canvas.drawBitmap(photo, pad.toFloat(), pad.toFloat(), null)
-
-        val baseline = pad + photo.height + spacer - fm.ascent
-
-        // Device name, left-aligned.
-        canvas.drawText(Build.MODEL, pad.toFloat(), baseline, textPaint)
-
-        // EXIF summary, right-aligned (formatted exactly like the gallery
-        // footer: "24mm  1/1000s  ISO 100").
-        val shutterSpeed = if (exposureTime > 0.0) {
-            if (exposureTime < 1.0) { val denom = kotlin.math.round(1.0 / exposureTime).toInt(); "1/${denom}s" }
-            else { "${kotlin.math.round(exposureTime).toInt()}s" }
-        } else "--"
-        val isoText = if (iso > 0) "ISO $iso" else "--"
-        val metaText = "${focalLength}mm  $shutterSpeed  $isoText"
-        val metaWidth = textPaint.measureText(metaText)
-        canvas.drawText(metaText, frameW - pad - metaWidth, baseline, textPaint)
-
-        return frame
-    }
-
-    private fun savePhotoToGallery(context: Context, file: File) {
-        try {
-            val values = ContentValues().apply {
-                put(MediaStore.Images.Media.DISPLAY_NAME, file.name)
-                put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
-                put(MediaStore.Images.Media.IS_PENDING, 1)
-                put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/ZoomBoxCamera")
-            }
-            val resolver = context.contentResolver
-            val contentUri =
-                MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-            val uri = resolver.insert(contentUri, values)
-            if (uri != null) {
-                resolver.openOutputStream(uri)?.use { out -> file.inputStream().use { `in` -> `in`.copyTo(out) } }
-                values.clear()
-                values.put(MediaStore.Images.Media.IS_PENDING, 0)
-                resolver.update(uri, values, null, null)
-            }
-        } catch (e: Exception) { Log.e("CameraViewModel", "Error saving to gallery", e) }
-    }
-
-    fun readExifData(file: File): ExifData {
-        return try {
-            val exif = ExifInterface(file.absolutePath)
-            val exposureTime = exif.getAttributeDouble(ExifInterface.TAG_EXPOSURE_TIME, 0.0)
-            val shutterSpeed = if (exposureTime > 0.0) {
-                if (exposureTime < 1.0) { val denom = kotlin.math.round(1.0 / exposureTime).toInt(); "1/${denom}s" }
-                else { "${kotlin.math.round(exposureTime).toInt()}s" }
-            } else "--"
-            val isoRaw = exif.getAttributeInt(ExifInterface.TAG_ISO_SPEED_RATINGS, 0)
-            val iso = if (isoRaw > 0) "ISO $isoRaw" else "--"
-            val orientationTag = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
-            val orientation = when (orientationTag) {
-                ExifInterface.ORIENTATION_ROTATE_90 -> "90°"
-                ExifInterface.ORIENTATION_ROTATE_180 -> "180°"
-                ExifInterface.ORIENTATION_ROTATE_270 -> "270°"
-                ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> "Mirrored H"
-                ExifInterface.ORIENTATION_FLIP_VERTICAL -> "Mirrored V"
-                ExifInterface.ORIENTATION_TRANSPOSE -> "90° Mirrored"
-                ExifInterface.ORIENTATION_TRANSVERSE -> "270° Mirrored"
-                else -> "--"
-            }
-            val name = file.nameWithoutExtension
-            val focalMatch = Regex("""_(\d+)mm$""").find(name)
-            val focalLength = focalMatch?.groupValues?.get(1)?.let { "${it}mm" } ?: "--"
-            ExifData(focalLength = focalLength, shutterSpeed = shutterSpeed, iso = iso, orientation = orientation)
-        } catch (e: Exception) { Log.e("CameraViewModel", "Error reading EXIF", e); ExifData() }
-    }
+    fun readExifData(file: File): ExifData = photoStore.readExif(file)
 
     fun deletePhoto(context: Context, file: File) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -1961,36 +1223,16 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                     _capturedPhotos.value.indexOf(file)
                 } else -1
 
-                // The file passed in is whichever copy listPhotoFiles
-                // surfaced (public takes precedence). There may still be a
-                // same-name mirror in the app-private dir — delete that too
-                // so a subsequent startup scan doesn't re-surface it as a
-                // duplicate after the public copy was removed.
-                val privateMirror = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
-                    ?.let { File(it, file.name) }
-                listOfNotNull(file, privateMirror).distinct().forEach { candidate ->
-                    if (candidate.exists()) candidate.delete()
-                }
-
-                // Remove the MediaStore row we created in savePhotoToGallery /
-                // saveDngToGallery so the deletion propagates to OTHER gallery
-                // apps (Google Photos, Files app, OEM gallery, etc.) instead
-                // of only cleaning up our own file system copy. Without this,
-                // the vice-versa half of the gallery-sync contract — "delete
-                // from in-app gallery" → "delete from system gallery" — is
-                // broken; other apps keep showing the photo until their next
-                // background scan re-detects the missing file on disk (often
-                // hours later).
-                deleteMediaStoreRow(context, file)
-
-                // Re-scan synchronously inside this coroutine instead of calling
-                // loadPhotos() — loadPhotos fires its own viewModelScope.launch
-                // and _capturedPhotos wouldn't be updated by the time we read it
-                // for the advance decision. Note: rapid double deletes may
-                // interleave (viewModelScope.launch is not serialized), but
-                // MutableStateFlow guarantees ordered, conflated emissions, so
-                // the eventual UI state is still the desired one.
-                val refreshed = listPhotoFiles(context)
+                // File deletion (public copy + app-private mirror) plus
+                // MediaStore row removal plus the gallery re-scan all live in
+                // PhotoStore; the ViewModel keeps only the selection
+                // choreography below. The re-scan is synchronous here (not
+                // loadPhotos()) so _capturedPhotos is fresh by the time we
+                // make the auto-advance decision.
+                val refreshed = photoStore.deleteAndRefresh(
+                    file,
+                    skipOrphanCleanup = _isCapturing.value
+                )
                 _capturedPhotos.value = refreshed
 
                 // Stay-in-gallery: deleting shouldn't kick the user out of the
@@ -2009,48 +1251,6 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                     }
                 }
             } catch (e: Exception) { Log.e("CameraViewModel", "Error deleting photo", e) }
-        }
-    }
-
-    /**
-     * Removes the MediaStore row(s) that correspond to [file] so the deletion
-     * propagates to other gallery apps. Min SDK is 29 so we always deal in
-     * scoped-storage semantics: the row was inserted by us via
-     * MediaStore.Images.Media with a known absolute DATA path.
-     *
-     * The WHERE clause matches DISPLAY_NAME + DATA for two reasons:
-     *   - DISPLAY_NAME alone risks colliding with a same-named JPEG from
-     *     another app (e.g. user copies IMG_1234.jpg into another folder);
-     *   - RELATIVE_PATH is unreliable as a selection key: savePhotoToGallery
-     *     writes it without a trailing slash while saveDngToGallery writes
-     *     "Pictures/ZoomBoxCamera/RAW/", and the platform MediaProvider
-     *     doesn't always normalise the trailing slash on insert, so a
-     *     RELATIVE_PATH comparison can fail to match our own freshly-written
-     *     rows. DATA is the canonical "this file lives at this absolute
-     *     path" column and works for both the JPEG root and the RAW subfolder.
-     *
-     * Deletion is best-effort: zero rows deleted is fine (file may have been
-     * only in the app-private directory and never inserted into the public
-     * tree). We log the count so it's traceable but don't surface as an error.
-     */
-    private fun deleteMediaStoreRow(context: Context, file: File) {
-        try {
-            val resolver = context.contentResolver
-            val collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-            @Suppress("DEPRECATION")
-            val rows = resolver.delete(
-                collection,
-                "${MediaStore.Images.Media.DISPLAY_NAME} = ? AND ${MediaStore.Images.Media.DATA} = ?",
-                arrayOf(file.name, file.absolutePath)
-            )
-            Log.i("CameraViewModel", "Deleted $rows MediaStore row(s) for ${file.name}")
-        } catch (e: SecurityException) {
-            // Vendors have been known to throw SecurityException when revoking
-            // a delete on a row owned by a different package; log + swallow
-            // rather than failing the in-app delete.
-            Log.e("CameraViewModel", "Permission error deleting MediaStore row for ${file.name}", e)
-        } catch (e: Exception) {
-            Log.e("CameraViewModel", "Error deleting MediaStore row for ${file.name}", e)
         }
     }
 
