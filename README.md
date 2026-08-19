@@ -86,7 +86,7 @@ The five newest looks (Golden 200, Street Mono 400, Vivid Cool 400, CCD Digicam,
 
 | Layer | Tech |
 |---|---|
-| UI | Jetpack Compose + Material 3 |
+| UI | Jetpack Compose + Material 3 (Expressive, dynamic color) |
 | Camera | CameraX (Preview + ImageCapture) + Camera2 (RAW) |
 | Arch | MVVM (ViewModel + StateFlow) |
 | Async | Kotlin Coroutines & Flow |

@@ -9,7 +9,15 @@ lifecycleViewmodelCompose = "2.8.7"
 lifecycleRuntimeCompose = "2.8.7"
 activityCompose = "1.10.1"
 kotlin = "2.2.10"
-composeBom = "2025.02.00"
+composeBom = "2026.06.01"
+# Material 3 Expressive (Material You's newest design language) lives in the
+# 1.5.0-alpha line; stable 1.4.0 shipped without it. Pinning the explicit
+# version overrides the BOM's material3 mapping (1.4.0).
+#
+# Version pin rationale: BOM 2026.08.00 and material3 >= 1.5.0-alpha20 require
+# compileSdk 37 (not installed); 1.5.0-alpha18 + compose 1.11.4 are the newest
+# combos whose AAR metadata still allows compileSdk 36.
+material3 = "1.5.0-alpha18"
 navigationCompose = "2.8.9"
 kotlinxCoroutinesTest = "1.10.2"
 core = "1.6.1"
@@ -50,7 +58,7 @@ androidx-navigation-compose = { group = "androidx.navigation", name = "navigatio
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinxCoroutinesTest" }
 androidx-core = { group = "androidx.test", name = "core", version.ref = "core" }
 androidx-runner = { group = "androidx.test", name = "runner", version.ref = "runner" }
-androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
+androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
 androidx-compose-material-icons-core = { group = "androidx.compose.material", name = "material-icons-core" }
 androidx-compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coilCompose" }

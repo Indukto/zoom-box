@@ -1,9 +1,6 @@
 package com.example
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,23 +13,26 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
@@ -40,19 +40,46 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import com.example.ui.theme.FilmDarkColorScheme
 import com.example.zoom.AspectRatio
 
 // =====================================================================================
-// Full-screen Settings page
+// Full-screen Settings page — Material You components on the film-chrome dark palette
 // =====================================================================================
-// The three-point MoreVert in CameraActiveScreen no longer pops a DropdownMenu; instead
-// it raises the `showSettingsPage` flag at the top of CameraUi(), which sibling-swaps
-// the active surface to this SettingsScreen. Back arrow + system back both return to
-// the live camera via onClose().
+// Built from Material 3 components (expressive ListItems, SegmentedButton, Switch)
+// but pinned to the film-chrome dark palette: the settings page is part of the app's
+// camera identity and stays dark even when the system is in light mode. Amber accents
+// come from the palette's primary color.
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun SettingsScreen(viewModel: CameraViewModel, onClose: () -> Unit) {
+    // Intercept system back to dismiss the settings page back to the camera.
+    BackHandler(onBack = onClose)
+
+    // Pin this subtree to the film-chrome dark palette regardless of the system
+    // light/dark setting. Shapes and typography pass through from the outer
+    // expressive theme so the Material You look is preserved.
+    MaterialTheme(
+        colorScheme = FilmDarkColorScheme,
+        shapes = MaterialTheme.shapes,
+        typography = MaterialTheme.typography
+    ) {
+        SettingsContent(viewModel = viewModel, onClose = onClose)
+    }
+}
+
+/**
+ * The settings page body. Rendered inside the film-chrome [MaterialTheme] pin
+ * in [SettingsScreen], so [MaterialTheme.colorScheme] and the Material
+ * components below always resolve to the dark film palette.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun SettingsContent(viewModel: CameraViewModel, onClose: () -> Unit) {
     val haptic = LocalHapticFeedback.current
+    val colorScheme = MaterialTheme.colorScheme
+    val typography = MaterialTheme.typography
+
     val rawModeEnabled by viewModel.rawModeEnabled.collectAsState()
     val rawAvailableForCurrentLens by viewModel.rawAvailableForCurrentLens.collectAsState()
     val isFrontCamera by viewModel.isFrontCamera.collectAsState()
@@ -60,67 +87,49 @@ fun SettingsScreen(viewModel: CameraViewModel, onClose: () -> Unit) {
     val outputResolution by viewModel.outputResolution.collectAsState()
     val showGalleryFrame by viewModel.showGalleryFrame.collectAsState()
 
-    // Intercept system back to dismiss the settings page back to the camera.
-    BackHandler(onBack = onClose)
-
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = Color(0xFF0E0E0E)
+        color = colorScheme.background
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Top bar — displayCutoutPadding() pushes the X + "Settings"
-            // title away from the device's display cutout (notch / Dynamic
-            // Island / corner hole-punch). On non-cutout phones the inset is
-            // 0 dp so the row stays at the original y-offset (24 dp top
-            // padding is preserved verbatim); on cutout phones the cutout
-            // inset is added on top, so the row sits below the camera
-            // hardware on Pixel 6+, iPhone 14 Pro, Galaxy S, etc.
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .displayCutoutPadding()
-                    .padding(start = 4.dp, end = 16.dp, top = 24.dp, bottom = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
+            // ── Top bar ─────────────────────────────────────────────────────────
+            // Tonal surface layer (Material You elevation) instead of a flat black
+            // strip. displayCutoutPadding() keeps the X + title clear of the notch.
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = colorScheme.surfaceContainerLow
             ) {
-                IconButton(
-                    onClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onClose() }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .displayCutoutPadding()
+                        .padding(start = 4.dp, end = 16.dp, top = 24.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Close,
-                        contentDescription = stringResource(R.string.close_settings_desc),
-                        tint = Color.White,
-                        modifier = Modifier.size(22.dp)
+                    IconButton(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onClose()
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Close,
+                            contentDescription = stringResource(R.string.close_settings_desc),
+                            tint = colorScheme.onSurface,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = stringResource(R.string.settings_label),
+                        color = colorScheme.onSurface,
+                        style = typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = stringResource(R.string.settings_label),
-                    color = Color.White,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    letterSpacing = 0.5.sp
-                )
             }
 
-            // Section header chip
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 6.dp),
-                color = Color.White.copy(alpha = 0.08f),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Text(
-                    text = stringResource(R.string.capture_section),
-                    color = Color.White.copy(alpha = 0.7f),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    letterSpacing = 1.5.sp,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                )
-            }
-
-            // Scrollable body
+            // ── Scrollable body ─────────────────────────────────────────────────
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -129,6 +138,7 @@ fun SettingsScreen(viewModel: CameraViewModel, onClose: () -> Unit) {
             ) {
                 Spacer(modifier = Modifier.height(4.dp))
 
+                SectionHeader(text = stringResource(R.string.capture_section))
                 SettingsRow(
                     label = stringResource(R.string.raw_format_label),
                     subtitle = stringResource(R.string.raw_format_subtitle),
@@ -139,15 +149,8 @@ fun SettingsScreen(viewModel: CameraViewModel, onClose: () -> Unit) {
                         viewModel.toggleRawMode()
                     }
                 )
-                Spacer(modifier = Modifier.height(14.dp))
-                Text(
-                    text = stringResource(R.string.aspect_ratio_section),
-                    color = Color.White.copy(alpha = 0.7f),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    letterSpacing = 1.5.sp,
-                    modifier = Modifier.padding(start = 4.dp, top = 4.dp, bottom = 6.dp)
-                )
+
+                SectionHeader(text = stringResource(R.string.aspect_ratio_section))
                 AspectRatioChips(
                     selected = aspectRatio,
                     onSelect = { newRatio ->
@@ -168,15 +171,8 @@ fun SettingsScreen(viewModel: CameraViewModel, onClose: () -> Unit) {
                         )
                     }
                 )
-                Spacer(modifier = Modifier.height(36.dp))
-                Text(
-                    text = stringResource(R.string.gallery_section),
-                    color = Color.White.copy(alpha = 0.7f),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    letterSpacing = 1.5.sp,
-                    modifier = Modifier.padding(start = 4.dp, top = 4.dp, bottom = 6.dp)
-                )
+
+                SectionHeader(text = stringResource(R.string.gallery_section))
                 SettingsRow(
                     label = stringResource(R.string.photo_frame_label),
                     subtitle = stringResource(R.string.photo_frame_subtitle),
@@ -187,13 +183,12 @@ fun SettingsScreen(viewModel: CameraViewModel, onClose: () -> Unit) {
                         viewModel.toggleGalleryFrame()
                     }
                 )
-                Spacer(modifier = Modifier.height(36.dp))
 
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = stringResource(R.string.zoom_camera_footer),
-                    color = Color.White.copy(alpha = 0.35f),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Normal,
+                    color = colorScheme.onSurfaceVariant,
+                    style = typography.bodySmall,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp)
                 )
@@ -202,6 +197,26 @@ fun SettingsScreen(viewModel: CameraViewModel, onClose: () -> Unit) {
     }
 }
 
+/**
+ * Material You section header: small primary-colored label, the same pattern
+ * system settings use to group related rows.
+ */
+@Composable
+private fun SectionHeader(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 4.dp, top = 20.dp, bottom = 8.dp)
+    )
+}
+
+/**
+ * A Material You settings row: expressive [ListItem] on a tonal container with a
+ * trailing [Switch]. The row itself is tappable to toggle, and the whole row
+ * dims automatically when [enabled] is false.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun SettingsRow(
     label: String,
@@ -211,123 +226,94 @@ private fun SettingsRow(
     onCheckedChange: (Boolean) -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
-    val labelAlpha = if (enabled) 1f else 0.4f
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(Color(0xFF1A1A1A))
-            .clickable(enabled = enabled) {
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                onCheckedChange(!checked)
-            }
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = label,
-                color = Color.White.copy(alpha = labelAlpha),
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium
-            )
-            if (subtitle != null) {
-                Spacer(modifier = Modifier.height(4.dp))
+    val colorScheme = MaterialTheme.colorScheme
+
+    ListItem(
+        // Toggle rows: the trailing Switch carries the state (system settings
+        // pattern), so the row uses the plain onClick variant.
+        onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            onCheckedChange(!checked)
+        },
+        enabled = enabled,
+        supportingContent = subtitle?.let {
+            {
                 Text(
-                    text = subtitle,
-                    color = Color.White.copy(alpha = 0.55f * labelAlpha),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Normal,
-                    lineHeight = 16.sp
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colorScheme.onSurfaceVariant
                 )
             }
-        }
-        Spacer(modifier = Modifier.width(12.dp))
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            enabled = enabled,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Color(0xFFFBBF24),
-                checkedTrackColor = Color(0xFFFBBF24).copy(alpha = 0.5f),
-                uncheckedThumbColor = Color.Gray,
-                uncheckedTrackColor = Color.DarkGray
+        },
+        trailingContent = {
+            Switch(
+                checked = checked,
+                onCheckedChange = onCheckedChange,
+                enabled = enabled
             )
+        },
+        colors = ListItemDefaults.colors(containerColor = colorScheme.surfaceContainerLow),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        // The content slot is the row's headline.
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Medium
         )
     }
 }
 
 /**
- * Three-pill chip row for selecting the photo aspect ratio.
- *
- * - 4:3 (Standard) -- the sensor's native portrait ratio, default for backward
- *   compatibility with photos taken before this setting existed.
- * - 3:2 (Tall) -- a slightly taller portrait crop that yields more aggressive
- *   vertical framing (handy for portraits and street photography).
- * - 1:1 (Square) -- Instagram-style square crop, centred on the viewfinder.
- *
- * Each pill shows its ratio label and a short descriptor. The selected pill is
- * amber-tinted with an amber border; the rest sit on the neutral dark surface.
- * Tapping a different pill fires `onSelect(newRatio)` (the ViewModel update
- * triggers a recomposition that updates both the chip selection and the
- * on-screen zoom-box rect).
+ * Material You single-choice segmented row for the photo aspect ratio
+ * (4:3 Standard, 3:2 Tall, 1:1 Square). The selected segment gets the
+ * secondary-container tint; a helper line below describes the chosen ratio.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun AspectRatioChips(
     selected: AspectRatio,
     onSelect: (AspectRatio) -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        AspectRatio.entries.forEach { ratio ->
-            val isSelected = ratio == selected
-            Surface(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(58.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .testTag("aspect_ratio_chip_${ratio.label}")
-                    .border(
-                        width = 1.dp,
-                        color = if (isSelected) Color(0xFFFBBF24) else Color.Transparent,
-                        shape = RoundedCornerShape(10.dp)
-                    )
-                    .clickable {
+    val colorScheme = MaterialTheme.colorScheme
+
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            AspectRatio.entries.forEachIndexed { index, ratio ->
+                SegmentedButton(
+                    selected = ratio == selected,
+                    onClick = {
                         if (ratio != selected) {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             onSelect(ratio)
                         }
                     },
-                color = if (isSelected) Color(0xFFFBBF24).copy(alpha = 0.18f) else Color(0xFF242424),
-                shape = RoundedCornerShape(10.dp)
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Text(
-                        text = ratio.label,
-                        color = if (isSelected) Color(0xFFFBBF24) else Color.White,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = when (ratio) {
-                            AspectRatio.RATIO_4_3 -> stringResource(R.string.aspect_ratio_standard)
-                            AspectRatio.RATIO_3_2 -> stringResource(R.string.aspect_ratio_tall)
-                            AspectRatio.RATIO_1_1 -> stringResource(R.string.aspect_ratio_square)
-                        },
-                        color = Color.White.copy(alpha = 0.55f),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Normal
-                    )
-                }
+                    shape = SegmentedButtonDefaults.itemShape(
+                        index = index,
+                        count = AspectRatio.entries.size
+                    ),
+                    label = {
+                        Text(
+                            text = ratio.label,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    },
+                    modifier = Modifier.testTag("aspect_ratio_chip_${ratio.label}")
+                )
             }
         }
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = when (selected) {
+                AspectRatio.RATIO_4_3 -> stringResource(R.string.aspect_ratio_standard)
+                AspectRatio.RATIO_3_2 -> stringResource(R.string.aspect_ratio_tall)
+                AspectRatio.RATIO_1_1 -> stringResource(R.string.aspect_ratio_square)
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 4.dp)
+        )
     }
 }

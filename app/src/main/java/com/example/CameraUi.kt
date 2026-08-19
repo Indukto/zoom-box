@@ -96,6 +96,7 @@ import androidx.compose.material.icons.rounded.GridOff
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
@@ -125,6 +126,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -829,6 +831,7 @@ private fun FloatingBubbleRow(
     tint: Float,
     exposure: Float,
     isFrontCamera: Boolean = false,
+    controlAngle: Float = 0f,
     onTemperatureClick: () -> Unit,
     onLensClick: () -> Unit,
     onExposureClick: () -> Unit
@@ -849,7 +852,7 @@ private fun FloatingBubbleRow(
                 imageVector = Icons.Rounded.Thermostat,
                 contentDescription = stringResource(R.string.temperature_label),
                 tint = if (temperature != 0f || tint != 0f) Color(0xFFFBBF24) else Color.White,
-                modifier = Modifier.size(22.dp)
+                modifier = Modifier.size(22.dp).rotate(controlAngle)
             )
         }
         Box(
@@ -878,7 +881,8 @@ private fun FloatingBubbleRow(
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace,
-                    letterSpacing = 1.sp
+                    letterSpacing = 1.sp,
+                    modifier = Modifier.rotate(controlAngle)
                 )
             } else {
                 Text(
@@ -886,7 +890,8 @@ private fun FloatingBubbleRow(
                     color = Color.White,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier.rotate(controlAngle)
                 )
             }
         }
@@ -903,14 +908,15 @@ private fun FloatingBubbleRow(
                 imageVector = Icons.Rounded.WbSunny,
                 contentDescription = stringResource(R.string.exposure_label),
                 tint = if (exposure != 0f) Color(0xFFFBBF24) else Color.White,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(20.dp).rotate(controlAngle)
             )
             Text(
                 text = exposure.toInt().toString(),
                 color = if (exposure != 0f) Color(0xFFFBBF24) else Color.White,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
-                fontFamily = FontFamily.Monospace
+                fontFamily = FontFamily.Monospace,
+                modifier = Modifier.rotate(controlAngle)
             )
         }
     }
@@ -1018,7 +1024,9 @@ fun CameraUi(
 
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = Color(0xFF121212)
+        // Root letterbox behind the live viewfinder follows the system palette
+        // (dynamic color on Android 12+; the film-chrome fallback below it).
+        color = MaterialTheme.colorScheme.background
     ) {
         if (cameraPermissionState.status.isGranted) {
             // FIX: Black viewfinder after returning from settings. Previously this
@@ -1486,6 +1494,25 @@ fun CameraActiveScreen(
         label = "grid_alpha"
     )
 
+    // Every control icon (three-point menu, film style, gallery, and the four
+    // auxiliary rail icons) rotates with the physical device: +90° in regular
+    // landscape, -90° in reverse landscape, 0° in portrait. The activity is
+    // locked to portrait, so LocalConfiguration never reports landscape — this
+    // comes from the sensor-based OrientationEventListener (same source the
+    // capture pipeline uses for photo orientation). A soft spring keeps the
+    // rotation a smooth glide instead of a hard snap.
+    val physicalRotation by viewModel.physicalRotation.collectAsState()
+    val controlAngle = when (physicalRotation) {
+        android.view.Surface.ROTATION_90 -> 90f
+        android.view.Surface.ROTATION_270 -> -90f
+        else -> 0f
+    }
+    val animatedControlAngle by animateFloatAsState(
+        targetValue = controlAngle,
+        animationSpec = spring(dampingRatio = 0.9f, stiffness = 200f),
+        label = "control_rail_angle"
+    )
+
     val showTempSlider by viewModel.showTemperatureSlider.collectAsState()
     val showExpSlider by viewModel.showExposureSlider.collectAsState()
     val isCapturing by viewModel.isCapturing.collectAsState()
@@ -1946,7 +1973,7 @@ fun CameraActiveScreen(
                 Icon(
                     imageVector = Icons.Rounded.MoreVert,                        contentDescription = stringResource(R.string.settings_label),
                     tint = Color.White,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(20.dp).rotate(animatedControlAngle)
                 )
             }
         }
@@ -2097,6 +2124,7 @@ fun CameraActiveScreen(
                         tint = tint,
                         exposure = exposure,
                         isFrontCamera = isFrontCamera,
+                        controlAngle = animatedControlAngle,
                         onTemperatureClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             viewModel.toggleTemperatureSlider()
@@ -2272,7 +2300,7 @@ fun CameraActiveScreen(
                         imageVector = if (showGridLines) Icons.Rounded.GridOn else Icons.Rounded.GridOff,
                         contentDescription = stringResource(R.string.grid_label),
                         tint = if (showGridLines) Color(0xFFFBBF24) else Color.White,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(18.dp).rotate(animatedControlAngle)
                     )
                 }
 
@@ -2297,7 +2325,7 @@ fun CameraActiveScreen(
                             imageVector = Icons.Rounded.Timer,
                             contentDescription = stringResource(R.string.timer_off_label),
                             tint = Color.White,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(18.dp).rotate(animatedControlAngle)
                         )
                     } else {
                         Text(
@@ -2326,7 +2354,9 @@ fun CameraActiveScreen(
                         },
                         contentDescription = stringResource(R.string.flash_label),
                         tint = if (flashMode == 2) Color.White else Color(0xFFFBBF24),
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier
+                            .size(18.dp)
+                            .rotate(animatedControlAngle)
                     )
                 }
 
@@ -2343,7 +2373,7 @@ fun CameraActiveScreen(
                         imageVector = Icons.Rounded.FlipCameraAndroid,
                         contentDescription = stringResource(R.string.flip_camera_label),
                         tint = Color.White,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(18.dp).rotate(animatedControlAngle)
                     )
                 }
             }
@@ -2382,7 +2412,7 @@ fun CameraActiveScreen(
                             imageVector = Icons.Rounded.PhotoLibrary,
                             contentDescription = stringResource(R.string.no_photos_label),
                             tint = Color.Gray,
-                            modifier = Modifier.size(22.dp)
+                            modifier = Modifier.size(22.dp).rotate(animatedControlAngle)
                         )
                     }
                 }
@@ -2459,7 +2489,8 @@ fun CameraActiveScreen(
                             modifier = Modifier
                                 .size(36.dp)
                                 .clip(RoundedCornerShape(6.dp))
-                                .background(filmPresetColor(activePreset)),
+                                .background(filmPresetColor(activePreset))
+                                .rotate(animatedControlAngle),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
