@@ -332,23 +332,6 @@ enum class FilmPreset(
         defaultDust = 0.20f,
         defaultLightLeak = 0.08f
     ),
-    PASTEL_INSTANT(
-        "Pastel Instant",
-        "luts/pastel_instant.cube",
-        defaultGrainStrength = 0.08f,
-        defaultGrainChroma = 0.25f,
-        defaultFilmCurve = 0.15f,
-        defaultContrast = 0.95f,
-        defaultSaturation = 1.05f,
-        defaultBloom = 0.20f,
-        highlightTintR = 0.05f, highlightTintG = 0.03f, highlightTintB = 0.01f,  // warm highlights
-        highlightTintStrength = 0.10f,
-        defaultMilkyMix = 0.12f,
-        milkyTintR = 0.98f, milkyTintG = 0.93f, milkyTintB = 0.85f,
-        defaultFade = 0.06f,
-        defaultVignette = 1.15f,
-        defaultLightLeak = 0.15f
-    ),
 
     /**
      * Pass-through preset — no LUT, no grain, no film curve, identity
