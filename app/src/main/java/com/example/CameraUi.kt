@@ -2406,9 +2406,9 @@ fun CameraActiveScreen(
                     }
                 }
 
-                // Flash toggle (liquid glass; amber glass unless switched off.
-                // Auto mode carries a small amber "A" badge per the Figma `A`
-                // 8.5px label centred on the button).
+                // Flash toggle (liquid glass; amber glass unless switched off).
+                // Auto uses the FlashAuto glyph which already carries its own
+                // "A" — no extra badge overlay.
                 IconButton(
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -2417,33 +2417,16 @@ fun CameraActiveScreen(
                     colors = IconButtonDefaults.iconButtonColors(containerColor = Color.Transparent),
                     modifier = Modifier.size(45.dp).auxGlass(active = flashMode != 2).testTag("flash_toggle_button")
                 ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier.size(24.dp).rotate(animatedControlAngle)
-                    ) {
-                        Icon(
-                            imageVector = when (flashMode) {
-                                0    -> Icons.Rounded.FlashAuto
-                                1    -> Icons.Rounded.FlashOn
-                                else -> Icons.Rounded.FlashOff
-                            },
-                            contentDescription = stringResource(R.string.flash_label),
-                            tint = if (flashMode == 2) Color.White else Color(0xFFFBBF24),
-                            modifier = Modifier.size(18.dp)
-                        )
-                        if (flashMode == 0) {
-                            Text(
-                                text = "A",
-                                color = Color(0xFFFBBF24),
-                                fontSize = 8.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier
-                                    .align(Alignment.BottomEnd)
-                                    .offset(x = 4.dp, y = 4.dp)
-                            )
-                        }
-                    }
+                    Icon(
+                        imageVector = when (flashMode) {
+                            0 -> Icons.Rounded.FlashAuto
+                            1 -> Icons.Rounded.FlashOn
+                            else -> Icons.Rounded.FlashOff
+                        },
+                        contentDescription = stringResource(R.string.flash_label),
+                        tint = if (flashMode == 2) Color.White else Color(0xFFFBBF24),
+                        modifier = Modifier.size(18.dp).rotate(animatedControlAngle)
+                    )
                 }
 
                 // Camera flip (liquid glass)

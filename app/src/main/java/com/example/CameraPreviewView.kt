@@ -464,7 +464,10 @@ fun CameraPreviewView(
     }
 
     LaunchedEffect(flashMode, camera) {
-        camera?.let { c -> try { c.cameraControl.enableTorch(flashMode == 1) } catch (e: Exception) {} }
+        // Still-photo flash only: never leave the torch (continuous LED) on.
+        // FLASH_MODE_ON fires the LED at capture time; enableTorch(true)
+        // would keep it lit like a flashlight the whole time mode ON is set.
+        camera?.let { c -> try { c.cameraControl.enableTorch(false) } catch (e: Exception) {} }
         activeImageCapture.flashMode = when (flashMode) {
             0 -> ImageCapture.FLASH_MODE_AUTO
             1 -> ImageCapture.FLASH_MODE_ON
