@@ -235,19 +235,16 @@ private val PanelGlassRim: Brush = Brush.linearGradient(
 )
 
 /**
- * Liquid-glass fill for the round aux buttons, lit diagonally (-45°): the
- * highlight blooms from the top-left corner and falls off toward the
- * bottom-right, with only a faint bounce on the far rim. Same visual
- * language as the control bubble, but pure layering — the aux row sits over
- * the solid-black bottom deck (outside the haze blur source), so there are
- * no live pixels behind to blur; the glass read comes from sheen + rim
- * instead of a blur pass, which also saves four extra GPU blur nodes.
+ * Liquid-glass fill for the round aux buttons, lit diagonally (-45°): a
+ * tight specular hotspot in the top-left corner over an otherwise clear
+ * face, fading into dark translucent chrome — real glass keeps the middle
+ * clean and puts the light on the edge, not a wash across the whole button.
  */
 private fun auxGlassBackground(active: Boolean = false): Brush = Brush.linearGradient(
-    colors = listOf(
-        Color.White.copy(alpha = 0.20f),
-        Color.White.copy(alpha = 0.02f),
-        if (active) Color(0xFFFBBF24).copy(alpha = 0.22f)
+    colorStops = arrayOf(
+        0.0f to Color.White.copy(alpha = 0.10f),
+        0.32f to Color.White.copy(alpha = 0.0f),
+        1.0f to if (active) Color(0xFFFBBF24).copy(alpha = 0.14f)
         else Color(0xFF1C1C1E).copy(alpha = 0.55f)
     ),
     start = Offset.Zero,
@@ -255,10 +252,10 @@ private fun auxGlassBackground(active: Boolean = false): Brush = Brush.linearGra
 )
 
 private fun auxGlassBorder(active: Boolean = false): Brush = Brush.linearGradient(
-    colors = listOf(
-        if (active) Color(0xFFFBBF24).copy(alpha = 0.65f) else Color.White.copy(alpha = 0.38f),
-        if (active) Color(0xFFFBBF24).copy(alpha = 0.15f) else Color.White.copy(alpha = 0.05f),
-        if (active) Color(0xFFFBBF24).copy(alpha = 0.30f) else Color.White.copy(alpha = 0.14f)
+    colorStops = arrayOf(
+        0.0f to if (active) Color(0xFFFBBF24).copy(alpha = 0.45f) else Color.White.copy(alpha = 0.22f),
+        0.45f to if (active) Color(0xFFFBBF24).copy(alpha = 0.10f) else Color.White.copy(alpha = 0.04f),
+        1.0f to if (active) Color(0xFFFBBF24).copy(alpha = 0.22f) else Color.White.copy(alpha = 0.10f)
     ),
     start = Offset.Zero,
     end = Offset.Infinite
@@ -2541,14 +2538,14 @@ fun CameraActiveScreen(
                 }
 
                 // Right: Retro camera preset picker button (spec `preset-button`:
-                // ~62px square, #1C1C1E, amber-tinted border, live swatch).
+                // ~62px square, #1C1C1E, neutral border, live swatch).
                 Box(
                     modifier = Modifier
                         .align(Alignment.CenterEnd)
                         .size(62.dp)
                         .clip(RoundedCornerShape(14.dp))
                         .background(Color(0xFF1C1C1E))
-                        .border(1.dp, Color(0xFFFBBF24).copy(alpha = 0.4f), RoundedCornerShape(14.dp))
+                        .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(14.dp))
                         .clickable {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             showPresetPicker = true
