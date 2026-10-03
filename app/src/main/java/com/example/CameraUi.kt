@@ -67,19 +67,21 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.displayCutoutPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CameraAlt
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.Delete
@@ -126,9 +128,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -140,6 +140,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -2708,12 +2709,15 @@ fun CameraActiveScreen(
             }
         }
 
-        // Preset Picker Bottom Sheet
+        // Preset Picker Bottom Sheet — 3-column liquid-glass grid.
+        // Tap applies instantly and closes; the active style carries a
+        // white top-left-lit rim + check badge. No scroll bookkeeping:
+        // the whole catalog fits in a short scrollable grid.
         if (showPresetPicker) {
             ModalBottomSheet(
                 onDismissRequest = { showPresetPicker = false },
                 sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-                containerColor = Color(0xFF1A1A1E),
+                containerColor = Color(0xFF141416).copy(alpha = 0.94f),
                 contentColor = Color.White
             ) {
                 Column(
@@ -2727,139 +2731,105 @@ fun CameraActiveScreen(
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
-                        modifier = Modifier.padding(bottom = 16.dp)
+                        modifier = Modifier.padding(bottom = 2.dp)
                     )
-                    // Seed the LazyRow with the *active* preset's index so
-                    // when the picker opens it lands on the current style.
-                    // Keying on `showPresetPicker` re-runs this read every
-                    // time the sheet toggles on so each open sees the
-                    // latest active preset.
-                    val presetList = FilmPreset.entries
-                    val safeInitialIndex = remember(showPresetPicker) {
-                        presetList.indexOf(activePreset).coerceAtLeast(0)
-                    }
-                    val filmStyleListState = rememberLazyListState(
-                        initialFirstVisibleItemIndex = safeInitialIndex,
-                        initialFirstVisibleItemScrollOffset = 0
+                    Text(
+                        text = stringResource(
+                            R.string.film_style_count,
+                            FilmPreset.entries.size
+                        ),
+                        color = Color.White.copy(alpha = 0.55f),
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(bottom = 12.dp)
                     )
-                    // Persist every visible-item change so the user's
-                    // in-picker browse position survives another sheet open
-                    // (this state is only used when the seed index match or
-                    // when active == preserved; otherwise the LaunchedEffect
-                    // below re-centers on active).
-                    LaunchedEffect(filmStyleListState) {
-                        snapshotFlow {
-                            filmStyleListState.firstVisibleItemIndex to
-                                filmStyleListState.firstVisibleItemScrollOffset
-                        }
-                            .distinctUntilChanged()
-                            .collect { (idx, off) ->
-                                viewModel.saveFilmStyleScrollPosition(idx, off)
-                            }
-                    }
-                    // Re-centre the active preset whenever the picker
-                    // opens OR activePreset changes — using a NON-CLAMPED
-                    // scroll by wrapping the LazyRow in symmetric
-                    // `contentPadding = (maxWidth - itemWidth) / 2`. Without
-                    // the symmetric padding, Compose's scroll clamp pinned
-                    // the leftmost and rightmost cards to the row edges,
-                    // so the user's reported "sometimes the active isn't
-                    // in bounds of the menu" behaviour showed the active
-                    // card off-axis when active was at index 0 or the
-                    // last item. With the symmetric padding, the row has
-                    // scroll headroom on both sides, and
-                    // `animateScrollToItem(N, 0)` lands the card at the
-                    // visual centre for every index.
-                    //
-                    // Item width is estimated: each preset card is
-                    // Box(60.dp) + Column.padding(8.dp) both sides = 76.dp
-                    // visual width. We round up to 80.dp + 8.dp safety to
-                    // absorb 2-line label widths ("Sunlit Spill", "Cross
-                    // Process") without the padding clipping the card.
-                    // Same pattern as the viewfinder-anchored BoxWithConstraints
-                    // replacement: cache parent width into state and re-derive
-                    // `pickerWidth` so the LazyRow's symmetricPadding is correct on
-                    // the second composition onward. The one-frame settle is fine
-                    // here because the picker itself cross-fades in via the bottom
-                    // sheet's own animation, so a single missing-frame wouldn't
-                    // ever be visually singled out.
-                    val pickerSize = remember { mutableStateOf(IntSize.Zero) }
-                    val pickerWidth = with(LocalDensity.current) { pickerSize.value.width.toDp() }
-                    Box(
-                        modifier = Modifier.fillMaxWidth().onSizeChanged { pickerSize.value = it }
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(3),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 430.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        val estimatedItemWidth = 88.dp
-                        val symmetricPadding =
-                            ((pickerWidth - estimatedItemWidth) / 2).coerceAtLeast(0.dp)
-                        LazyRow(
-                            state = filmStyleListState,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            contentPadding = PaddingValues(horizontal = symmetricPadding)
-                        ) {
-                            items(FilmPreset.entries) { preset ->
-                                val selected = preset == activePreset
-                                Column(
+                        items(FilmPreset.entries, key = { it.name }) { preset ->
+                            val selected = preset == activePreset
+                            val base = filmPresetColor(preset)
+                            val dark = Color(
+                                red = base.red * 0.45f,
+                                green = base.green * 0.45f,
+                                blue = base.blue * 0.45f
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .aspectRatio(0.86f)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(
+                                        brush = Brush.linearGradient(
+                                            colors = listOf(
+                                                base,
+                                                dark
+                                            ),
+                                            start = Offset.Zero,
+                                            end = Offset.Infinite
+                                        ),
+                                        shape = RoundedCornerShape(16.dp)
+                                    )
+                                    .border(
+                                        if (selected) 2.dp else 1.dp,
+                                        if (selected) SolidColor(Color.White)
+                                        else deckGlassBorder(),
+                                        RoundedCornerShape(16.dp)
+                                    )
+                                    .clickable {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        viewModel.setCameraPreset(preset)
+                                        showPresetPicker = false
+                                    }
+                                    .testTag("film_style_card_${preset.name}"),
+                                contentAlignment = Alignment.BottomStart
+                            ) {
+                                // Bottom scrim so the name stays legible on
+                                // the lightest styles (Pastel, Golden, …).
+                                Box(
                                     modifier = Modifier
-                                        .clip(RoundedCornerShape(12.dp))
+                                        .fillMaxSize()
                                         .background(
-                                            if (selected) Color(0xFFFBBF24).copy(alpha = 0.12f)
-                                            else Color(0xFF2C2C2E)
+                                            brush = Brush.verticalGradient(
+                                                colors = listOf(
+                                                    Color.Transparent,
+                                                    Color.Black.copy(alpha = 0.45f)
+                                                )
+                                            )
                                         )
-                                        .border(
-                                            1.5.dp,
-                                            if (selected) Color(0xFFFBBF24) else Color.White.copy(alpha = 0.06f),
-                                            RoundedCornerShape(12.dp)
-                                        )
-                                        .clickable {
-                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            viewModel.setCameraPreset(preset)
-                                            showPresetPicker = false
-                                        }
-                                        .padding(8.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
+                                )
+                                if (selected) {
                                     Box(
                                         modifier = Modifier
-                                            .size(60.dp)
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(filmPresetColor(preset)),
+                                            .align(Alignment.TopEnd)
+                                            .padding(6.dp)
+                                            .size(22.dp)
+                                            .background(Color.White, CircleShape),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Text(
-                                            text = filmPresetEmoji(preset),
-                                            fontSize = 24.sp
+                                        Icon(
+                                            imageVector = Icons.Rounded.Check,
+                                            contentDescription = null,
+                                            tint = Color.Black,
+                                            modifier = Modifier.size(14.dp)
                                         )
                                     }
-                                    Spacer(Modifier.height(4.dp))
-                                    Text(
-                                        text = preset.displayName,
-                                        color = if (selected) Color(0xFFFBBF24) else Color.White.copy(alpha = 0.85f),
-                                        fontSize = 10.sp,
-                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                                        maxLines = 2,
-                                        textAlign = TextAlign.Center,
-                                        lineHeight = 12.sp
-                                    )
                                 }
+                                Text(
+                                    text = preset.displayName,
+                                    color = Color.White,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
+                                    maxLines = 2,
+                                    lineHeight = 14.sp,
+                                    modifier = Modifier.padding(10.dp)
+                                )
                             }
                         }
-                    }
-                    // Recentre on every activePreset change OR picker
-                    // open. The symmetric contentPadding above makes this
-                    // a one-liner: animateScrollToItem(N, 0) is now
-                    // equivalent to "put item N horizontally centred in the
-                    // viewport." Guard with `isScrollInProgress` so a
-                    // background change doesn't hijack an active fling.
-                    LaunchedEffect(activePreset, showPresetPicker) {
-                        if (!showPresetPicker) return@LaunchedEffect
-                        kotlinx.coroutines.delay(50.milliseconds)
-                        if (filmStyleListState.isScrollInProgress) return@LaunchedEffect
-                        val targetIndex =
-                            presetList.indexOf(activePreset).coerceAtLeast(0)
-                        filmStyleListState.animateScrollToItem(targetIndex, 0)
                     }
                 }
             }

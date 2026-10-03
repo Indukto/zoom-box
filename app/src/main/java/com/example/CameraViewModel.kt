@@ -676,6 +676,17 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         _flashMode.value = (_flashMode.value + 1) % 3
         viewModelScope.launch { prefsRepo.saveFlashMode(_flashMode.value) }
     }
+    /**
+     * Direct flash-mode setter for the Settings page segmented control.
+     * 0 = Auto, 1 = On, 2 = Off. Out-of-range values are coerced so a
+     * stale DataStore int can never strand the flash in an unknown state.
+     */
+    fun setFlashMode(mode: Int) {
+        val clamped = mode.coerceIn(0, 2)
+        if (_flashMode.value == clamped) return
+        _flashMode.value = clamped
+        viewModelScope.launch { prefsRepo.saveFlashMode(clamped) }
+    }
     fun toggleCamera() {
         val nowFront = !_isFrontCamera.value
         _isFrontCamera.value = nowFront
@@ -705,6 +716,17 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         _selfTimerMode.value = when (_selfTimerMode.value) { 0 -> 3; 3 -> 10; else -> 0 }
         viewModelScope.launch { prefsRepo.saveSelfTimerMode(_selfTimerMode.value) }
     }
+    /**
+     * Direct self-timer setter for the Settings page segmented control.
+     * Only 0 (off), 3 and 10 are valid — anything else is ignored so the
+     * countdown logic in CameraUi (`repeat(selfTimerMode)`) stays safe.
+     */
+    fun setSelfTimerMode(mode: Int) {
+        if (mode != 0 && mode != 3 && mode != 10) return
+        if (_selfTimerMode.value == mode) return
+        _selfTimerMode.value = mode
+        viewModelScope.launch { prefsRepo.saveSelfTimerMode(mode) }
+    }
     fun toggleDoubleExposure() {
         _doubleExposureActive.value = !_doubleExposureActive.value
         viewModelScope.launch { prefsRepo.saveDoubleExposure(_doubleExposureActive.value) }
@@ -722,6 +744,34 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     fun setOutputResolution(resolution: OutputResolution) {
         _outputResolution.value = resolution
         viewModelScope.launch { prefsRepo.saveOutputResolution(resolution) }
+    }
+
+    /**
+     * Restore every user-visible Settings page value to its factory default.
+     * Used by the Settings "Reset to defaults" row. Lens / preset / camera
+     * side (selectedLensRole, activePreset, isFrontCamera, film-strip scroll)
+     * is intentionally left alone — those are session state, not settings.
+     */
+    fun resetSettingsToDefaults() {
+        _rawModeEnabled.value = false
+        _aspectRatio.value = AspectRatio.DEFAULT
+        _outputResolution.value = OutputResolution.THREE_MEGAPIXEL
+        _showGridLines.value = false
+        _selfTimerMode.value = 0
+        _flashMode.value = 0
+        _showGalleryFrame.value = false
+        _activeExtension.value = CaptureExtension.NONE
+        viewModelScope.launch {
+            prefsRepo.saveRawMode(false)
+            prefsRepo.saveAspectRatio(AspectRatio.DEFAULT)
+            prefsRepo.saveOutputResolution(OutputResolution.THREE_MEGAPIXEL)
+            prefsRepo.saveShowGridLines(false)
+            prefsRepo.saveSelfTimerMode(0)
+            prefsRepo.saveFlashMode(0)
+            prefsRepo.saveGalleryFrame(false)
+            prefsRepo.saveActiveExtension(CaptureExtension.NONE)
+        }
+        // RAW off is always legal, so no availability re-check needed here.
     }
     fun setSelectedPhoto(file: File?) { _selectedPhoto.value = file }
 
@@ -882,12 +932,9 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     /**
-     * Called from a `snapshotFlow` collector in CameraUi every time the
-     * user's scroll inside the Film-Style picker LazyRow changes. Writes
-     * both to the in-memory cache (so a re-open before DataStore has
-     * finished its async write still sees the latest position) and to
-     * disk. Idempotent — no-op when the values haven't moved so we don't
-     * spam DataStore with redundant edits on touchpad inertia scroll.
+     * Legacy scroll-position writer from the old horizontal LazyRow picker
+     * (superseded by the grid picker, which needs no bookkeeping). Kept so
+     * the persisted keys stay valid; currently uncalled.
      */
     fun saveFilmStyleScrollPosition(index: Int, offset: Int) {
         val safeIndex = index.coerceAtLeast(0)

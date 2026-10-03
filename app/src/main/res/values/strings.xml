@@ -38,6 +38,7 @@
 
     <!-- Film style picker -->
     <string name="film_style">Film Style</string>
+    <string name="film_style_count">%1$d styles — tap to apply</string>
 
     <!-- Delete confirmation -->
     <string name="delete_photo_title">Delete photo?</string>
@@ -67,16 +68,52 @@
 
     <!-- Settings -->
     <string name="close_settings_desc">Close settings</string>
+    <string name="settings_subtitle">Film looks, framing &amp; capture</string>
     <string name="capture_section">CAPTURE</string>
     <string name="raw_format_label">RAW Format</string>
     <string name="raw_format_subtitle">Capture unprocessed sensor data for professional editing (DNG)</string>
+    <string name="raw_unavailable_front">Not available on the front camera</string>
+    <string name="raw_unavailable_lens">This lens doesn\'t support RAW</string>
+    <string name="resolution_section">PHOTO QUALITY</string>
+    <string name="resolution_fast_label">3 MP · Fast</string>
+    <string name="resolution_full_label">Full · Max</string>
+    <string name="resolution_fast_desc">Halved each axis — under a second, plenty for the retro look.</string>
+    <string name="resolution_full_desc">Full sensor resolution — archival quality, slower to save.</string>
     <string name="aspect_ratio_section">ASPECT RATIO</string>
     <string name="aspect_ratio_standard">Standard</string>
     <string name="aspect_ratio_tall">Tall</string>
     <string name="aspect_ratio_square">Square</string>
-    <string name="full_resolution_label">Save at full resolution</string>
+    <string name="enhance_section">ENHANCE</string>
+    <string name="extension_label">Night &amp; HDR boost</string>
+    <string name="extension_subtitle_none">Standard processing</string>
+    <string name="extension_subtitle_hdr">OEM HDR — wider dynamic range</string>
+    <string name="extension_subtitle_bokeh">OEM portrait blur</string>
+    <string name="extension_subtitle_auto">Let the device pick the best mode</string>
+    <string name="extension_none">Off</string>
+    <string name="extension_hdr">HDR</string>
+    <string name="extension_bokeh">Blur</string>
+    <string name="extension_auto">Auto</string>
+    <string name="viewfinder_section">VIEWFINDER</string>
+    <string name="grid_lines_label">Grid lines</string>
+    <string name="grid_lines_subtitle">Rule-of-thirds overlay while framing</string>
+    <string name="self_timer_label">Self timer</string>
+    <string name="self_timer_off">Off</string>
+    <string name="self_timer_desc_off">Shutter fires instantly.</string>
+    <string name="self_timer_desc_on">%1$ds countdown before each shot.</string>
+    <string name="flash_section">FLASH</string>
+    <string name="flash_label_settings">Flash mode</string>
+    <string name="flash_auto">Auto</string>
+    <string name="flash_on">On</string>
+    <string name="flash_off">Off</string>
+    <string name="flash_desc_auto">Fires only in low light.</string>
+    <string name="flash_desc_on">Always fires.</string>
+    <string name="flash_desc_off">Never fires.</string>
     <string name="gallery_section">GALLERY</string>
     <string name="photo_frame_label">Photo Frame</string>
     <string name="photo_frame_subtitle">Add the film-card frame in the gallery and bake it into saved photos</string>
+    <string name="about_section">ABOUT</string>
+    <string name="app_version_label">ZoomBox Camera version</string>
+    <string name="reset_settings_label">Reset to defaults</string>
+    <string name="reset_settings_subtitle">Restore factory capture &amp; viewfinder settings</string>
     <string name="zoom_camera_footer">Zoom • Camera</string>
 </resources>
