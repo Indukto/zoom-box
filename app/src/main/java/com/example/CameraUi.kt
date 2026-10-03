@@ -169,6 +169,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import java.util.Locale
 import com.example.zoom.AspectRatio
 import com.example.color.CubeLut
+import com.example.color.GlassOverlay
 import com.example.zoom.LensRole
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
@@ -1652,6 +1653,26 @@ fun CameraActiveScreen(
         val vfTop = topInset + (availableHeight - vfHeight) / 2f
 
         // ─────────────────────────────────────────────────────────────────
+        // Liquid-glass zoom readout pill geometry. Compose draws only the
+        // pill's labels; the GL effect pass refracts the live camera image
+        // inside this rect (see LiquidGlassZoomSelector / LutPreviewRenderer).
+        // Pinned bottom-center inside the viewfinder to match the
+        // .align(Alignment.BottomCenter) + bottom-margin placement below, so
+        // the shader's rounded rect and the pill content stay pixel-aligned.
+        val pillLeftDp = (vfWidth - LiquidGlassPillWidth) / 2
+        val pillTopDp = vfHeight - LiquidGlassPillBottomMargin - LiquidGlassPillHeight
+        val glassOverlay = remember(vfWidth, vfHeight, density) {
+            GlassOverlay.fromDp(
+                leftDp = pillLeftDp.value,
+                topDp = pillTopDp.value,
+                widthDp = LiquidGlassPillWidth.value,
+                heightDp = LiquidGlassPillHeight.value,
+                cornerRadiusDp = LiquidGlassPillCornerRadius.value,
+                density = density.density
+            )
+        }
+
+        // ─────────────────────────────────────────────────────────────────
         // Preset-change toast state (declared ahead of the viewfinder Box
         // because `CameraPreviewView`'s modifier-chain pointerInput below
         // writes to these on a horizontal-fling fire).
@@ -1776,6 +1797,7 @@ fun CameraActiveScreen(
             isRawCapturing = isCapturing && rawModeEnabled,
             zoomEnabled = !(showExpSlider || showTempSlider),
             renderParams = previewRenderParams,
+            glassOverlay = glassOverlay,
             activeLut = previewLut,
             activePreset = activePreset,
             onZoomChanged = { viewModel.setZoom(it) },
@@ -1787,6 +1809,21 @@ fun CameraActiveScreen(
             onLensCatalogReady = { result -> viewModel.setLensCatalogResult(result) }
         )
         }
+
+        // Liquid-glass zoom readout pill, pinned to the bottom of the
+        // viewfinder. On film looks the GL effect pass draws the glass body
+        // under this rect — refracting the live camera image — while this
+        // composable draws only the labels on top. The Normal preset has no
+        // GL shader and falls back to frosted chrome inside the pill itself.
+        LiquidGlassZoomSelector(
+            zoomRatio = digitalZoomRatio,
+            focalLengthMm = effectiveFocalLength,
+            glassActive = activePreset != FilmPreset.NORMAL,
+            controlAngle = animatedControlAngle,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = LiquidGlassPillBottomMargin)
+        )
 
         // Countdown timer overlay
         if (timerCountdown > 0) {

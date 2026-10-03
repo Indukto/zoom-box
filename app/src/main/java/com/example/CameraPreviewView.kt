@@ -63,6 +63,7 @@ import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.milliseconds
 import com.example.color.CubeLut
 import com.example.color.CubeLutParser
+import com.example.color.GlassOverlay
 import com.example.color.LutPreviewView
 import com.example.color.RetroRenderParams
 import com.example.FilmPreset
@@ -232,6 +233,7 @@ fun CameraPreviewView(
     zoomEnabled: Boolean = true,
     renderParams: RetroRenderParams = RetroRenderParams(),
     activeLut: CubeLut? = null,
+    glassOverlay: GlassOverlay? = null,
     activePreset: FilmPreset = FilmPreset.WARM_PORTRAIT,
     onZoomChanged: (Float) -> Unit,
     onZoomTick: () -> Unit = {},
@@ -489,6 +491,14 @@ fun CameraPreviewView(
     // PreviewView behavior (selfie mirror).
     LaunchedEffect(isFrontCamera) {
         lutPreviewView.setFlipH(isFrontCamera)
+    }
+
+    // Push the liquid-glass overlay geometry (e.g. the zoom readout pill) into
+    // the GL renderer so the effect pass can refract the camera image under it.
+    // Null clears the glass; the Normal preset path has no GL surface at all
+    // and its frosted fallback chrome is drawn in Compose instead.
+    LaunchedEffect(glassOverlay) {
+        lutPreviewView.setGlassOverlay(glassOverlay)
     }
 
     // Zoom gesture — seed from current digitalZoomRatio

@@ -92,6 +92,10 @@ class LutPreviewRenderer(
     private var uDustLoc = 0
     private var uScratchLoc = 0
     private var uLightLeakLoc = 0
+    private var uGlassRectLoc = 0
+    private var uGlassRadiusLoc = 0
+    private var uGlassParamsLoc = 0
+    private var uGlassEnabledLoc = 0
 
     private var inputTexture = 0
     private var lutTexture = 0
@@ -147,6 +151,9 @@ class LutPreviewRenderer(
     @Volatile private var dust = 0f
     @Volatile private var scratch = 0f
     @Volatile private var lightLeak = 0f
+
+    // ── Liquid glass overlay (UI thread → GL thread) ──
+    @Volatile private var glassOverlay: GlassOverlay? = null
     @Volatile private var grainStrength = 0f
     @Volatile private var grainChroma = 0f
 
@@ -216,6 +223,16 @@ class LutPreviewRenderer(
     fun setLut(lut: CubeLut?) {
         activeLut = lut
         pendingLut = lut
+        glSurfaceView.requestRender()
+    }
+
+    /**
+     * Set (or clear, with null) the liquid-glass overlay drawn over the live
+     * preview. The rect is in view pixels; the GL thread normalizes it when it
+     * uploads the uniforms. Re-renders on change (RENDERMODE_WHEN_DIRTY).
+     */
+    fun setGlassOverlay(overlay: GlassOverlay?) {
+        glassOverlay = overlay
         glSurfaceView.requestRender()
     }
 
@@ -325,6 +342,12 @@ class LutPreviewRenderer(
         uDustLoc = GLES20.glGetUniformLocation(program, "uDust")
         uScratchLoc = GLES20.glGetUniformLocation(program, "uScratch")
         uLightLeakLoc = GLES20.glGetUniformLocation(program, "uLightLeak")
+
+        // ── Liquid glass overlay uniform locations ──
+        uGlassRectLoc = GLES20.glGetUniformLocation(program, "uGlassRect")
+        uGlassRadiusLoc = GLES20.glGetUniformLocation(program, "uGlassRadius")
+        uGlassParamsLoc = GLES20.glGetUniformLocation(program, "uGlassParams")
+        uGlassEnabledLoc = GLES20.glGetUniformLocation(program, "uGlassEnabled")
 
         // Drain any stale GL errors from EGL-context creation or the program
         // link above. GL errors are sticky flags that survive across bind
@@ -480,6 +503,25 @@ class LutPreviewRenderer(
         GLES20.glUniform1f(uDustLoc, 0f)
         GLES20.glUniform1f(uScratchLoc, 0f)
         GLES20.glUniform1f(uLightLeakLoc, 0f)
+
+        // ── Liquid glass overlay. GpuCaptureProcessor reuses this shader for
+        //    the saved JPEG but never sets uGlassEnabled, whose GLSL default
+        //    of 0 keeps captures glass-free — the glass is a viewfinder
+        //    affordance, not part of the photo. ──
+        val glass = glassOverlay
+        if (glass != null) {
+            val rect = glass.rectUniform(viewWidth, viewHeight)
+            GLES20.glUniform4f(uGlassRectLoc, rect[0], rect[1], rect[2], rect[3])
+            GLES20.glUniform1f(uGlassRadiusLoc, glass.radiusPx)
+            val glassParams = glass.paramsUniform()
+            GLES20.glUniform4f(
+                uGlassParamsLoc,
+                glassParams[0], glassParams[1], glassParams[2], glassParams[3]
+            )
+            GLES20.glUniform1f(uGlassEnabledLoc, 1f)
+        } else {
+            GLES20.glUniform1f(uGlassEnabledLoc, 0f)
+        }
 
         if (has3dTextures && lutEnabled && lutWidth > 0) {
             GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
@@ -832,6 +874,108 @@ class LutPreviewRenderer(
         // Uses GL_OES_EGL_image_external for the camera texture and
         // GL_OES_texture_3D for the LUT. Vignette math matches the CPU
         // applyRetroFilter RadialGradient.
+        // ── Liquid glass overlay (shared by FRAG_SHADER and FRAG_SHADER_NO_3D) ──
+        //
+        // Draws one rounded-rect "liquid glass" surface over the preview by
+        // re-sampling the camera texture under it: near the boundary the sample
+        // is displaced outward along the surface normal (edge-weighted lens
+        // refraction), the channels displace slightly differently (chromatic
+        // dispersion), and the calm interior gets a light multi-tap blur.
+        // glassFinish() adds the rim highlight, a faint white tint, and an
+        // extremely subtle outer shadow AFTER the film chain, so the glass
+        // reads as a physical layer lying on the graded image.
+        //
+        // SDF math runs in "height units" (1.0 == view height): mediump floats
+        // stay precise on large surfaces and the corner radius stays a true
+        // circle on screen. uGlassEnabled is 0 unless the UI pushes an overlay
+        // (and always 0 in the capture pipeline), so any other pixel costs a
+        // single early-out branch — the extra taps only run inside the pill.
+        private const val GLASS_GLSL = """
+            uniform vec4 uGlassRect;    // (left, top, right, bottom), normalized view UV
+            uniform float uGlassRadius; // corner radius, view px
+            uniform vec4 uGlassParams;  // (refraction px, blur px, dispersion, rim px)
+            uniform float uGlassEnabled;
+
+            // Rounded-rect SDF in height units; negative inside the glass.
+            float glassSdf(vec2 uv) {
+                vec2 scale = uViewSize / uViewSize.y;
+                vec2 center = (uGlassRect.xy + uGlassRect.zw) * 0.5 * scale;
+                vec2 halfSize = (uGlassRect.zw - uGlassRect.xy) * 0.5 * scale;
+                float r = uGlassRadius / uViewSize.y;
+                vec2 q = abs(uv * scale - center) - (halfSize - vec2(r));
+                return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
+            }
+
+            // Outward unit normal of the glass boundary (the uniform scaling
+            // keeps height-unit directions identical to screen directions).
+            vec2 glassNormal(vec2 uv) {
+                vec2 e = vec2(0.0015, 0.0);
+                vec2 g = vec2(
+                    glassSdf(uv + e.xy) - glassSdf(uv - e.xy),
+                    glassSdf(uv + e.yx) - glassSdf(uv - e.yx)
+                );
+                float len = length(g);
+                return len > 0.0001 ? g / len : vec2(0.0, -1.0);
+            }
+
+            // Samples the scene through the glass lens and reports the
+            // effective sample UV so later stages stay consistent with the bend.
+            vec3 glassSample(sampler2D tex, vec2 uv, out vec2 effUv) {
+                effUv = uv;
+                if (uGlassEnabled < 0.5) return texture2D(tex, uv).rgb;
+                float d = glassSdf(uv);
+                if (d >= 0.0) return texture2D(tex, uv).rgb;
+
+                // Edge-weighted lens profile: full displacement at the rim,
+                // (1 - t)^2 falloff toward a nearly undistorted center.
+                float refractH = uGlassParams.x / uViewSize.y;
+                float band = max(refractH * 6.0, 0.001);
+                float t = clamp(-d / band, 0.0, 1.0);
+                float k = (1.0 - t) * (1.0 - t);
+                vec2 uvShift = glassNormal(uv) * (uGlassParams.x * k) / uViewSize;
+                vec2 base = clamp(uv + uvShift, vec2(0.001), vec2(0.999));
+                effUv = base;
+
+                vec3 c;
+                if (uGlassParams.z > 0.0) {
+                    // Chromatic dispersion: R and B bend slightly more/less
+                    // than G, so only the distorted rim fringes.
+                    vec2 disp = uvShift * uGlassParams.z;
+                    c.r = texture2D(tex, clamp(base + disp, vec2(0.001), vec2(0.999))).r;
+                    c.g = texture2D(tex, base).g;
+                    c.b = texture2D(tex, clamp(base - disp, vec2(0.001), vec2(0.999))).b;
+                } else {
+                    c = texture2D(tex, base).rgb;
+                }
+
+                if (uGlassParams.y > 0.0) {
+                    // Light 5-tap blur, strongest toward the calm center.
+                    vec2 bUv = vec2(uGlassParams.y * t) / uViewSize;
+                    vec3 ring = texture2D(tex, base + vec2(-bUv.x,  bUv.y)).rgb
+                              + texture2D(tex, base + vec2( bUv.x,  bUv.y)).rgb
+                              + texture2D(tex, base + vec2(-bUv.x, -bUv.y)).rgb
+                              + texture2D(tex, base + vec2( bUv.x, -bUv.y)).rgb;
+                    c = (ring + c * 2.0) / 6.0;
+                }
+                return c;
+            }
+
+            // Rim highlight + faint tint + whisper of outer shadow, applied
+            // after the film chain so the glass chrome is never graded.
+            vec3 glassFinish(vec3 c, vec2 uv) {
+                if (uGlassEnabled < 0.5) return c;
+                float d = glassSdf(uv);
+                float rimH = max(uGlassParams.w, 1.0) / uViewSize.y;
+                if (d >= 0.0) {
+                    float shadow = 1.0 - smoothstep(0.0, rimH * 4.0, d);
+                    return c * (1.0 - 0.15 * shadow);
+                }
+                float rim = 1.0 - smoothstep(0.0, rimH, -d);
+                float topWeight = clamp(0.55 - 0.55 * glassNormal(uv).y, 0.15, 1.1);
+                return clamp(mix(c + vec3(rim * 0.5 * topWeight), vec3(1.0), 0.06), 0.0, 1.0);
+            }
+        """
+
         internal const val FRAG_SHADER = """
             #extension GL_OES_texture_3D : enable
             precision mediump float;
@@ -878,6 +1022,7 @@ class LutPreviewRenderer(
 
             varying vec2 vTexCoord;
 
+""" + GLASS_GLSL + """
             // ── Filmic S-curve ──
             float filmScurve(float x, float strength) {
                 float s = strength * 0.5;
@@ -954,7 +1099,8 @@ class LutPreviewRenderer(
             }
 
             void main() {
-                vec3 c = texture2D(uTexture, vTexCoord).rgb;
+                vec2 sUv;
+                vec3 c = glassSample(uTexture, vTexCoord, sUv);
 
                 // ── 0.5. Soft-focus 3x3 box blur (dreamcore) ──
                 // Optional first stage for the gauzy/out-of-focus look.
@@ -967,14 +1113,14 @@ class LutPreviewRenderer(
                 // standalone filter applied on top.
                 if (uSoftFocus > 0.0) {
                     vec2 pxSize = 1.0 / uViewSize;
-                    vec3 n_tl = texture2D(uTexture, vTexCoord + vec2(-pxSize.x,  pxSize.y)).rgb;
-                    vec3 n_t  = texture2D(uTexture, vTexCoord + vec2(       0.0,  pxSize.y)).rgb;
-                    vec3 n_tr = texture2D(uTexture, vTexCoord + vec2( pxSize.x,  pxSize.y)).rgb;
-                    vec3 n_l  = texture2D(uTexture, vTexCoord + vec2(-pxSize.x,       0.0)).rgb;
-                    vec3 n_r  = texture2D(uTexture, vTexCoord + vec2( pxSize.x,       0.0)).rgb;
-                    vec3 n_bl = texture2D(uTexture, vTexCoord + vec2(-pxSize.x, -pxSize.y)).rgb;
-                    vec3 n_b  = texture2D(uTexture, vTexCoord + vec2(       0.0, -pxSize.y)).rgb;
-                    vec3 n_br = texture2D(uTexture, vTexCoord + vec2( pxSize.x, -pxSize.y)).rgb;
+                    vec3 n_tl = texture2D(uTexture, sUv + vec2(-pxSize.x,  pxSize.y)).rgb;
+                    vec3 n_t  = texture2D(uTexture, sUv + vec2(       0.0,  pxSize.y)).rgb;
+                    vec3 n_tr = texture2D(uTexture, sUv + vec2( pxSize.x,  pxSize.y)).rgb;
+                    vec3 n_l  = texture2D(uTexture, sUv + vec2(-pxSize.x,       0.0)).rgb;
+                    vec3 n_r  = texture2D(uTexture, sUv + vec2( pxSize.x,       0.0)).rgb;
+                    vec3 n_bl = texture2D(uTexture, sUv + vec2(-pxSize.x, -pxSize.y)).rgb;
+                    vec3 n_b  = texture2D(uTexture, sUv + vec2(       0.0, -pxSize.y)).rgb;
+                    vec3 n_br = texture2D(uTexture, sUv + vec2( pxSize.x, -pxSize.y)).rgb;
                     vec3 blurred = (n_tl + n_t + n_tr + n_l + c + n_r + n_bl + n_b + n_br) / 9.0;
                     c = mix(c, blurred, uSoftFocus);
                 }
@@ -996,8 +1142,8 @@ class LutPreviewRenderer(
                 // channel misregistration in instant/Polaroid films.
                 if (uFringing > 0.0) {
                     vec2 fringingOff = vec2(uFringing * 0.004, 0.0);
-                    float rFringe = texture2D(uTexture, vTexCoord + fringingOff).r;
-                    float bFringe = texture2D(uTexture, vTexCoord - fringingOff).b;
+                    float rFringe = texture2D(uTexture, sUv + fringingOff).r;
+                    float bFringe = texture2D(uTexture, sUv - fringingOff).b;
                     c.r = mix(c.r, rFringe, uFringing * 5.0);
                     c.b = mix(c.b, bFringe, uFringing * 5.0);
                 }
@@ -1136,6 +1282,7 @@ class LutPreviewRenderer(
                 }
                 c = clamp(c, 0.0, 1.0);
 
+                c = glassFinish(c, vTexCoord);
                 gl_FragColor = vec4(c, 1.0);
             }
         """
@@ -1188,6 +1335,7 @@ class LutPreviewRenderer(
 
             varying vec2 vTexCoord;
 
+""" + GLASS_GLSL + """
             // ── Filmic S-curve ──
             float filmScurve(float x, float strength) {
                 float s = strength * 0.5;
@@ -1264,7 +1412,8 @@ class LutPreviewRenderer(
             }
 
             void main() {
-                vec3 c = texture2D(uTexture, vTexCoord).rgb;
+                vec2 sUv;
+                vec3 c = glassSample(uTexture, vTexCoord, sUv);
 
                 // ── 0.5. Soft-focus 3x3 box blur (dreamcore) ──
                 // Optional first stage for the gauzy/out-of-focus look.
@@ -1277,14 +1426,14 @@ class LutPreviewRenderer(
                 // standalone filter applied on top.
                 if (uSoftFocus > 0.0) {
                     vec2 pxSize = 1.0 / uViewSize;
-                    vec3 n_tl = texture2D(uTexture, vTexCoord + vec2(-pxSize.x,  pxSize.y)).rgb;
-                    vec3 n_t  = texture2D(uTexture, vTexCoord + vec2(       0.0,  pxSize.y)).rgb;
-                    vec3 n_tr = texture2D(uTexture, vTexCoord + vec2( pxSize.x,  pxSize.y)).rgb;
-                    vec3 n_l  = texture2D(uTexture, vTexCoord + vec2(-pxSize.x,       0.0)).rgb;
-                    vec3 n_r  = texture2D(uTexture, vTexCoord + vec2( pxSize.x,       0.0)).rgb;
-                    vec3 n_bl = texture2D(uTexture, vTexCoord + vec2(-pxSize.x, -pxSize.y)).rgb;
-                    vec3 n_b  = texture2D(uTexture, vTexCoord + vec2(       0.0, -pxSize.y)).rgb;
-                    vec3 n_br = texture2D(uTexture, vTexCoord + vec2( pxSize.x, -pxSize.y)).rgb;
+                    vec3 n_tl = texture2D(uTexture, sUv + vec2(-pxSize.x,  pxSize.y)).rgb;
+                    vec3 n_t  = texture2D(uTexture, sUv + vec2(       0.0,  pxSize.y)).rgb;
+                    vec3 n_tr = texture2D(uTexture, sUv + vec2( pxSize.x,  pxSize.y)).rgb;
+                    vec3 n_l  = texture2D(uTexture, sUv + vec2(-pxSize.x,       0.0)).rgb;
+                    vec3 n_r  = texture2D(uTexture, sUv + vec2( pxSize.x,       0.0)).rgb;
+                    vec3 n_bl = texture2D(uTexture, sUv + vec2(-pxSize.x, -pxSize.y)).rgb;
+                    vec3 n_b  = texture2D(uTexture, sUv + vec2(       0.0, -pxSize.y)).rgb;
+                    vec3 n_br = texture2D(uTexture, sUv + vec2( pxSize.x, -pxSize.y)).rgb;
                     vec3 blurred = (n_tl + n_t + n_tr + n_l + c + n_r + n_bl + n_b + n_br) / 9.0;
                     c = mix(c, blurred, uSoftFocus);
                 }
@@ -1304,8 +1453,8 @@ class LutPreviewRenderer(
                 // ── 3. Chromatic Fringing ──
                 if (uFringing > 0.0) {
                     vec2 fringingOff = vec2(uFringing * 0.004, 0.0);
-                    float rFringe = texture2D(uTexture, vTexCoord + fringingOff).r;
-                    float bFringe = texture2D(uTexture, vTexCoord - fringingOff).b;
+                    float rFringe = texture2D(uTexture, sUv + fringingOff).r;
+                    float bFringe = texture2D(uTexture, sUv - fringingOff).b;
                     c.r = mix(c.r, rFringe, uFringing * 5.0);
                     c.b = mix(c.b, bFringe, uFringing * 5.0);
                 }
@@ -1438,6 +1587,7 @@ class LutPreviewRenderer(
                 }
                 c = clamp(c, 0.0, 1.0);
 
+                c = glassFinish(c, vTexCoord);
                 gl_FragColor = vec4(c, 1.0);
             }
         """
