@@ -167,6 +167,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.TransformOrigin
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeStyle
 import dev.chrisbanes.haze.hazeEffect
@@ -2225,24 +2226,37 @@ fun CameraActiveScreen(
                 // (~180 dp) to panel width (300 dp) and the size animation reads.
                 contentAlignment = Alignment.BottomCenter,
                 transitionSpec = {
-                    // Sharing one tween curve across both fades AND the
-                    // SizeTransform keeps alpha and the bounds grow in lock-step.
-                    // Otherwise the alpha finishes while the size is still mid-way
-                    // and the transition reads as a lurch. EaseInOutCubic matches
-                    // the curve already used for the staggered splash reveals.
-                    val morphDuration = 260
+                    // Seamless enlarge: the incoming surface scales up from the
+                    // bubble's bottom-center anchor while fading in, the
+                    // outgoing one shrinks slightly and fades out fast, and
+                    // SizeTransform grows the slot on the same curve — so the
+                    // bubble reads as enlarging into the panel (and melting
+                    // back on close) instead of cross-dissolving. EaseInOutCubic
+                    // matches the splash reveal curve used elsewhere.
                     val morphEasing = EaseInOutCubic
+                    val pivot = TransformOrigin(0.5f, 1f)
+                    val expanding = targetState != MorphMode.BUBBLE
+                    val enterScale = if (expanding) 0.8f else 0.9f
+                    val enterDuration = if (expanding) 320 else 240
                     ContentTransform(
                         targetContentEnter = fadeIn(
-                            tween(morphDuration, easing = morphEasing)
+                            tween(enterDuration, easing = morphEasing)
+                        ) + scaleIn(
+                            tween(enterDuration, easing = morphEasing),
+                            initialScale = enterScale,
+                            transformOrigin = pivot
                         ),
                         initialContentExit = fadeOut(
-                            tween(morphDuration, easing = morphEasing)
+                            tween(180, easing = morphEasing)
+                        ) + scaleOut(
+                            tween(180, easing = morphEasing),
+                            targetScale = 0.88f,
+                            transformOrigin = pivot
                         ),
                         sizeTransform = SizeTransform(
                             clip = false,
                             sizeAnimationSpec = { _, _ ->
-                                tween<IntSize>(morphDuration, easing = morphEasing)
+                                tween<IntSize>(320, easing = morphEasing)
                             }
                         )
                     )
