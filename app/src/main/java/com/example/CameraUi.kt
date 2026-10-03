@@ -80,6 +80,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CameraAlt
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.FlashAuto
 import androidx.compose.material.icons.rounded.FlashOff
@@ -205,6 +206,28 @@ private val BubbleHazeStyle = HazeStyle(
     tints = emptyList(),
     blurRadius = 16.dp,
     noiseFactor = 0f
+)
+
+/**
+ * Frosted-glass style for the expanded color/exposure panels: same blur as
+ * the control bubble (16 dp) over the Figma `color balance` black-20% fill.
+ */
+private val PanelHazeStyle = HazeStyle(
+    backgroundColor = Color.Black.copy(alpha = 0.20f),
+    tints = emptyList(),
+    blurRadius = 16.dp,
+    noiseFactor = 0f
+)
+
+/** Diagonal (-45°) glass rim shared by the panel card and the color plot. */
+private val PanelGlassRim: Brush = Brush.linearGradient(
+    colors = listOf(
+        Color.White.copy(alpha = 0.30f),
+        Color.White.copy(alpha = 0.06f),
+        Color.White.copy(alpha = 0.12f)
+    ),
+    start = Offset.Zero,
+    end = Offset.Infinite
 )
 
 /**
@@ -495,12 +518,12 @@ private fun PresetButton(
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit
 ) {
+    // Liquid-glass circle reusing the aux-button chrome: diagonal sheen +
+    // rim, amber glass when selected. 35 dp per the Figma preset ellipses.
     Box(
         modifier = modifier
-            .size(36.dp)
-            .clip(CircleShape)
-            .background(if (isSelected) Color(0xFF2C2C2E) else Color.Transparent)
-            .border(1.dp, if (isSelected) Color.White else Color.White.copy(alpha = 0.25f), CircleShape)
+            .size(35.dp)
+            .auxGlass(active = isSelected)
             .clickable { onClick() },
         contentAlignment = Alignment.Center,
         content = content
@@ -552,8 +575,7 @@ private fun ColorPlot(
     Box(
         modifier = modifier
             .onSizeChanged { size = it }
-            .pointerInput(Unit) {
-                // Unified press-then-drag handler:
+            .pointerInput(Unit) {                // Unified press-then-drag handler:
                 //   1. Touch-down snaps the cursor instantly to the clicked
                 //      cell (no touch-slop wait -- fires on awaitFirstDown).
                 //   2. Each subsequent pointer event tracks the finger
@@ -585,7 +607,7 @@ private fun ColorPlot(
                     }
                 }
             }
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(7.dp))
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val horizontalBrush = Brush.linearGradient(
@@ -683,10 +705,8 @@ private fun WhiteBalancePanel(
     onValueChange: (Float, Float) -> Unit,
     headerActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {}
 ) {
-    val kValue = tempToKelvin(temperature)
-    val tintInt = (tint * 10).toInt()
-
     Column(modifier = Modifier.fillMaxWidth()) {
+        // Title row: "Color Balance" Inter Bold 14 white left, X right.
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -694,88 +714,89 @@ private fun WhiteBalancePanel(
         ) {
             Text(
                 text = stringResource(R.string.color_balance_title),
-                color = Color.White.copy(alpha = 0.85f),
-                fontSize = 10.sp,
+                color = Color.White,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp
+                fontFamily = FontFamily.Default
             )
             headerActions()
         }
         Spacer(modifier = Modifier.height(8.dp))
+        // Content row (Figma `color balance` 295×125): 166×83 color field
+        // left, 2×2 preset grid right.
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Left: Color Plot with text label centered above it
+            ColorPlot(
+                temperature = temperature,
+                tint = tint,
+                onValueChange = onValueChange,
+                modifier = Modifier
+                    .width(166.dp)
+                    .height(83.dp)
+                    .border(1.dp, PanelGlassRim, RoundedCornerShape(7.dp))
+            )
+
+            // 2×2 preset grid: Auto / Daylight / Tungsten / Shade.
             Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.weight(1f)
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text(
-                    text = stringResource(
-                        R.string.wb_readout,
-                        kValue,
-                        if (tintInt >= 0) " $tintInt" else "$tintInt"
-                    ),
-                    color = Color.White,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace,
-                    modifier = Modifier.padding(bottom = 4.dp)
-                )
-                ColorPlot(
-                    temperature = temperature,
-                    tint = tint,
-                    onValueChange = onValueChange,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp)
-                )
-            }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Auto preset (A)
+                    PresetButton(
+                        onClick = { onValueChange(0f, 0f) },
+                        isSelected = temperature == 0f && tint == 0f
+                    ) {
+                        Text(
+                            text = stringResource(R.string.wb_auto_label),
+                            color = if (temperature == 0f && tint == 0f) Color(0xFFFBBF24) else Color.White,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
 
-            // Right: Row of preset buttons
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Auto preset (A)
-                PresetButton(
-                    onClick = { onValueChange(0f, 0f) },
-                    isSelected = temperature == 0f && tint == 0f
-                ) {
-                    Text(
-                        text = stringResource(R.string.wb_auto_label),
-                        color = Color.White,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    // Daylight preset (Sun)
+                    PresetButton(
+                        onClick = { onValueChange(0.5f, 0.5f) },
+                        isSelected = temperature == 0.5f && tint == 0.5f
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.WbSunny,
+                            contentDescription = stringResource(R.string.wb_preset_daylight),
+                            tint = if (temperature == 0.5f && tint == 0.5f) Color(0xFFFBBF24) else Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Tungsten preset (Bulb)
+                    PresetButton(
+                        onClick = { onValueChange(-1.5f, -0.5f) },
+                        isSelected = temperature == -1.5f && tint == -0.5f
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Lightbulb,
+                            contentDescription = stringResource(R.string.wb_preset_incandescent),
+                            tint = if (temperature == -1.5f && tint == -0.5f) Color(0xFFFBBF24) else Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
 
-                // Daylight preset (Sun)
-                PresetButton(
-                    onClick = { onValueChange(0.5f, 0.5f) },
-                    isSelected = temperature == 0.5f && tint == 0.5f
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.WbSunny,
-                        contentDescription = stringResource(R.string.wb_preset_daylight),
-                        tint = Color.White,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-
-                // Tungsten preset (Bulb)
-                PresetButton(
-                    onClick = { onValueChange(-1.5f, -0.5f) },
-                    isSelected = temperature == -1.5f && tint == -0.5f
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Lightbulb,
-                        contentDescription = stringResource(R.string.wb_preset_incandescent),
-                        tint = Color.White,
-                        modifier = Modifier.size(16.dp)
-                    )
+                    // Shade preset (Cloud)
+                    PresetButton(
+                        onClick = { onValueChange(1f, 0.5f) },
+                        isSelected = temperature == 1f && tint == 0.5f
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Cloud,
+                            contentDescription = stringResource(R.string.wb_preset_shade),
+                            tint = if (temperature == 1f && tint == 0.5f) Color(0xFFFBBF24) else Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
             }
         }
@@ -852,17 +873,21 @@ private fun ExposurePanel(
 private enum class MorphMode { BUBBLE, COLOR, EXPOSURE }
 
 /**
- * Shared chrome (background fill + faint border + padded 300 dp slot)
- * wrapped around both expanded panels. Keeping both panels inside the
- * same wrapper makes their visual weight match exactly so the morph
- * between them stays symmetric.
+ * Shared liquid-glass chrome (live-blurred fill + diagonal rim + padded
+ * 300 dp slot) wrapped around both expanded panels. Keeping both panels
+ * inside the same wrapper makes their visual weight match exactly so the
+ * morph between them stays symmetric.
  */
 @Composable
-private fun MorphedPanelChrome(content: @Composable () -> Unit) {
+private fun MorphedPanelChrome(
+    hazeState: HazeState,
+    content: @Composable () -> Unit
+) {
     Box(
         modifier = Modifier
-            .background(Color(0xF21E1E1E), RoundedCornerShape(18.dp))
-            .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(18.dp))
+            .clip(RoundedCornerShape(18.dp))
+            .hazeEffect(state = hazeState, style = PanelHazeStyle)
+            .border(1.dp, PanelGlassRim, RoundedCornerShape(18.dp))
             .padding(horizontal = 18.dp, vertical = 14.dp)
             .width(300.dp)
     ) {
@@ -884,8 +909,8 @@ private fun MorphedPanelHeaderButton(
         Icon(
             imageVector = icon,
             contentDescription = stringResource(R.string.close_label),
-            tint = Color.White.copy(alpha = 0.75f),
-            modifier = Modifier.size(14.dp)
+            tint = Color.White,
+            modifier = Modifier.size(20.dp)
         )
     }
 }
@@ -2253,7 +2278,7 @@ fun CameraActiveScreen(
                             viewModel.toggleExposureSlider()
                         }
                     )
-                    MorphMode.COLOR -> MorphedPanelChrome {
+                    MorphMode.COLOR -> MorphedPanelChrome(hazeState = hazeState) {
                         WhiteBalancePanel(
                             temperature = temperature,
                             tint = tint,
@@ -2273,7 +2298,7 @@ fun CameraActiveScreen(
                             }
                         )
                     }
-                    MorphMode.EXPOSURE -> MorphedPanelChrome {
+                    MorphMode.EXPOSURE -> MorphedPanelChrome(hazeState = hazeState) {
                         ExposurePanel(
                             exposure = exposure,
                             onValueChange = { value ->

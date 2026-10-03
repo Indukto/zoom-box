@@ -3,11 +3,12 @@
     <string name="camerax_attribution_label">Camera Capture and Processing</string>
 
     <!-- Viewfinder overlays -->
-    <string name="color_balance_title">COLOR BALANCE</string>
+    <string name="color_balance_title">Color Balance</string>
     <string name="wb_readout">%1$dK %2$s</string>
     <string name="wb_auto_label">A</string>
     <string name="wb_preset_daylight">Daylight</string>
     <string name="wb_preset_incandescent">Incandescent</string>
+    <string name="wb_preset_shade">Shade</string>
     <string name="exposure_title">EXPOSURE</string>
     <string name="ev_readout">%1$s EV</string>
     <string name="temperature_label">Temperature</string>
