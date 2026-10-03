@@ -22,10 +22,11 @@
 
 > 💡 **Have a feature request?** Open an [issue](https://github.com/Indukto/Bhig/issues) 
 
-##  Screenshots
+##  Screenshots  (Outdatet)
 
 <div align="center">
 
+  
 [![Screenshot-20260730-231458.png](https://i.postimg.cc/Kc38gxQY/Screenshot-20260730-231458.png)](https://postimg.cc/K4F26X6X) [![Screenshot-20260730-231920.png](https://i.postimg.cc/YSfMxCZz/Screenshot-20260730-231920.png)](https://postimg.cc/HJxqYdpr)
 
 </div>
