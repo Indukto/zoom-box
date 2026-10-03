@@ -43,6 +43,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -57,6 +58,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -223,7 +225,7 @@ fun captureWithCamera2(
 fun CameraPreviewView(
     modifier: Modifier = Modifier,
     selectedLensRole: LensRole = LensRole.PRIMARY,
-    digitalZoomRatio: Float = 1.0f,
+    digitalZoomRatioFlow: StateFlow<Float>,
     exposure: Float,
     flashMode: Int,
     isFrontCamera: Boolean,
@@ -496,7 +498,11 @@ fun CameraPreviewView(
         lutPreviewView.setFlipH(isFrontCamera)
     }
 
-    // Zoom gesture — seed from current digitalZoomRatio
+    // Zoom gesture — the ratio is collected HERE (not by the caller) so
+    // per-gesture StateFlow writes recompose only this preview wrapper, not
+    // the whole camera screen. `rememberUpdatedState` keeps the gesture
+    // coroutine reading the latest value without restarting pointerInput.
+    val digitalZoomRatio by digitalZoomRatioFlow.collectAsState()
     val currentDigitalZoom by rememberUpdatedState(digitalZoomRatio)
     val currentOnZoomChanged by rememberUpdatedState(onZoomChanged)
     val currentOnZoomTick by rememberUpdatedState(onZoomTick)
@@ -516,6 +522,15 @@ fun CameraPreviewView(
                 // Seed from the current VM value so the gesture doesn't jump
                 var runningZoom = currentDigitalZoom
                 var lastTick = tickIndexOf(runningZoom)
+                // Coalesce ViewModel writes: pointer events arrive faster than
+                // the overlay spring can settle, and retargeting the spring +
+                // rewriting StateFlow on every sub-pixel move keeps the UI at
+                // a constant 60fps recompose. Deltas under EPS change the box
+                // by <1px (d(boxScale)/d(zoom) = -1/zoom^2; 0.002 * ~400px VF
+                // width ~= 0.8px), so holding them back is visually identical
+                // while roughly halving StateFlow churn. The exact final value
+                // is always flushed when the gesture ends below.
+                var lastSentZoom = runningZoom
                 do {
                     val event = awaitPointerEvent(PointerEventPass.Main)
                     val pointers = event.changes.filter { it.pressed }
@@ -542,7 +557,10 @@ fun CameraPreviewView(
 
                     if (newZoom != null) {
                         runningZoom = newZoom
-                        currentOnZoomChanged(newZoom)
+                        if (kotlin.math.abs(newZoom - lastSentZoom) > 0.002f) {
+                            lastSentZoom = newZoom
+                            currentOnZoomChanged(newZoom)
+                        }
                         val tick = tickIndexOf(newZoom)
                         if (tick != lastTick) {
                             lastTick = tick
@@ -550,6 +568,11 @@ fun CameraPreviewView(
                         }
                     }
                 } while (event.changes.any { it.pressed })
+                // Flush the exact resting value so the committed zoom always
+                // matches the gesture, even when the tail sat within EPS.
+                if (runningZoom != lastSentZoom) {
+                    currentOnZoomChanged(runningZoom)
+                }
             }
             }
         )

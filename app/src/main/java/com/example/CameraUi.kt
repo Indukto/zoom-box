@@ -117,14 +117,17 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -223,27 +226,27 @@ private val PanelHazeStyle = HazeStyle(
     noiseFactor = 0f
 )
 
-/** Diagonal (-45°) glass rim shared by the panel card and the color plot. */
+/** Top-left-lit glass rim shared by the panel card and the color plot. */
 private val PanelGlassRim: Brush = Brush.linearGradient(
     colors = listOf(
-        Color.White.copy(alpha = 0.30f),
-        Color.White.copy(alpha = 0.06f),
-        Color.White.copy(alpha = 0.12f)
+        Color.White.copy(alpha = 0.40f),
+        Color.White.copy(alpha = 0.05f),
+        Color.White.copy(alpha = 0.06f)
     ),
     start = Offset.Zero,
     end = Offset.Infinite
 )
 
 /**
- * Liquid-glass fill for the round aux buttons, lit diagonally (-45°): a
+ * Liquid-glass fill for the round aux buttons, lit from the top-left: a
  * tight specular hotspot in the top-left corner over an otherwise clear
  * face, fading into dark translucent chrome — real glass keeps the middle
  * clean and puts the light on the edge, not a wash across the whole button.
  */
 private fun auxGlassBackground(active: Boolean = false): Brush = Brush.linearGradient(
     colorStops = arrayOf(
-        0.0f to Color.White.copy(alpha = 0.10f),
-        0.32f to Color.White.copy(alpha = 0.0f),
+        0.0f to Color.White.copy(alpha = 0.18f),
+        0.30f to Color.White.copy(alpha = 0.0f),
         1.0f to if (active) Color(0xFFFBBF24).copy(alpha = 0.14f)
         else Color(0xFF1C1C1E).copy(alpha = 0.55f)
     ),
@@ -253,9 +256,9 @@ private fun auxGlassBackground(active: Boolean = false): Brush = Brush.linearGra
 
 private fun auxGlassBorder(active: Boolean = false): Brush = Brush.linearGradient(
     colorStops = arrayOf(
-        0.0f to if (active) Color(0xFFFBBF24).copy(alpha = 0.45f) else Color.White.copy(alpha = 0.22f),
-        0.45f to if (active) Color(0xFFFBBF24).copy(alpha = 0.10f) else Color.White.copy(alpha = 0.04f),
-        1.0f to if (active) Color(0xFFFBBF24).copy(alpha = 0.22f) else Color.White.copy(alpha = 0.10f)
+        0.0f to if (active) Color(0xFFFBBF24).copy(alpha = 0.60f) else Color.White.copy(alpha = 0.40f),
+        0.40f to if (active) Color(0xFFFBBF24).copy(alpha = 0.12f) else Color.White.copy(alpha = 0.05f),
+        1.0f to if (active) Color(0xFFFBBF24).copy(alpha = 0.12f) else Color.White.copy(alpha = 0.06f)
     ),
     start = Offset.Zero,
     end = Offset.Infinite
@@ -270,8 +273,38 @@ private fun Modifier.auxGlass(active: Boolean = false): Modifier = this
 /** Same liquid-glass chrome for the 14dp rounded bottom-deck tiles. */
 private fun Modifier.deckGlass(active: Boolean = false): Modifier = this
     .clip(RoundedCornerShape(14.dp))
-    .background(auxGlassBackground(active), RoundedCornerShape(14.dp))
-    .border(1.dp, auxGlassBorder(active), RoundedCornerShape(14.dp))
+    .background(deckGlassBackground(active), RoundedCornerShape(14.dp))
+    .border(1.25.dp, deckGlassBorder(active), RoundedCornerShape(14.dp))
+
+/**
+ * Deck-tile glass fill, lit from the top-left like [auxGlassBackground]: the
+ * specular lives on the top-left corner and falls off toward the
+ * bottom-right, so every tile shares one light direction.
+ */
+private fun deckGlassBackground(active: Boolean = false): Brush = Brush.linearGradient(
+    colorStops = arrayOf(
+        0.0f to Color.White.copy(alpha = 0.22f),
+        0.35f to Color.White.copy(alpha = 0.0f),
+        1.0f to if (active) Color(0xFFFBBF24).copy(alpha = 0.14f)
+        else Color(0xFF1C1C1E).copy(alpha = 0.55f)
+    ),
+    start = Offset.Zero,
+    end = Offset.Infinite
+)
+
+/**
+ * Deck-tile glass rim, brightest on the top-left (0.0) stop and quiet at the
+ * bottom-right (1.0) — matching a top-left key light.
+ */
+private fun deckGlassBorder(active: Boolean = false): Brush = Brush.linearGradient(
+    colorStops = arrayOf(
+        0.0f to if (active) Color(0xFFFBBF24).copy(alpha = 0.60f) else Color.White.copy(alpha = 0.45f),
+        0.40f to if (active) Color(0xFFFBBF24).copy(alpha = 0.14f) else Color.White.copy(alpha = 0.07f),
+        1.0f to if (active) Color(0xFFFBBF24).copy(alpha = 0.14f) else Color.White.copy(alpha = 0.08f)
+    ),
+    start = Offset.Zero,
+    end = Offset.Infinite
+)
 
 /**
  * ZoomBox Figma spec (393×852 `zoombox-camera-main-screen`).
@@ -311,6 +344,151 @@ private fun DrawScope.drawThirdsGrid(
     drawLine(color = color, start = Offset(thirdW2, rect.top), end = Offset(thirdW2, rect.bottom), strokeWidth = strokeWidth)
     drawLine(color = color, start = Offset(rect.left, thirdH1), end = Offset(rect.right, thirdH1), strokeWidth = strokeWidth)
     drawLine(color = color, start = Offset(rect.left, thirdH2), end = Offset(rect.right, thirdH2), strokeWidth = strokeWidth)
+}
+
+/**
+ * Zoom-box framing overlay, isolated in its own leaf scope for performance.
+ *
+ * Previously the spring (`animateFloatAsState`) and the dim/grid `Canvas`
+ * lived in `CameraActiveScreen`'s root scope, so every animation tick
+ * (~60fps until the spring settles) recomposed the whole screen — viewfinder
+ * wrapper, bottom deck, bubble row — plus re-ran `toPx()` / `Color.copy()` /
+ * `Path()` allocations inside the draw blocks on each frame.
+ *
+ * Now only this leaf subscribes to `boxScaleFlow` and runs the spring, so
+ * animation ticks recompose just this overlay. Geometry pixel values,
+ * colors, radii, alphas and thresholds are identical to the previous inline
+ * implementation (same Figma spec: 20dp corner, 2px 0.9-alpha outline,
+ * 0.65 dim, 0.55 inner grid, 0.40 full-VF grid, 14sp label 30dp above box,
+ * `< 0.99f` mount threshold, `spring(200, 0.75)`).
+ */
+@Composable
+private fun BoxScope.ZoomBoxOverlay(
+    boxScaleFlow: StateFlow<Float>,
+    selectedLensRole: LensRole,
+    effectiveFocalLength: Int,
+    vfX: Dp,
+    vfTop: Dp,
+    vfWidth: Dp,
+    vfHeight: Dp,
+    aspectRatio: AspectRatio,
+    gridAlpha: Float,
+    onAnimatedFraction: (Float) -> Unit
+) {
+    val boxScale by boxScaleFlow.collectAsState()
+    val animatedBoxWidthFraction by animateFloatAsState(
+        targetValue = boxScale,
+        animationSpec = spring(stiffness = 200f, dampingRatio = 0.75f),
+        label = "box_width_fraction"
+    )
+    // Report the animated value for the capture crop path. The root's
+    // `captureBoxFraction` ref has no composition readers, so this write
+    // never schedules a recomposition outside this leaf.
+    SideEffect { onAnimatedFraction(animatedBoxWidthFraction) }
+
+    val showZoomBox = selectedLensRole == LensRole.PRIMARY && animatedBoxWidthFraction < 0.99f
+
+    // Hoisted out of the draw blocks: density lookups and Color allocations
+    // run once per input change instead of on every animation frame.
+    val density = LocalDensity.current
+    val cornerPx = remember(density) { with(density) { 20.dp.toPx() } }
+    val thinStrokePx = remember(density) { with(density) { 1.dp.toPx() } }
+    val dimColor = remember { Color.Black.copy(alpha = 0.65f) }
+    val outlineColor = remember { Color.White.copy(alpha = ZoomBoxSpec.ZOOM_OUTLINE_ALPHA) }
+    val fullGridColor = remember(gridAlpha) { Color.White.copy(alpha = 0.40f * gridAlpha) }
+    val boxGridColor = remember(gridAlpha) {
+        Color.White.copy(alpha = ZoomBoxSpec.ZOOM_GRID_ALPHA * gridAlpha)
+    }
+    // Viewfinder rect in px, cached across animation frames (same density →
+    // same numeric result as calling `toPx()` inside the DrawScope).
+    val vfLeftPx = remember(vfX, density) { with(density) { vfX.toPx() } }
+    val vfTopPx = remember(vfTop, density) { with(density) { vfTop.toPx() } }
+    val vfWPx = remember(vfWidth, density) { with(density) { vfWidth.toPx() } }
+    val vfHPx = remember(vfHeight, density) { with(density) { vfHeight.toPx() } }
+
+    // Coarse 3x3 grid over the full viewfinder when no zoom box is active
+    // (e.g. ultra-wide / tele lens).
+    if (gridAlpha > 0f && !showZoomBox) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            drawThirdsGrid(
+                rect = Rect(vfLeftPx, vfTopPx, vfLeftPx + vfWPx, vfTopPx + vfHPx),
+                color = fullGridColor,
+                strokeWidth = thinStrokePx
+            )
+        }
+    }
+
+    if (showZoomBox) {
+        // Aspect-ratio-aware box dimensions: box height = box width × heightToWidth.
+        // When the natural box height exceeds the viewfinder height (e.g. 3:2
+        // portrait at full boxFraction), clamp height to vfHeight and re-derive
+        // width so the selected ratio is preserved within the available space.
+        val ratioFraction = aspectRatio.heightToWidth
+        val naturalBoxW = vfWidth * animatedBoxWidthFraction
+        val naturalBoxH = naturalBoxW * ratioFraction
+        val (boxWf, boxHf) = if (naturalBoxH > vfHeight) {
+            (vfHeight / ratioFraction) to vfHeight
+        } else {
+            naturalBoxW to naturalBoxH
+        }
+        val zoomBoxTop = vfTop + (vfHeight - boxHf) / 2f
+        val boxCenterX = vfX + (vfWidth - boxWf) / 2f
+
+        // Box rect in px, cached per size step instead of converted per frame.
+        val boxW = remember(boxWf, density) { with(density) { boxWf.toPx() } }
+        val boxH = remember(boxHf, density) { with(density) { boxHf.toPx() } }
+
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val left = vfLeftPx + (vfWPx - boxW) / 2f
+            val top = vfTopPx + (vfHPx - boxH) / 2f
+
+            val rect = Rect(left, top, left + boxW, top + boxH)
+            val path = Path().apply {
+                addRoundRect(RoundRect(rect = rect, cornerRadius = CornerRadius(cornerPx)))
+            }
+            clipPath(path = path, clipOp = ClipOp.Difference) {
+                drawRect(color = dimColor)
+            }
+
+            if (gridAlpha > 0f) {
+                // Rule-of-thirds grid lines, clipped to the zoom box rounded rect
+                clipPath(path = path, clipOp = ClipOp.Intersect) {
+                    drawThirdsGrid(
+                        rect = rect,
+                        color = boxGridColor,
+                        strokeWidth = thinStrokePx
+                    )
+                }
+            }
+        }
+
+        // Focal length above zoom box (spec `focal-length-label`:
+        // Inter 700 14px white, centred ~32px above the zoom box).
+        Text(
+            text = stringResource(R.string.focal_length_mm, effectiveFocalLength),
+            color = Color.White,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            fontFamily = Inter,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .offset(y = zoomBoxTop - 30.dp)
+        )
+
+        // Zoom box outline (spec `zoom-box-outline`:
+        // 2px rgba(255,255,255,0.9), grid rgba(255,255,255,0.55)).
+        Box(
+            modifier = Modifier
+                .offset(
+                    x = boxCenterX,
+                    y = vfTop + (vfHeight - boxHf) / 2f
+                )
+                .width(boxWf)
+                .height(boxHf)
+                .border(2.dp, outlineColor, RoundedCornerShape(20.dp))
+        )
+    }
 }
 
 private fun filmPresetColor(preset: FilmPreset): Color = when (preset) {
@@ -882,17 +1060,17 @@ private fun FloatingBubbleRow(
             // True backdrop blur over the live video (spec `bubble-surface`:
             // black 20% + blur). Both preview paths composite in-window, so
             // Haze samples the actual video frame. The hairline glass rim
-            // shares the aux buttons' -45° light: hot top-left corner,
-            // faint bounce bottom-right.
+            // shares the top-left key light: hot top-left corner, quiet
+            // bottom-right.
             .clip(RoundedCornerShape(26.dp))
             .hazeEffect(state = hazeState, style = BubbleHazeStyle)
             .border(
                 1.dp,
                 Brush.linearGradient(
                     colors = listOf(
-                        Color.White.copy(alpha = 0.38f),
+                        Color.White.copy(alpha = 0.40f),
                         Color.White.copy(alpha = 0.05f),
-                        Color.White.copy(alpha = 0.14f)
+                        Color.White.copy(alpha = 0.08f)
                     ),
                     start = Offset.Zero,
                     end = Offset.Infinite
@@ -917,20 +1095,21 @@ private fun FloatingBubbleRow(
         Box(
             modifier = Modifier
                 // Spec `Rectangle 3`: 52.68px tall, full-pill radius 26px.
-                // Liquid glass: faint diagonal sheen over the grey tint +
-                // hairline rim, same -45° light as the rest of the chrome.
-                // Subtle on purpose — the pill already floats on the blurred
-                // bubble, so it only needs an edge to read as glass.
+                // Liquid glass: top-left sheen over the grey tint, falling
+                // off toward the bottom-right — same key light as the rest
+                // of the chrome. Subtle on purpose — the pill already floats
+                // on the blurred bubble, so it only needs an edge to read
+                // as glass.
                 .height(52.dp)
                 .clip(RoundedCornerShape(26.dp))
                 .background(
                     brush = Brush.linearGradient(
                         colorStops = arrayOf(
-                            0.0f to Color.White.copy(alpha = 0.10f),
-                            0.35f to if (isFrontCamera) Color.White.copy(alpha = 0.06f)
-                            else Color(0xFFB1B1B1).copy(alpha = 0.12f),
-                            1.0f to if (isFrontCamera) Color.White.copy(alpha = 0.06f)
-                            else Color(0xFFB1B1B1).copy(alpha = 0.12f)
+                            0.0f to Color.White.copy(alpha = 0.16f),
+                            0.35f to if (isFrontCamera) Color.White.copy(alpha = 0.03f)
+                            else Color(0xFFB1B1B1).copy(alpha = 0.10f),
+                            1.0f to if (isFrontCamera) Color.White.copy(alpha = 0.02f)
+                            else Color(0xFFB1B1B1).copy(alpha = 0.04f)
                         ),
                         start = Offset.Zero,
                         end = Offset.Infinite
@@ -941,9 +1120,9 @@ private fun FloatingBubbleRow(
                     1.dp,
                     Brush.linearGradient(
                         colorStops = arrayOf(
-                            0.0f to Color.White.copy(alpha = 0.20f),
-                            0.45f to Color.White.copy(alpha = 0.04f),
-                            1.0f to Color.White.copy(alpha = 0.10f)
+                            0.0f to Color.White.copy(alpha = 0.36f),
+                            0.40f to Color.White.copy(alpha = 0.05f),
+                            1.0f to Color.White.copy(alpha = 0.07f)
                         ),
                         start = Offset.Zero,
                         end = Offset.Infinite
@@ -1556,7 +1735,6 @@ fun CameraActiveScreen(
 
     val selectedLensRole by viewModel.selectedLensRole.collectAsState()
     val effectiveFocalLength by viewModel.effectiveFocalLength.collectAsState()
-    val digitalZoomRatio by viewModel.digitalZoomRatio.collectAsState()
     val exposure by viewModel.exposure.collectAsState()
     val temperature by viewModel.temperature.collectAsState()
     val tint by viewModel.tint.collectAsState()
@@ -1564,7 +1742,6 @@ fun CameraActiveScreen(
     val isFrontCamera by viewModel.isFrontCamera.collectAsState()
     val capturedPhotos by viewModel.capturedPhotos.collectAsState()
     val selectedPhoto by viewModel.selectedPhoto.collectAsState()
-    val boxScale by viewModel.boxScale.collectAsState()
     val showGridLines by viewModel.showGridLines.collectAsState()
     val aspectRatio by viewModel.aspectRatio.collectAsState()
 
@@ -1736,15 +1913,14 @@ fun CameraActiveScreen(
         var showToast by remember { mutableStateOf(false) }
         var toastEpoch by remember { mutableStateOf(0) }
 
-        // Box width fraction for the zoom-box overlay AND the capture crop.
-        // Hoisted to root scope: the floating bubble's capture path
-        // (`doCapture`, outside the haze source box below) reads it, while
-        // the overlay UI inside the source box reads it too.
-        val animatedBoxWidthFraction by animateFloatAsState(
-            targetValue = boxScale,
-            animationSpec = spring(stiffness = 200f, dampingRatio = 0.75f),
-            label = "box_width_fraction"
-        )
+        // Latest animated zoom-box width fraction for the capture crop.
+        // The overlay owns the spring animation (see ZoomBoxOverlay) so the
+        // ~60fps animation ticks recompose only that leaf, not this whole
+        // screen. The overlay reports each animated value here; this ref is
+        // read only inside doCapture (non-compositional execution), so the
+        // writes never schedule a recomposition of this scope. Crop math and
+        // pixels are unchanged.
+        val captureBoxFraction = remember { mutableFloatStateOf(1f) }
 
         // Haze blur source: everything the floating bubble floats over
         // (background + live preview + dim/grid chrome + toast). This must
@@ -1856,7 +2032,7 @@ fun CameraActiveScreen(
                     )
                 },
             selectedLensRole = selectedLensRole,
-            digitalZoomRatio = digitalZoomRatio,
+            digitalZoomRatioFlow = viewModel.digitalZoomRatio,
             exposure = exposure,
             flashMode = flashMode,
             isFrontCamera = isFrontCamera,
@@ -1947,96 +2123,21 @@ fun CameraActiveScreen(
             }
         }
 
-        // `animatedBoxWidthFraction` is hoisted to root scope above (read by
-        // the capture path outside the haze source box).
-        val showZoomBox = selectedLensRole == LensRole.PRIMARY && animatedBoxWidthFraction < 0.99f
-
-        // Coarse 3x3 grid over the full viewfinder when no zoom box is active
-        // (e.g. ultra-wide / tele lens). Pairs with the inner thirds grid drawn
-        // inside `if (showZoomBox)` below.
-        if (gridAlpha > 0f && !showZoomBox) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val left = vfX.toPx()
-                val top = vfTop.toPx()
-                val right = left + vfWidth.toPx()
-                val bottom = top + vfHeight.toPx()
-                drawThirdsGrid(
-                    rect = Rect(left, top, right, bottom),
-                    color = Color.White.copy(alpha = 0.40f * gridAlpha),
-                    strokeWidth = 1.dp.toPx()
-                )
-            }
-        }
-
-        if (showZoomBox) {
-            // Aspect-ratio-aware box dimensions: box height = box width × heightToWidth.
-            // When the natural box height exceeds the viewfinder height (e.g. 3:2
-            // portrait at full boxFraction), clamp height to vfHeight and re-derive
-            // width so the selected ratio is preserved within the available space.
-            val ratioFraction = aspectRatio.heightToWidth
-            val naturalBoxW = vfWidth * animatedBoxWidthFraction
-            val naturalBoxH = naturalBoxW * ratioFraction
-            val (boxWf, boxHf) = if (naturalBoxH > vfHeight) {
-                (vfHeight / ratioFraction) to vfHeight
-            } else {
-                naturalBoxW to naturalBoxH
-            }
-            val zoomBoxTop = vfTop + (vfHeight - boxHf) / 2f
-            val boxCenterX = vfX + (vfWidth - boxWf) / 2f
-
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val boxW = boxWf.toPx()
-                val boxH = boxHf.toPx()
-                val left = vfX.toPx() + (vfWidth.toPx() - boxW) / 2f
-                val top = vfTop.toPx() + (vfHeight.toPx() - boxH) / 2f
-
-                val rect = Rect(left, top, left + boxW, top + boxH)
-                val path = Path().apply {
-                    addRoundRect(RoundRect(rect = rect, cornerRadius = CornerRadius(20.dp.toPx())))
-                }
-                clipPath(path = path, clipOp = ClipOp.Difference) {
-                    drawRect(color = Color.Black.copy(alpha = 0.65f))
-                }
-
-                if (gridAlpha > 0f) {
-                    // Rule-of-thirds grid lines, clipped to the zoom box rounded rect
-                    clipPath(path = path, clipOp = ClipOp.Intersect) {
-                        drawThirdsGrid(
-                            rect = rect,
-                            color = Color.White.copy(alpha = ZoomBoxSpec.ZOOM_GRID_ALPHA * gridAlpha),
-                            strokeWidth = 1.dp.toPx()
-                        )
-                    }
-                }
-            }
-
-            // Focal length above zoom box (spec `focal-length-label`:
-            // Inter 700 14px white, centred ~32px above the zoom box).
-            Text(
-                text = stringResource(R.string.focal_length_mm, effectiveFocalLength),
-                color = Color.White,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                fontFamily = Inter,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .offset(y = zoomBoxTop - 30.dp)
-            )
-
-            // Zoom box outline (spec `zoom-box-outline`:
-            // 2px rgba(255,255,255,0.9), grid rgba(255,255,255,0.55)).
-            Box(
-                modifier = Modifier
-                    .offset(
-                        x = boxCenterX,
-                        y = vfTop + (vfHeight - boxHf) / 2f
-                    )
-                    .width(boxWf)
-                    .height(boxHf)
-                    .border(2.dp, Color.White.copy(alpha = ZoomBoxSpec.ZOOM_OUTLINE_ALPHA), RoundedCornerShape(20.dp))
-            )
-        }
+        // Zoom-box framing overlay lives in its own leaf (ZoomBoxOverlay) so
+        // the spring animation ticks (~60fps) and the box/grid Canvas work
+        // recompose only that leaf — not this whole screen. Same spec pixels.
+        ZoomBoxOverlay(
+            boxScaleFlow = viewModel.boxScale,
+            selectedLensRole = selectedLensRole,
+            effectiveFocalLength = effectiveFocalLength,
+            vfX = vfX,
+            vfTop = vfTop,
+            vfWidth = vfWidth,
+            vfHeight = vfHeight,
+            aspectRatio = aspectRatio,
+            gridAlpha = gridAlpha,
+            onAnimatedFraction = { captureBoxFraction.floatValue = it }
+        )
         } // end haze blur source (background + preview + chrome)
 
 
@@ -2323,7 +2424,7 @@ fun CameraActiveScreen(
                     logicalCameraId = currentLens.logicalCameraId,
                     physicalCameraId = currentLens.physicalCameraId,
                     focalLengthMm = effectiveFocalLength,
-                    boxWidthFraction = animatedBoxWidthFraction,
+                    boxWidthFraction = captureBoxFraction.floatValue,
                     screenWidth = totalWidth.value,
                     screenHeight = totalHeight.value,
                     captureLensNativeFocalMm = nativeFocalForCrop
@@ -2343,7 +2444,7 @@ fun CameraActiveScreen(
                             viewModel.processAndSavePhoto(
                                 context = context,
                                 rawFile = rawFile,
-                                boxWidthFraction = animatedBoxWidthFraction,
+                                boxWidthFraction = captureBoxFraction.floatValue,
                                 screenWidth = totalWidth.value,
                                 screenHeight = totalHeight.value,
                                 captureFocalLength = effectiveFocalLength,
@@ -2504,7 +2605,10 @@ fun CameraActiveScreen(
                             painter = rememberAsyncImagePainter(model = capturedPhotos.first()),
                             contentDescription = stringResource(R.string.last_photo_label),
                             contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp))
+                            modifier = Modifier.fillMaxSize()
+                                .padding(6.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .rotate(animatedControlAngle)
                         )
                     } else {
                         Icon(
