@@ -208,26 +208,33 @@ private val BubbleHazeStyle = HazeStyle(
 )
 
 /**
- * Liquid-glass fill for the round aux buttons: top sheen fading into dark
- * translucent chrome, plus a hairline light rim. Same visual language as the
- * control bubble, but pure layering — the aux row sits over the solid-black
- * bottom deck (outside the haze blur source), so there are no live pixels
- * behind to blur; the glass read comes from sheen + rim instead of a blur
- * pass, which also saves four extra GPU blur nodes per frame.
+ * Liquid-glass fill for the round aux buttons, lit diagonally (-45°): the
+ * highlight blooms from the top-left corner and falls off toward the
+ * bottom-right, with only a faint bounce on the far rim. Same visual
+ * language as the control bubble, but pure layering — the aux row sits over
+ * the solid-black bottom deck (outside the haze blur source), so there are
+ * no live pixels behind to blur; the glass read comes from sheen + rim
+ * instead of a blur pass, which also saves four extra GPU blur nodes.
  */
-private fun auxGlassBackground(active: Boolean = false): Brush = Brush.verticalGradient(
+private fun auxGlassBackground(active: Boolean = false): Brush = Brush.linearGradient(
     colors = listOf(
-        Color.White.copy(alpha = 0.12f),
+        Color.White.copy(alpha = 0.20f),
+        Color.White.copy(alpha = 0.02f),
         if (active) Color(0xFFFBBF24).copy(alpha = 0.22f)
         else Color(0xFF1C1C1E).copy(alpha = 0.55f)
-    )
+    ),
+    start = Offset.Zero,
+    end = Offset.Infinite
 )
 
-private fun auxGlassBorder(active: Boolean = false): Brush = Brush.verticalGradient(
+private fun auxGlassBorder(active: Boolean = false): Brush = Brush.linearGradient(
     colors = listOf(
-        if (active) Color(0xFFFBBF24).copy(alpha = 0.55f) else Color.White.copy(alpha = 0.28f),
-        if (active) Color(0xFFFBBF24).copy(alpha = 0.20f) else Color.White.copy(alpha = 0.08f)
-    )
+        if (active) Color(0xFFFBBF24).copy(alpha = 0.65f) else Color.White.copy(alpha = 0.38f),
+        if (active) Color(0xFFFBBF24).copy(alpha = 0.15f) else Color.White.copy(alpha = 0.05f),
+        if (active) Color(0xFFFBBF24).copy(alpha = 0.30f) else Color.White.copy(alpha = 0.14f)
+    ),
+    start = Offset.Zero,
+    end = Offset.Infinite
 )
 
 /** Shared glass-chrome modifier for the 45dp round aux buttons. */
@@ -906,17 +913,21 @@ private fun FloatingBubbleRow(
         modifier = Modifier
             // True backdrop blur over the live video (spec `bubble-surface`:
             // black 20% + blur). Both preview paths composite in-window, so
-            // Haze samples the actual video frame. The hairline light edge
-            // is kept as the glass rim.
+            // Haze samples the actual video frame. The hairline glass rim
+            // shares the aux buttons' -45° light: hot top-left corner,
+            // faint bounce bottom-right.
             .clip(RoundedCornerShape(26.dp))
             .hazeEffect(state = hazeState, style = BubbleHazeStyle)
             .border(
                 1.dp,
-                Brush.verticalGradient(
+                Brush.linearGradient(
                     colors = listOf(
-                        Color.White.copy(alpha = 0.28f),
-                        Color.White.copy(alpha = 0.08f)
-                    )
+                        Color.White.copy(alpha = 0.38f),
+                        Color.White.copy(alpha = 0.05f),
+                        Color.White.copy(alpha = 0.14f)
+                    ),
+                    start = Offset.Zero,
+                    end = Offset.Infinite
                 ),
                 RoundedCornerShape(26.dp)
             )
