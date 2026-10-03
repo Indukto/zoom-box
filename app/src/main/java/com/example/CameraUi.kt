@@ -64,6 +64,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -111,6 +112,7 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -154,6 +156,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
+import com.example.ui.theme.Inter
 import kotlin.time.Duration.Companion.milliseconds
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -359,156 +362,90 @@ private fun tempToKelvin(temp: Float): Int {
 }
 
 /**
- * A custom rectangular slider with a multi-color gradient track, a white
- * indicator notch, a live value chip above the thumb, min/center/max ticks,
- * and double-tap-to-reset. Reused for both the white-balance and exposure
- * panels so they share a consistent look and feel.
+ * Material 3 centered exposure slider: the amber band grows outward from the
+ * 0 detent in both directions over a dim track, with a glass thumb that
+ * gains an amber ring whenever the value leaves center. 61 snapped stops
+ * (-3..3 EV in 1/10 steps); M3 handles tap-to-set, drag, ripple, and
+ * accessibility. Reported values are re-quantized to kill float drift
+ * (0.30000004) and keep the exact center reading exactly 0.
  */
 @Composable
-private fun SpectrumSlider(
+private fun CenteredEvSlider(
     value: Float,
     onValueChange: (Float) -> Unit,
-    valueRange: ClosedFloatingPointRange<Float>,
-    gradient: List<Color>,
-    valueLabel: String,
-    leftTick: String,
-    centerTick: String,
-    rightTick: String,
-    modifier: Modifier = Modifier,
-    step: Float? = null,   // when non-null, the value snaps to multiples of `step`
-    trackHeight: Dp = 30.dp,
-    doubleTapToReset: Boolean = true
+    modifier: Modifier = Modifier
 ) {
-    val density = LocalDensity.current
-    val haptic = LocalHapticFeedback.current
-
-    var trackWidthPx by remember { mutableStateOf(1f) }
-    val min = valueRange.start
-    val max = valueRange.endInclusive
-    val range = (max - min).coerceAtLeast(0.0001f)
-    val fraction = ((value - min) / range).coerceIn(0f, 1f)
-
-    val notchOffsetDp = with(density) { (trackWidthPx * fraction).toDp() }
-
-    // Quantize a raw value to the step grid (if any), clamped to the range.
-    fun snap(v: Float): Float {
-        if (step == null || step <= 0f) return v.coerceIn(min, max)
-        val snapped = kotlin.math.round(v / step) * step
-        // Drop float drift so 0.1 steps stay clean (0.1, 0.2, ... not 0.30000004).
-        return (kotlin.math.round(snapped * 1000f) / 1000f).coerceIn(min, max)
-    }
-
-    fun pxToValue(px: Float): Float {
-        val f = (px / trackWidthPx.coerceAtLeast(1f)).coerceIn(0f, 1f)
-        return snap(min + f * range)
-    }
-
-    Column(modifier = modifier.fillMaxWidth()) {
-        Box(modifier = Modifier.fillMaxWidth().height(22.dp), contentAlignment = Alignment.BottomStart) {
-            // Value chip floating above the thumb
-            Box(
-                modifier = Modifier
-                    .offset { IntOffset(x = (notchOffsetDp - 16.dp).roundToPx(), y = 0) }
-                    .background(Color.White, RoundedCornerShape(4.dp))
-                    .padding(horizontal = 6.dp, vertical = 2.dp)
-            ) {
-                Text(
-                    text = valueLabel,
-                    color = Color.Black,
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold
+    val amber = Color(0xFFFBBF24)
+    Box(
+        modifier = modifier.fillMaxWidth().height(40.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Slider(
+            value = value,
+            onValueChange = {
+                val clean = (kotlin.math.round(it * 10f) / 10f).coerceIn(-3f, 3f)
+                if (clean != value) onValueChange(clean)
+            },
+            valueRange = -3f..3f,
+            steps = 59,
+            modifier = Modifier.fillMaxWidth(),
+            thumb = {
+                Box(
+                    modifier = Modifier
+                        .size(22.dp)
+                        .background(Color.White, CircleShape)
+                        .border(
+                            2.dp,
+                            if (value != 0f) amber else Color.White.copy(alpha = 0.4f),
+                            CircleShape
+                        )
                 )
-            }
-        }
-
-        // Track + thumb + drag/tap handling
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(trackHeight)
-                .onGloballyPositioned { trackWidthPx = it.size.width.toFloat() }
-        ) {
-            // Gradient bar
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        brush = Brush.horizontalGradient(gradient),
-                        shape = RoundedCornerShape(8.dp)
+            },
+            track = { sliderState ->
+                val fraction = ((sliderState.value + 3f) / 6f).coerceIn(0f, 1f)
+                BoxWithConstraints(
+                    modifier = Modifier.fillMaxWidth().height(10.dp)
+                ) {
+                    // Dim base track
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Color.White.copy(alpha = 0.14f),
+                                RoundedCornerShape(5.dp)
+                            )
                     )
-                    .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(8.dp))
-            )
-
-            // Center (zero) notch — subtle marker on the track
-            Box(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .size(width = 2.dp, height = 14.dp)
-                    .background(Color.White.copy(alpha = 0.35f))
-            )
-
-            // Thumb indicator notch
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .offset { IntOffset(x = (notchOffsetDp - 1.5.dp).roundToPx(), y = 0) }
-                    .size(width = 3.dp, height = 38.dp)
-                    .background(Color.White)
-                    .border(1.dp, Color.Black.copy(alpha = 0.25f))
-            )
-
-            // Gesture layer covering the whole track: drag to scrub, tap to set,
-            // double-tap to reset to neutral (0, clamped into range). Track width
-            // is kept current by onGloballyPositioned above, so taps/drags can
-            // convert touch x directly into a value.
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .pointerInput(valueRange, step) {
-                        detectTapGestures(
-                            onTap = { offset ->
-                                val v = pxToValue(offset.x)
-                                onValueChange(v)
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            },
-                            onDoubleTap = if (doubleTapToReset) {
-                                {
-                                    onValueChange(snap(0f))
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                }
-                            } else null
+                    // Amber band from the center detent out to the thumb
+                    val bandStart = minOf(0.5f, fraction)
+                    val bandEnd = maxOf(0.5f, fraction)
+                    if (bandEnd - bandStart > 0.001f) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.CenterStart)
+                                .offset(x = maxWidth * bandStart)
+                                .width(maxWidth * (bandEnd - bandStart))
+                                .fillMaxHeight()
+                                .background(
+                                    Brush.horizontalGradient(
+                                        listOf(amber, Color(0xFFD97706))
+                                    ),
+                                    RoundedCornerShape(5.dp)
+                                )
                         )
                     }
-                    .draggable(
-                        orientation = androidx.compose.foundation.gestures.Orientation.Horizontal,
-                        state = rememberDraggableState { delta ->
-                            // Track the last *snapped* value so we can tick the
-                            // haptic exactly when crossing into a new step.
-                            val target = snap(value + (delta / trackWidthPx.coerceAtLeast(1f)) * range)
-                            // Use snap(value) to compare against the *current* state value.
-                            // If they differ, we crossed a step boundary.
-                            if (step != null && target != snap(value)) {
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            }
-                            onValueChange(target)
-                        },
-                        onDragStarted = {
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        },
-                        startDragImmediately = true
+                    // Center (0 EV) detent
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .size(width = 2.dp, height = 14.dp)
+                            .background(
+                                Color.White.copy(alpha = 0.5f),
+                                RoundedCornerShape(1.dp)
+                            )
                     )
-            )
-        }
-
-        // Tick labels
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(text = leftTick, color = Color.White.copy(alpha = 0.55f), fontSize = 9.sp)
-            Text(text = centerTick, color = Color.White.copy(alpha = 0.75f), fontSize = 9.sp, fontWeight = FontWeight.Bold)
-            Text(text = rightTick, color = Color.White.copy(alpha = 0.55f), fontSize = 9.sp)
-        }
+                }
+            }
+        )
     }
 }
 
@@ -700,7 +637,7 @@ private fun ColorPlot(
  * 2D color-plot space with preset buttons.
  */
 @Composable
-private fun WhiteBalancePanel(
+internal fun WhiteBalancePanel(
     temperature: Float,
     tint: Float,
     onValueChange: (Float, Float) -> Unit,
@@ -718,7 +655,7 @@ private fun WhiteBalancePanel(
                 color = Color.White,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
-                fontFamily = FontFamily.Default
+                fontFamily = Inter
             )
             headerActions()
         }
@@ -805,10 +742,11 @@ private fun WhiteBalancePanel(
 }
 
 /**
- * Exposure compensation panel. Shows a live EV readout and a brightness ramp.
+ * Exposure compensation panel. Shows a live EV readout and a Material 3
+ * centered slider whose amber band grows outward from the 0 detent.
  */
 @Composable
-private fun ExposurePanel(
+internal fun ExposurePanel(
     exposure: Float,
     onValueChange: (Float) -> Unit,
     headerActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {}
@@ -838,25 +776,25 @@ private fun ExposurePanel(
                     color = Color.White,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Serif
+                    fontFamily = Inter
                 )
                 headerActions()
             }
         }
-        Spacer(modifier = Modifier.height(10.dp))
-        SpectrumSlider(
+        Spacer(modifier = Modifier.height(4.dp))
+        CenteredEvSlider(
             value = exposure,
-            onValueChange = onValueChange,
-            valueRange = -3f..3f,
-            gradient = listOf(Color(0xFF52525B), Color(0xFF52525B)),
-            valueLabel = "${evLabel}EV",
-            leftTick = "-3",
-            centerTick = "0",
-            rightTick = "+3",
-            step = 0.1f,   // snap to 1/10 EV stops like a typical camera
-            trackHeight = 18.dp,
-            doubleTapToReset = false
+            onValueChange = onValueChange
         )
+        // Tick labels
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(text = "-3", color = Color.White.copy(alpha = 0.55f), fontSize = 9.sp)
+            Text(text = "0", color = Color.White.copy(alpha = 0.75f), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+            Text(text = "+3", color = Color.White.copy(alpha = 0.55f), fontSize = 9.sp)
+        }
     }
 }
 
@@ -880,7 +818,7 @@ private enum class MorphMode { BUBBLE, COLOR, EXPOSURE }
  * morph between them stays symmetric.
  */
 @Composable
-private fun MorphedPanelChrome(
+internal fun MorphedPanelChrome(
     hazeState: HazeState,
     content: @Composable () -> Unit
 ) {
@@ -1034,7 +972,7 @@ private fun FloatingBubbleRow(
                 color = if (exposure != 0f) Color(0xFFFBBF24) else Color.White,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
-                fontFamily = FontFamily.Default,
+                fontFamily = Inter,
                 modifier = Modifier.rotate(controlAngle)
             )
         }
@@ -1176,31 +1114,23 @@ fun CameraUi(
             BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
                 // Viewfinder-bottom fraction, mirrored from the exact
                 // geometry CameraActiveScreen computes internally
-                // (92% width, aspect-ratio height, 56.dp top inset,
-                // 200.dp bottom-deck reserve, vertically centred in
-                // the remaining band). Kept in sync deliberately: the
-                // tutorial arrow's base should sit on the bottom edge
-                // of the LIVE VIEWFINDER, not on the bottom of the
-                // app — the tutorial canvas extends past the
-                // viewfinder down into the bottom deck (shutter /
-                // filmstrip), so anchoring to the screen edge would
-                // put the arrow far below the preview.
+                // (92% width fixed across ratios, aspect-ratio height,
+                // 56.dp top inset, 200.dp bottom-deck reserve). Width stays
+                // identical for 4:3 and 3:2 — 3:2 just extends vertically.
                 val vfWidthRaw = maxWidth * ZoomBoxSpec.VIEWFINDER_WIDTH_FRACTION
                 val vfHeightRaw = vfWidthRaw * aspectRatio.heightToWidth
                 val specTop = maxHeight * ZoomBoxSpec.VIEWFINDER_TOP_FRACTION
                 val specReserve = maxHeight * ZoomBoxSpec.VIEWFINDER_BOTTOM_RESERVE_FRACTION
                 val availableHeight =
                     (maxHeight - specTop - specReserve).coerceAtLeast(120.dp)
-                val vfWidth: Dp
-                val vfHeight: Dp
-                if (vfHeightRaw > availableHeight) {
-                    vfHeight = availableHeight
-                    vfWidth = availableHeight / aspectRatio.heightToWidth
-                } else {
-                    vfWidth = vfWidthRaw
-                    vfHeight = vfHeightRaw
-                }
-                val vfTop = specTop + (availableHeight - vfHeight) / 2f
+                // Keep width fixed (no side black bars on 3:2); height grows
+                // with the ratio. When the tall box overflows the available
+                // band, pin the top so 3:2 starts where 4:3 starts and only
+                // the bottom edge extends downward.
+                val vfWidth: Dp = vfWidthRaw
+                val vfHeight: Dp = vfHeightRaw
+                val vfTop = if (vfHeight > availableHeight) specTop
+                    else specTop + (availableHeight - vfHeight) / 2f
                 val viewfinderBottomFraction =
                     (vfTop + vfHeight).value / maxHeight.value
 
@@ -1485,7 +1415,7 @@ fun CameraPermissionOnboarding(
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
                     letterSpacing = 3.sp,
-                    fontFamily = FontFamily.Serif
+                    fontFamily = Inter
                 )
             }
 
@@ -1503,7 +1433,7 @@ fun CameraPermissionOnboarding(
                     fontWeight = FontWeight.Normal,
                     color = Color(0xFFF59E0B).copy(alpha = 0.7f),
                     letterSpacing = 4.sp,
-                    fontFamily = FontFamily.Serif
+                    fontFamily = Inter
                 )
             }
 
@@ -1576,7 +1506,7 @@ fun CameraPermissionOnboarding(
                 color = Color(0xFFF59E0B).copy(alpha = 0.25f),
                 fontSize = 10.sp,
                 letterSpacing = 2.sp,
-                fontFamily = FontFamily.Serif,
+                fontFamily = Inter,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(bottom = 36.dp)
@@ -1732,18 +1662,18 @@ fun CameraActiveScreen(
     ) {
 
         // Viewfinder bounds — ZoomBox Figma spec (393×852):
-        // width 92.12% of screen (3.94% side margins), top 13.22%, bottom
-        // reserve 30.13% for the bubble + two-row bottom deck. Height adapts
-        // to the selected aspect ratio (4:3 → 1.35× width, 3:2 → 1.5×, 1:1 →
-        // square), clamped into the available band and vertically centred.
+        // width 92.12% of screen (3.94% side margins) FIXED across ratios,
+        // top 13.22%, bottom reserve 30.13% for the bubble + two-row bottom
+        // deck. Height adapts to the selected aspect ratio
+        // (4:3 → 1.35× width, 3:2 → 1.5×, 1:1 → square): 3:2 keeps the
+        // same width/side margins as 4:3 and just extends vertically.
         // The zoom-box clamp + Canvas overlay keep working unchanged because
         // they size themselves from vfWidth / aspectRatio.
         val topInset = totalHeight * ZoomBoxSpec.VIEWFINDER_TOP_FRACTION
 
-        // Height-aware clamp so the viewfinder + bubble + bottom deck stay
-        // within the available screen height in any orientation. There's no
-        // `isLandscape` detection: the clamp is purely height-driven and works
-        // identically in portrait or landscape.
+        // Width is never shrunk to fit height — that shrink is what produced
+        // the side black bars on 3:2. Height follows the ratio; a tall box
+        // may extend past the bottom reserve into the deck gap.
         val vfWidthRaw = totalWidth * ZoomBoxSpec.VIEWFINDER_WIDTH_FRACTION
         val vfHeightRaw = vfWidthRaw * aspectRatio.heightToWidth
         // Spec bottom reserve (30.13%) covers the bubble (slider popup may
@@ -1751,23 +1681,16 @@ fun CameraActiveScreen(
         // never overlap the viewfinder in any orientation.
         val reservedBottom = totalHeight * ZoomBoxSpec.VIEWFINDER_BOTTOM_RESERVE_FRACTION
         val availableHeight = (totalHeight - topInset - reservedBottom).coerceAtLeast(120.dp)
-        val vfWidth: Dp
-        val vfHeight: Dp
-        if (vfHeightRaw > availableHeight) {
-            vfHeight = availableHeight
-            vfWidth = vfHeight / aspectRatio.heightToWidth
-        } else {
-            vfWidth = vfWidthRaw
-            vfHeight = vfHeightRaw
-        }
+        val vfWidth: Dp = vfWidthRaw
+        val vfHeight: Dp = vfHeightRaw
         val vfX = (totalWidth - vfWidth) / 2f
 
         // Vertically center the viewfinder between the top inset (settings /
-        // status area) and the bottom UI deck, instead of pinning it to the
-        // top edge of the screen. In landscape the height clamp makes
-        // vfHeight == availableHeight, so vfTop naturally collapses back to
-        // topInset (the viewfinder already fills the whole available region).
-        val vfTop = topInset + (availableHeight - vfHeight) / 2f
+        // status area) and the bottom UI deck when it fits. When the tall
+        // ratio overflows (3:2), pin the top so 3:2 starts exactly where
+        // 4:3 starts and only grows downward — same width, longer bottom.
+        val vfTop = if (vfHeight > availableHeight) topInset
+            else topInset + (availableHeight - vfHeight) / 2f
 
         // ─────────────────────────────────────────────────────────────────
         // Preset-change toast state (declared ahead of the viewfinder Box
@@ -1934,7 +1857,7 @@ fun CameraActiveScreen(
                     color = Color(0xFFFBBF24),
                     fontSize = 80.sp,
                     fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Serif
+                    fontFamily = Inter
                 )
             }
         }
@@ -1989,7 +1912,7 @@ fun CameraActiveScreen(
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
-                    fontFamily = FontFamily.Serif
+                    fontFamily = Inter
                 )
             }
         }
@@ -2064,7 +1987,7 @@ fun CameraActiveScreen(
                 color = Color.White,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
-                fontFamily = FontFamily.Default,
+                fontFamily = Inter,
                 textAlign = TextAlign.Center,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
@@ -2968,7 +2891,7 @@ fun PhotoViewerOverlay(
             Text(
                 text = stringResource(R.string.gallery_title),
                 fontSize = 15.sp, color = Color.White, fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp, fontFamily = FontFamily.Serif
+                letterSpacing = 1.sp, fontFamily = Inter
             )
 
             if (currentPhoto != null) {
