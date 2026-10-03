@@ -154,6 +154,15 @@ class LutPreviewView(
         renderer.setFlipH(flip)
     }
 
+    /**
+     * Set (or clear) the liquid-glass overlay the renderer draws over the
+     * preview, e.g. the zoom readout pill. Rect in view pixels; the renderer
+     * normalizes it against the GL viewport.
+     */
+    fun setGlassOverlay(overlay: GlassOverlay?) {
+        renderer.setGlassOverlay(overlay)
+    }
+
     /** Tear down everything. Call from the host's onDispose / onDestroy. */
     fun cleanup() {
         runGlBlocking { teardownGlLocked() }
