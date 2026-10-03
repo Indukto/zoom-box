@@ -102,7 +102,7 @@ class ExampleRobolectricTest {
     // Grid toggle: the grid_overlay_button just calls toggleGridLines(), so
     // exercise the same state transition at the ViewModel level. The full
     // camera screen (CameraActiveScreen) can't be composed headlessly — it
-    // hosts GLSurfaceView / CameraX surfaces that Robolectric can't provide.
+    // hosts GL TextureView / CameraX surfaces that Robolectric can't provide.
     assertFalse(viewModel.showGridLines.value)
     viewModel.toggleGridLines()
     assertTrue(viewModel.showGridLines.value)

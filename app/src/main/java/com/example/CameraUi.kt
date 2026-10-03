@@ -166,6 +166,11 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import androidx.compose.ui.graphics.vector.ImageVector
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import java.util.Locale
 import com.example.zoom.AspectRatio
 import com.example.color.CubeLut
@@ -188,6 +193,66 @@ private class TrackedPointer(
     val initialTint: Float,
     var moved: Boolean = false
 )
+
+/**
+ * Frosted-glass style for the floating control bubble: the Figma
+ * `bubble-surface` black-20% tint plus a subtle live blur of the video
+ * underneath. Works on every preset because both preview paths (CameraX
+ * PreviewView and the LUT TextureView) composite in-window.
+ */
+private val BubbleHazeStyle = HazeStyle(
+    backgroundColor = Color.Black.copy(alpha = 0.20f),
+    tints = emptyList(),
+    blurRadius = 16.dp,
+    noiseFactor = 0f
+)
+
+/**
+ * Liquid-glass fill for the round aux buttons: top sheen fading into dark
+ * translucent chrome, plus a hairline light rim. Same visual language as the
+ * control bubble, but pure layering — the aux row sits over the solid-black
+ * bottom deck (outside the haze blur source), so there are no live pixels
+ * behind to blur; the glass read comes from sheen + rim instead of a blur
+ * pass, which also saves four extra GPU blur nodes per frame.
+ */
+private fun auxGlassBackground(active: Boolean = false): Brush = Brush.verticalGradient(
+    colors = listOf(
+        Color.White.copy(alpha = 0.12f),
+        if (active) Color(0xFFFBBF24).copy(alpha = 0.22f)
+        else Color(0xFF1C1C1E).copy(alpha = 0.55f)
+    )
+)
+
+private fun auxGlassBorder(active: Boolean = false): Brush = Brush.verticalGradient(
+    colors = listOf(
+        if (active) Color(0xFFFBBF24).copy(alpha = 0.55f) else Color.White.copy(alpha = 0.28f),
+        if (active) Color(0xFFFBBF24).copy(alpha = 0.20f) else Color.White.copy(alpha = 0.08f)
+    )
+)
+
+/** Shared glass-chrome modifier for the 45dp round aux buttons. */
+private fun Modifier.auxGlass(active: Boolean = false): Modifier = this
+    .clip(CircleShape)
+    .background(auxGlassBackground(active), CircleShape)
+    .border(1.dp, auxGlassBorder(active), CircleShape)
+
+/**
+ * ZoomBox Figma spec (393×852 `zoombox-camera-main-screen`).
+ * All fractions are relative to the full screen so the layout scales to
+ * any device while keeping the design's proportions:
+ * - viewfinder: 3.94% side margins, top 13.22%, bottom reserve 30.13%
+ * - zoom-box: sides 19.61%, top 22.85%, bottom reserve 39.76%
+ * - control-bubble: sides ~25.7%, top 61.38%, bottom reserve 31.69%
+ * - bottom-deck: top 72.77%; aux-row height ~45px; primary-row 81.69-91.55%
+ */
+private object ZoomBoxSpec {
+    const val VIEWFINDER_WIDTH_FRACTION = 0.9212f // 100 - 3.94*2
+    const val VIEWFINDER_TOP_FRACTION = 0.1322f
+    const val VIEWFINDER_BOTTOM_RESERVE_FRACTION = 0.3013f
+    const val BUBBLE_BOTTOM_OFFSET_DP = 10 // bubble sits ~10dp above viewfinder bottom
+    const val ZOOM_GRID_ALPHA = 0.55f
+    const val ZOOM_OUTLINE_ALPHA = 0.9f
+}
 
 /**
  * Draws a rule-of-thirds grid (4 lines at width/height thirds) inside [rect].
@@ -830,6 +895,7 @@ private fun FloatingBubbleRow(
     temperature: Float,
     tint: Float,
     exposure: Float,
+    hazeState: HazeState,
     isFrontCamera: Boolean = false,
     controlAngle: Float = 0f,
     onTemperatureClick: () -> Unit,
@@ -838,15 +904,29 @@ private fun FloatingBubbleRow(
 ) {
     Row(
         modifier = Modifier
-            .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(22.dp))
-            .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(22.dp))
-            .padding(horizontal = 10.dp, vertical = 6.dp),
+            // True backdrop blur over the live video (spec `bubble-surface`:
+            // black 20% + blur). Both preview paths composite in-window, so
+            // Haze samples the actual video frame. The hairline light edge
+            // is kept as the glass rim.
+            .clip(RoundedCornerShape(26.dp))
+            .hazeEffect(state = hazeState, style = BubbleHazeStyle)
+            .border(
+                1.dp,
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = 0.28f),
+                        Color.White.copy(alpha = 0.08f)
+                    )
+                ),
+                RoundedCornerShape(26.dp)
+            )
+            .padding(horizontal = 12.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         IconButton(
             onClick = onTemperatureClick,
-            modifier = Modifier.size(44.dp).testTag("bubble_temperature_button")
+            modifier = Modifier.size(40.dp).testTag("bubble_temperature_button")
         ) {
             Icon(
                 imageVector = Icons.Rounded.Thermostat,
@@ -857,14 +937,16 @@ private fun FloatingBubbleRow(
         }
         Box(
             modifier = Modifier
-                .height(40.dp)
-                .clip(RoundedCornerShape(14.dp))
+                // Spec `Rectangle 3`: 52.68px tall, rgba(177,177,177,0.12),
+                // full-pill radius 26px, "38" in JetBrains Mono 700 16px.
+                .height(52.dp)
+                .clip(RoundedCornerShape(26.dp))
                 .background(
                     if (isFrontCamera) Color.White.copy(alpha = 0.06f)
-                    else Color.White.copy(alpha = 0.15f)
+                    else Color(0xFFB1B1B1).copy(alpha = 0.12f)
                 )
                 .clickable(enabled = !isFrontCamera) { onLensClick() }
-                .padding(horizontal = 14.dp)
+                .padding(horizontal = 16.dp)
                 .testTag("bubble_lens_button"),
             contentAlignment = Alignment.Center
         ) {
@@ -888,7 +970,7 @@ private fun FloatingBubbleRow(
                 Text(
                     text = effectiveFocalLength.toString(),
                     color = Color.White,
-                    fontSize = 14.sp,
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace,
                     modifier = Modifier.rotate(controlAngle)
@@ -899,7 +981,7 @@ private fun FloatingBubbleRow(
             modifier = Modifier
                 .clip(RoundedCornerShape(14.dp))
                 .clickable { onExposureClick() }
-                .padding(horizontal = 10.dp, vertical = 6.dp)
+                .padding(horizontal = 10.dp, vertical = 10.dp)
                 .testTag("bubble_exposure_button"),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -915,7 +997,7 @@ private fun FloatingBubbleRow(
                 color = if (exposure != 0f) Color(0xFFFBBF24) else Color.White,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = FontFamily.Default,
                 modifier = Modifier.rotate(controlAngle)
             )
         }
@@ -1066,10 +1148,12 @@ fun CameraUi(
                 // viewfinder down into the bottom deck (shutter /
                 // filmstrip), so anchoring to the screen edge would
                 // put the arrow far below the preview.
-                val vfWidthRaw = maxWidth * 0.92f
+                val vfWidthRaw = maxWidth * ZoomBoxSpec.VIEWFINDER_WIDTH_FRACTION
                 val vfHeightRaw = vfWidthRaw * aspectRatio.heightToWidth
+                val specTop = maxHeight * ZoomBoxSpec.VIEWFINDER_TOP_FRACTION
+                val specReserve = maxHeight * ZoomBoxSpec.VIEWFINDER_BOTTOM_RESERVE_FRACTION
                 val availableHeight =
-                    (maxHeight - 56.dp - 200.dp).coerceAtLeast(120.dp)
+                    (maxHeight - specTop - specReserve).coerceAtLeast(120.dp)
                 val vfWidth: Dp
                 val vfHeight: Dp
                 if (vfHeightRaw > availableHeight) {
@@ -1079,7 +1163,7 @@ fun CameraUi(
                     vfWidth = vfWidthRaw
                     vfHeight = vfHeightRaw
                 }
-                val vfTop = 56.dp + (availableHeight - vfHeight) / 2f
+                val vfTop = specTop + (availableHeight - vfHeight) / 2f
                 val viewfinderBottomFraction =
                     (vfTop + vfHeight).value / maxHeight.value
 
@@ -1494,6 +1578,12 @@ fun CameraActiveScreen(
         label = "grid_alpha"
     )
 
+    // Backdrop-blur source for the floating control bubble. The root Box
+    // below registers as the capture source, so the bubble samples the live
+    // preview (both TextureView paths composite in-window) plus the dim/grid
+    // chrome drawn over it.
+    val hazeState = rememberHazeState()
+
     // Every control icon (three-point menu, film style, gallery, and the four
     // auxiliary rail icons) rotates with the physical device: +90° in regular
     // landscape, -90° in reverse landscape, 0° in portrait. The activity is
@@ -1604,34 +1694,25 @@ fun CameraActiveScreen(
         modifier = Modifier.fillMaxSize().onSizeChanged { parentSize.value = it }
     ) {
 
-        // Viewfinder bounds — width fixed at 92% of screen, height adapts to
-        // the selected aspect ratio. With 4:3 (height/width = 1.35) the box is
-        // 1.23× its width, with 3:2 (1.5) it's 1.38×, and with 1:1 it's exactly
-        // the width. The zoom-box clamp + the Canvas overlay both keep working
-        // unchanged because they already size themselves from vfWidth / aspectRatio.
-        // The viewfinder + bottom deck + floating bubble stay anchored to these
-        // bounds in every device orientation; the activity rotates freely but the
-        // camera UI does NOT reposition. Only the SettingsScreen (a sibling of
-        // this composable at the top of CameraUi()) handles landscape so the
-        // setting icons adapt to a wider screen naturally.
-        // Top inset — minimum gap between the screen's top edge and the
-        // viewfinder, reserving room for the settings button / status area.
-        val topInset = 56.dp
+        // Viewfinder bounds — ZoomBox Figma spec (393×852):
+        // width 92.12% of screen (3.94% side margins), top 13.22%, bottom
+        // reserve 30.13% for the bubble + two-row bottom deck. Height adapts
+        // to the selected aspect ratio (4:3 → 1.35× width, 3:2 → 1.5×, 1:1 →
+        // square), clamped into the available band and vertically centred.
+        // The zoom-box clamp + Canvas overlay keep working unchanged because
+        // they size themselves from vfWidth / aspectRatio.
+        val topInset = totalHeight * ZoomBoxSpec.VIEWFINDER_TOP_FRACTION
 
         // Height-aware clamp so the viewfinder + bubble + bottom deck stay
         // within the available screen height in any orientation. There's no
         // `isLandscape` detection: the clamp is purely height-driven and works
-        // identically in portrait or landscape. In portrait, the natural vfH
-        // (vfW × heightToWidth) is short enough that the original 92%-wide
-        // form is selected. In landscape, the natural vfH exceeds the screen
-        // height so we re-derive vfW from the clamped vfH and re-centre
-        // horizontally.
-        val vfWidthRaw = totalWidth * 0.92f
+        // identically in portrait or landscape.
+        val vfWidthRaw = totalWidth * ZoomBoxSpec.VIEWFINDER_WIDTH_FRACTION
         val vfHeightRaw = vfWidthRaw * aspectRatio.heightToWidth
-        // Reserve 200 dp at the bottom for the bubble (slider popup may open
-        // upward another ~120 dp) + the two-row bottom deck (~140 dp) so they
+        // Spec bottom reserve (30.13%) covers the bubble (slider popup may
+        // open upward another ~120 dp) + the two-row bottom deck so they
         // never overlap the viewfinder in any orientation.
-        val reservedBottom = 200.dp
+        val reservedBottom = totalHeight * ZoomBoxSpec.VIEWFINDER_BOTTOM_RESERVE_FRACTION
         val availableHeight = (totalHeight - topInset - reservedBottom).coerceAtLeast(120.dp)
         val vfWidth: Dp
         val vfHeight: Dp
@@ -1664,6 +1745,23 @@ fun CameraActiveScreen(
         var toastPresetSnapshot by remember { mutableStateOf(FilmPreset.WARM_PORTRAIT) }
         var showToast by remember { mutableStateOf(false) }
         var toastEpoch by remember { mutableStateOf(0) }
+
+        // Box width fraction for the zoom-box overlay AND the capture crop.
+        // Hoisted to root scope: the floating bubble's capture path
+        // (`doCapture`, outside the haze source box below) reads it, while
+        // the overlay UI inside the source box reads it too.
+        val animatedBoxWidthFraction by animateFloatAsState(
+            targetValue = boxScale,
+            animationSpec = spring(stiffness = 200f, dampingRatio = 0.75f),
+            label = "box_width_fraction"
+        )
+
+        // Haze blur source: everything the floating bubble floats over
+        // (background + live preview + dim/grid chrome + toast). This must
+        // stay a SIBLING of the bubble — never an ancestor of it — per the
+        // Haze camera pattern: the effect cannot live inside its own source
+        // subtree. Inner box is full-size so all alignment math is unchanged.
+        Box(modifier = Modifier.fillMaxSize().hazeSource(hazeState)) {
 
         // 1. Black background
         Box(modifier = Modifier.fillMaxSize().background(Color.Black))
@@ -1859,13 +1957,8 @@ fun CameraActiveScreen(
             }
         }
 
-        // Box scale animation
-        val animatedBoxWidthFraction by animateFloatAsState(
-            targetValue = boxScale,
-            animationSpec = spring(stiffness = 200f, dampingRatio = 0.75f),
-            label = "box_width_fraction"
-        )
-
+        // `animatedBoxWidthFraction` is hoisted to root scope above (read by
+        // the capture path outside the haze source box).
         val showZoomBox = selectedLensRole == LensRole.PRIMARY && animatedBoxWidthFraction < 0.99f
 
         // Coarse 3x3 grid over the full viewfinder when no zoom box is active
@@ -1920,26 +2013,29 @@ fun CameraActiveScreen(
                     clipPath(path = path, clipOp = ClipOp.Intersect) {
                         drawThirdsGrid(
                             rect = rect,
-                            color = Color.White.copy(alpha = 0.55f * gridAlpha),
+                            color = Color.White.copy(alpha = ZoomBoxSpec.ZOOM_GRID_ALPHA * gridAlpha),
                             strokeWidth = 1.dp.toPx()
                         )
                     }
                 }
             }
 
-            // Focal length above zoom box (rendered above black mask)
+            // Focal length above zoom box (spec `focal-length-label`:
+            // Inter 700 14px white, centred ~32px above the zoom box).
             Text(
                 text = stringResource(R.string.focal_length_mm, effectiveFocalLength),
                 color = Color.White,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
-                fontFamily = FontFamily.Serif,
+                fontFamily = FontFamily.Default,
+                textAlign = TextAlign.Center,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .offset(y = zoomBoxTop - 30.dp)
             )
 
-            // Zoom box outline
+            // Zoom box outline (spec `zoom-box-outline`:
+            // 2px rgba(255,255,255,0.9), grid rgba(255,255,255,0.55)).
             Box(
                 modifier = Modifier
                     .offset(
@@ -1948,9 +2044,10 @@ fun CameraActiveScreen(
                     )
                     .width(boxWf)
                     .height(boxHf)
-                    .border(2.dp, Color.White.copy(alpha = 0.9f), RoundedCornerShape(20.dp))
+                    .border(2.dp, Color.White.copy(alpha = ZoomBoxSpec.ZOOM_OUTLINE_ALPHA), RoundedCornerShape(20.dp))
             )
         }
+        } // end haze blur source (background + preview + chrome)
 
 
         // Three-point settings menu button in the top-right corner of the viewfinder
@@ -2050,11 +2147,10 @@ fun CameraActiveScreen(
         // Floating Control Surface — the bubble and the color/exposure panels
         // share the same composable slot at the bottom of the viewfinder and
         // morph in place via AnimatedContent. Anchor the bottom edge of the
-        // rendered content to (vfTop + vfHeight - 10 dp) so the bubble stays
-        // put; the taller panel grows upward into the viewfinder rather than
-        // shoving the bubble down into the deck like the previous stacked
-        // layout did.
-        val morphBottomAnchorPx = with(LocalDensity.current) { (vfTop + vfHeight - 10.dp).roundToPx() }
+        // rendered content to (vfTop + vfHeight - spec offset) so the bubble
+        // sits ~10dp above the viewfinder bottom edge per the Figma
+        // `control-bubble` block (top 61.38%, bottom reserve 31.69%).
+        val morphBottomAnchorPx = with(LocalDensity.current) { (vfTop + vfHeight - ZoomBoxSpec.BUBBLE_BOTTOM_OFFSET_DP.dp).roundToPx() }
         Box(
             modifier = Modifier
                 // Anchor content at horizontal center + viewfinder bottom so the
@@ -2123,6 +2219,7 @@ fun CameraActiveScreen(
                         temperature = temperature,
                         tint = tint,
                         exposure = exposure,
+                        hazeState = hazeState,
                         isFrontCamera = isFrontCamera,
                         controlAngle = animatedControlAngle,
                         onTemperatureClick = {
@@ -2268,6 +2365,7 @@ fun CameraActiveScreen(
 
         // Bottom-deck Column anchored to the bottom of the screen, full width,
         // opaque black background + 40 dp bottom padding for the gesture area.
+        // Spec `bottom-deck`: top 72.77%; `deck-surface` top 78.4% (both black).
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -2277,24 +2375,26 @@ fun CameraActiveScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
-            // ── Row 1: Auxiliary Controls ──────────────────────────────────────
+            // ── Row 1: Auxiliary Controls ──────────────────────────────
+            // Spec `aux-row`: sides 7.63%/7.38% (~30dp/29dp on 393px wide),
+            // height ~45px. Active Trot (grid) uses rgba(251,191,36,0.2).
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 28.dp, vertical = 10.dp),
+                    .padding(start = 30.dp, end = 29.dp, top = 10.dp, bottom = 10.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Grid overlay toggle
+                // Grid overlay toggle (liquid glass; amber glass when active)
                 IconButton(
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         viewModel.toggleGridLines()
                     },
                     colors = IconButtonDefaults.iconButtonColors(
-                        containerColor = if (showGridLines) Color(0xFFFBBF24).copy(alpha = 0.18f) else Color(0xFF1C1C1E)
+                        containerColor = Color.Transparent
                     ),
-                    modifier = Modifier.size(40.dp).testTag("grid_overlay_button")
+                    modifier = Modifier.size(45.dp).auxGlass(active = showGridLines).testTag("grid_overlay_button")
                 ) {
                     Icon(
                         imageVector = if (showGridLines) Icons.Rounded.GridOn else Icons.Rounded.GridOff,
@@ -2304,15 +2404,11 @@ fun CameraActiveScreen(
                     )
                 }
 
-                // Self-timer cycle button
+                // Self-timer cycle button (liquid glass; amber glass on countdown)
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
-                        .background(
-                            if (selfTimerMode != 0) Color(0xFF1C1C1E) else Color(0xFF1C1C1E),
-                            CircleShape
-                        )
-                        .clip(CircleShape)
+                        .size(45.dp)
+                        .auxGlass(active = selfTimerMode != 0)
                         .clickable {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             viewModel.cycleSelfTimer()
@@ -2337,37 +2433,54 @@ fun CameraActiveScreen(
                     }
                 }
 
-                // Flash toggle
+                // Flash toggle (liquid glass; amber glass unless switched off.
+                // Auto mode carries a small amber "A" badge per the Figma `A`
+                // 8.5px label centred on the button).
                 IconButton(
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         viewModel.toggleFlash()
                     },
-                    colors = IconButtonDefaults.iconButtonColors(containerColor = Color(0xFF1C1C1E)),
-                    modifier = Modifier.size(40.dp).testTag("flash_toggle_button")
+                    colors = IconButtonDefaults.iconButtonColors(containerColor = Color.Transparent),
+                    modifier = Modifier.size(45.dp).auxGlass(active = flashMode != 2).testTag("flash_toggle_button")
                 ) {
-                    Icon(
-                        imageVector = when (flashMode) {
-                            0    -> Icons.Rounded.FlashAuto
-                            1    -> Icons.Rounded.FlashOn
-                            else -> Icons.Rounded.FlashOff
-                        },
-                        contentDescription = stringResource(R.string.flash_label),
-                        tint = if (flashMode == 2) Color.White else Color(0xFFFBBF24),
-                        modifier = Modifier
-                            .size(18.dp)
-                            .rotate(animatedControlAngle)
-                    )
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.size(24.dp).rotate(animatedControlAngle)
+                    ) {
+                        Icon(
+                            imageVector = when (flashMode) {
+                                0    -> Icons.Rounded.FlashAuto
+                                1    -> Icons.Rounded.FlashOn
+                                else -> Icons.Rounded.FlashOff
+                            },
+                            contentDescription = stringResource(R.string.flash_label),
+                            tint = if (flashMode == 2) Color.White else Color(0xFFFBBF24),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        if (flashMode == 0) {
+                            Text(
+                                text = "A",
+                                color = Color(0xFFFBBF24),
+                                fontSize = 8.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .offset(x = 4.dp, y = 4.dp)
+                            )
+                        }
+                    }
                 }
 
-                // Camera flip
+                // Camera flip (liquid glass)
                 IconButton(
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         viewModel.toggleCamera()
                     },
-                    colors = IconButtonDefaults.iconButtonColors(containerColor = Color(0xFF1C1C1E)),
-                    modifier = Modifier.size(40.dp).testTag("camera_flip_button")
+                    colors = IconButtonDefaults.iconButtonColors(containerColor = Color.Transparent),
+                    modifier = Modifier.size(45.dp).auxGlass().testTag("camera_flip_button")
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.FlipCameraAndroid,
@@ -2378,18 +2491,20 @@ fun CameraActiveScreen(
                 }
             }
 
-            // ── Row 2: Primary Actions ─────────────────────────────────────────
+            // ── Row 2: Primary Actions ─────────────────────────────────
+            // Spec `primary-row`: sides 6.11%/5.34% (~24dp/21dp on 393px).
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
+                    .padding(start = 24.dp, end = 21.dp),
                 contentAlignment = Alignment.Center
             ) {
-                // Left: last-captured thumbnail card
+                // Left: last-captured thumbnail card (spec `gallery-button`:
+                // ~59px square, #1C1C1E).
                 Box(
                     modifier = Modifier
                         .align(Alignment.CenterStart)
-                        .size(56.dp)
+                        .size(60.dp)
                         .clip(RoundedCornerShape(14.dp))
                         .background(Color(0xFF1C1C1E))
                         .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(14.dp))
@@ -2417,11 +2532,12 @@ fun CameraActiveScreen(
                     }
                 }
 
-                // Center: Shutter button (large, white ring with red fill)
+                // Center: Shutter button (spec `shutter-button`: ~84px circle,
+                // black outer, #EF4444 fill with 4px white ring).
                 Box(
                     modifier = Modifier
                         .size(84.dp)
-                        .background(Color.Transparent, CircleShape)
+                        .background(Color.Black, CircleShape)
                         .border(4.dp, Color.White, CircleShape)
                         .padding(5.dp)
                         .testTag("shutter_button")
@@ -2466,11 +2582,12 @@ fun CameraActiveScreen(
                     )
                 }
 
-                // Right: Retro camera preset picker button
+                // Right: Retro camera preset picker button (spec `preset-button`:
+                // ~62px square, #1C1C1E, amber-tinted border, live swatch).
                 Box(
                     modifier = Modifier
                         .align(Alignment.CenterEnd)
-                        .size(56.dp)
+                        .size(62.dp)
                         .clip(RoundedCornerShape(14.dp))
                         .background(Color(0xFF1C1C1E))
                         .border(1.dp, Color(0xFFFBBF24).copy(alpha = 0.4f), RoundedCornerShape(14.dp))

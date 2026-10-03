@@ -4,34 +4,36 @@ import android.graphics.SurfaceTexture
 import android.opengl.GLES11Ext
 import android.opengl.GLES20
 import android.opengl.GLES30
-import android.opengl.GLSurfaceView
 import android.opengl.Matrix
 import android.util.Log
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
-import javax.microedition.khronos.egl.EGLConfig
-import javax.microedition.khronos.opengles.GL10
 
 /**
- * GLSurfaceView.Renderer that samples the camera SurfaceTexture, applies
- * white-balance + exposure + 3D-LUT color grading in a fragment shader, and
- * blits the result to the screen. This is the live viewfinder counterpart of
- * the CPU capture filter (`CameraViewModel.applyRetroFilter`) and the GPU
- * capture processor ([GpuCaptureProcessor]); the fragment shader performs
- * the same color grade as those paths but at full preview rate on the GPU.
+ * GL renderer that samples the camera SurfaceTexture, applies white-balance
+ * + exposure + 3D-LUT color grading in a fragment shader, and blits the
+ * result to the screen. This is the live viewfinder counterpart of the CPU
+ * capture filter (`CameraViewModel.applyRetroFilter`) and the GPU capture
+ * processor ([GpuCaptureProcessor]); the fragment shader performs the same
+ * color grade as those paths but at full preview rate on the GPU.
+ *
+ * The renderer owns no thread or EGL state: [LutPreviewView] (a TextureView
+ * with a manually-managed EGL context) drives [onGlContextCreated],
+ * [onGlSurfaceChanged] and [drawFrame] on its render thread and forwards
+ * render requests through [onRequestRender].
  *
  * Lifecycle / threading notes:
- * - All GL calls happen on the GLSurfaceView render thread.
+ * - All GL calls happen on the view's render thread.
  * - The [SurfaceTexture] fed to CameraX is created on the render thread inside
- *   [onSurfaceCreated] and exposed via [surfaceTextureFuture]; the camera
+ *   [onGlContextCreated] and exposed via [surfaceTextureFuture]; the camera
  *   plumbing reads it back from there.
  * - [onFrameAvailable] is invoked on CameraX's thread; it only pokes the view
  *   to request a render.
  */
 class LutPreviewRenderer(
-    private val glSurfaceView: GLSurfaceView
-) : GLSurfaceView.Renderer, SurfaceTexture.OnFrameAvailableListener {
+    private val onRequestRender: () -> Unit
+) : SurfaceTexture.OnFrameAvailableListener {
 
     @Volatile private var surfaceTexture: SurfaceTexture? = null
     /** Read by the SurfaceProvider after [onSurfaceCreated] runs. */
@@ -99,7 +101,7 @@ class LutPreviewRenderer(
     private var has3dTextures = false  // false when GPU lacks GL_OES_texture_3D
 
     // Intermediate render target for the OES -> 2D copy pass. It is sized to
-    // the GLSurfaceView viewport and recreated whenever the EGL surface size
+    // the view viewport and recreated whenever the EGL surface size
     // changes. All access happens on the GL thread.
     private var intermediateFbo = 0
     private var intermediateTexture = 0
@@ -201,12 +203,12 @@ class LutPreviewRenderer(
         lightLeak = params.lightLeak
         grainStrength = params.grainStrength
         grainChroma = params.grainChroma
-        glSurfaceView.requestRender()
+        onRequestRender()
     }
 
     fun setFlipH(value: Boolean) {
         flipH = value
-        glSurfaceView.requestRender()
+        onRequestRender()
     }
 
     /**
@@ -216,7 +218,7 @@ class LutPreviewRenderer(
     fun setLut(lut: CubeLut?) {
         activeLut = lut
         pendingLut = lut
-        glSurfaceView.requestRender()
+        onRequestRender()
     }
 
     fun setSurfaceBufferSize(width: Int, height: Int) {
@@ -238,14 +240,22 @@ class LutPreviewRenderer(
     // SurfaceTexture.OnFrameAvailableListener
 
     override fun onFrameAvailable(surfaceTexture: SurfaceTexture?) {
-        glSurfaceView.requestRender()
+        onRequestRender()
     }
 
     // ------------------------------------------------------------------
-    // GLSurfaceView.Renderer
+    // GL lifecycle — driven by LutPreviewView's render thread with its
+    // manually-managed EGL context current.
 
-    override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
-        // A GLSurfaceView may recreate its EGL context after pause/resume.
+    /**
+     * (Re)initializes all GL state. Called whenever the view creates a fresh
+     * EGL context (TextureView surface available). Mirrors the old
+     * GLSurfaceView onSurfaceCreated contract: the previous camera
+     * SurfaceTexture is released and CameraX must re-provide a surface,
+     * which the existing rebind path already handles.
+     */
+    fun onGlContextCreated() {
+        // A fresh EGL context invalidates everything from the previous one.
         // Release the old SurfaceTexture first, then delete any resources that
         // still belong to the current context. Deletion is harmless after a
         // context loss, while doing it here also avoids leaks if the same EGL
@@ -372,14 +382,14 @@ class LutPreviewRenderer(
         GLES20.glPixelStorei(GLES20.GL_UNPACK_ALIGNMENT, 1)
     }
 
-    override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
+    fun onGlSurfaceChanged(width: Int, height: Int) {
         viewWidth = width
         viewHeight = height
         GLES20.glViewport(0, 0, width, height)
         ensureIntermediateTarget(width, height)
     }
 
-    override fun onDrawFrame(gl: GL10?) {
+    fun drawFrame() {
         // Upload any pending LUT on the GL thread.
         pendingLut?.let { uploadLut(it); pendingLut = null }
 

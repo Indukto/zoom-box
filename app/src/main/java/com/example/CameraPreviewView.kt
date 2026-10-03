@@ -246,11 +246,13 @@ fun CameraPreviewView(
 
     // Filtered styles use the OpenGL preview so their LUT/effects are rendered
     // live. NORMAL deliberately uses CameraX's stock PreviewView instead of
-    // the custom GLSurfaceView: the latter is a SurfaceView whose buffer can
-    // be resized during the first edge-to-edge Compose layout pass (the Pixel
-    // logcat shows that as a BLASTBufferQueue size mismatch and an abandoned
-    // consumer). Normal has no GPU effects to justify that extra surface, so
-    // keeping it on the stable CameraX path avoids the startup race entirely.
+    // the custom GL view: the latter owns an extra EGL context whose buffer
+    // can be resized during the first edge-to-edge Compose layout pass (the
+    // Pixel logcat shows that as a BLASTBufferQueue size mismatch and an
+    // abandoned consumer). Normal has no GPU effects to justify that extra
+    // surface, so keeping it on the stable CameraX path avoids the startup
+    // race entirely. Both views are TextureView-based (in-window), which is
+    // also what lets the control bubble's backdrop blur sample the video.
     val lutPreviewView = remember { LutPreviewView(context) }
     val normalPreviewView = remember {
         PreviewView(context).apply {

@@ -1,5 +1,5 @@
 [versions]
-agp = "9.3.1"
+agp = "9.4.1"
 coreKtx = "1.18.0"
 junit = "4.13.2"
 junitVersion = "1.3.0"
@@ -26,6 +26,10 @@ coilCompose = "2.7.0"
 kotlinxCoroutinesAndroid = "1.10.2"
 kotlinxCoroutinesCore = "1.10.2"
 accompanistPermissions = "0.37.3"
+# Haze 1.6.x: last line whose transitive graph (compose 1.8.0, stdlib 2.1.0)
+# and AAR metadata (minCompileSdk=1) fit this project's compileSdk 36 +
+# Kotlin 2.2. Haze 2.x needs compileSdk 37 and Kotlin 2.4 metadata.
+haze = "1.6.10"
 cameraCamera2 = "1.5.0"
 cameraLifecycle = "1.5.0"
 cameraView = "1.5.0"
@@ -65,6 +69,7 @@ coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coi
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutinesAndroid" }
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinxCoroutinesCore" }
 accompanist-permissions = { group = "com.google.accompanist", name = "accompanist-permissions", version.ref = "accompanistPermissions" }
+haze-core = { group = "dev.chrisbanes.haze", name = "haze", version.ref = "haze" }
 androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "cameraCamera2" }
 androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "cameraLifecycle" }
 androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "cameraView" }

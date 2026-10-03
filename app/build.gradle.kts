@@ -14,7 +14,7 @@ android {
     minSdk = 29
     targetSdk = 36
     versionCode = 1
-    versionName = "1.2.1"
+    versionName = "1.2.2"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -80,6 +80,7 @@ dependencies {
   implementation(libs.androidx.lifecycle.viewmodel.compose)
   // implementation(libs.androidx.navigation.compose)
   implementation(libs.coil.compose)
+  implementation(libs.haze.core)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
   testImplementation(libs.androidx.compose.ui.test.junit4)

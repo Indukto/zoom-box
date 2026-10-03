@@ -144,7 +144,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
 
     // Start in the pass-through route while persisted settings are loading.
     // CameraUi waits for settingsLoaded before creating any preview surface, so
-    // the startup route never flips from a LUT GLSurfaceView to PreviewView.
+    // the startup route never flips from the LUT GL view to PreviewView.
     private val _activePreset = MutableStateFlow(FilmPreset.NORMAL)
     val activePreset: StateFlow<FilmPreset> = _activePreset.asStateFlow()
 
