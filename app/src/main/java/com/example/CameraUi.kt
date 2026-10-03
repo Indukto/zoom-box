@@ -457,10 +457,10 @@ private fun PresetButton(
     content: @Composable BoxScope.() -> Unit
 ) {
     // Liquid-glass circle reusing the aux-button chrome: diagonal sheen +
-    // rim, amber glass when selected. 35 dp per the Figma preset ellipses.
+    // rim, amber glass when selected. 40 dp per the Figma preset ellipses.
     Box(
         modifier = modifier
-            .size(35.dp)
+            .size(40.dp)
             .auxGlass(active = isSelected)
             .clickable { onClick() },
         contentAlignment = Alignment.Center,
@@ -661,10 +661,11 @@ internal fun WhiteBalancePanel(
         }
         Spacer(modifier = Modifier.height(8.dp))
         // Content row (Figma `color balance` 295×125): 166×83 color field
-        // left, 2×2 preset grid right.
+        // left, 2×2 preset grid right (40 px circles → 10 dp gap keeps the
+        // 166 + 88 row inside the 264 dp content slot).
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             ColorPlot(
@@ -2367,20 +2368,20 @@ fun CameraActiveScreen(
                     colors = IconButtonDefaults.iconButtonColors(
                         containerColor = Color.Transparent
                     ),
-                    modifier = Modifier.size(45.dp).auxGlass(active = showGridLines).testTag("grid_overlay_button")
+                    modifier = Modifier.size(56.dp).auxGlass(active = showGridLines).testTag("grid_overlay_button")
                 ) {
                     Icon(
                         imageVector = if (showGridLines) Icons.Rounded.GridOn else Icons.Rounded.GridOff,
                         contentDescription = stringResource(R.string.grid_label),
                         tint = if (showGridLines) Color(0xFFFBBF24) else Color.White,
-                        modifier = Modifier.size(18.dp).rotate(animatedControlAngle)
+                        modifier = Modifier.size(22.dp).rotate(animatedControlAngle)
                     )
                 }
 
                 // Self-timer cycle button (liquid glass; amber glass on countdown)
                 Box(
                     modifier = Modifier
-                        .size(45.dp)
+                        .size(56.dp)
                         .auxGlass(active = selfTimerMode != 0)
                         .clickable {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -2394,13 +2395,13 @@ fun CameraActiveScreen(
                             imageVector = Icons.Rounded.Timer,
                             contentDescription = stringResource(R.string.timer_off_label),
                             tint = Color.White,
-                            modifier = Modifier.size(18.dp).rotate(animatedControlAngle)
+                            modifier = Modifier.size(22.dp).rotate(animatedControlAngle)
                         )
                     } else {
                         Text(
                             text = stringResource(R.string.self_timer_seconds, selfTimerMode),
                             color = Color(0xFFFBBF24),
-                            fontSize = 12.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -2415,7 +2416,7 @@ fun CameraActiveScreen(
                         viewModel.toggleFlash()
                     },
                     colors = IconButtonDefaults.iconButtonColors(containerColor = Color.Transparent),
-                    modifier = Modifier.size(45.dp).auxGlass(active = flashMode != 2).testTag("flash_toggle_button")
+                    modifier = Modifier.size(56.dp).auxGlass(active = flashMode != 2).testTag("flash_toggle_button")
                 ) {
                     Icon(
                         imageVector = when (flashMode) {
@@ -2425,7 +2426,7 @@ fun CameraActiveScreen(
                         },
                         contentDescription = stringResource(R.string.flash_label),
                         tint = if (flashMode == 2) Color.White else Color(0xFFFBBF24),
-                        modifier = Modifier.size(18.dp).rotate(animatedControlAngle)
+                        modifier = Modifier.size(22.dp).rotate(animatedControlAngle)
                     )
                 }
 
@@ -2436,13 +2437,13 @@ fun CameraActiveScreen(
                         viewModel.toggleCamera()
                     },
                     colors = IconButtonDefaults.iconButtonColors(containerColor = Color.Transparent),
-                    modifier = Modifier.size(45.dp).auxGlass().testTag("camera_flip_button")
+                    modifier = Modifier.size(56.dp).auxGlass().testTag("camera_flip_button")
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.FlipCameraAndroid,
                         contentDescription = stringResource(R.string.flip_camera_label),
                         tint = Color.White,
-                        modifier = Modifier.size(18.dp).rotate(animatedControlAngle)
+                        modifier = Modifier.size(22.dp).rotate(animatedControlAngle)
                     )
                 }
             }
