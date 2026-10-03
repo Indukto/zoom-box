@@ -143,6 +143,38 @@ class PhotoStore(private val context: Context) {
         return listPhotos(skipOrphanCleanup = skipOrphanCleanup)
     }
 
+    /**
+     * Batch variant of [deleteAndRefresh]: deletes every file (each public
+     * copy + its app-private mirror + MediaStore rows) and rescans exactly
+     * once, so multi-select deletes don't pay N full rescans.
+     */
+    fun deleteManyAndRefresh(files: Collection<File>, skipOrphanCleanup: Boolean = false): List<File> {
+        files.forEach { file ->
+            val privateMirror = privateDir()?.let { File(it, file.name) }
+            listOfNotNull(file, privateMirror).distinct().forEach { candidate ->
+                if (candidate.exists()) candidate.delete()
+            }
+            deleteMediaStoreRow(file)
+        }
+        return listPhotos(skipOrphanCleanup = skipOrphanCleanup)
+    }
+
+    /**
+     * Restores a previously deleted photo from raw bytes (delete-undo).
+     * Writes into the app-private working dir under the original [fileName]
+     * and re-inserts the public MediaStore mirror, mirroring the capture
+     * save path. Returns the restored File, or null on failure.
+     */
+    fun restoreBytes(fileName: String, bytes: ByteArray, isDng: Boolean): File? {
+        return try {
+            val dir = privateDir() ?: return null
+            val target = File(dir, fileName)
+            target.writeBytes(bytes)
+            if (isDng) saveDng(target) else saveJpeg(target)
+            target
+        } catch (e: Exception) { Log.e(TAG, "Error restoring photo", e); null }
+    }
+
     /** Reads [file]'s EXIF into display-ready [ExifData] labels. */
     fun readExif(file: File): ExifData {
         return try {

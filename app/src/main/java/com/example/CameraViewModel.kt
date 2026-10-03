@@ -86,6 +86,9 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
          * path is considered byte-stable against the CPU result.
          */
         const val USE_GPU_CAPTURE = true
+
+        /** Cap for delete-undo staging: bigger files delete without undo. */
+        const val MAX_UNDO_BYTES = 25 * 1024 * 1024
     }
 
     private val _selectedLensRole = MutableStateFlow(LensRole.PRIMARY)
@@ -316,6 +319,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                     _outputResolution.value = saved.outputResolution
                     _filmStyleScrollIndex.value = saved.filmStyleScrollIndex
                     _filmStyleScrollOffset.value = saved.filmStyleScrollOffset
+                    _favoritePhotos.value = saved.favoritePhotoNames
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -422,7 +426,13 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
 
     fun loadPhotos(context: Context) {
         viewModelScope.launch(Dispatchers.IO) {
-            _capturedPhotos.value = photoStore.listPhotos(skipOrphanCleanup = _isCapturing.value)
+            val fresh = photoStore.listPhotos(skipOrphanCleanup = _isCapturing.value)
+            _capturedPhotos.value = fresh
+            // Lazily prune favorites for photos that no longer exist.
+            val liveNames = fresh.map { it.name }.toSet()
+            if (_favoritePhotos.value.any { it !in liveNames }) {
+                _favoritePhotos.value = _favoritePhotos.value intersect liveNames
+            }
         }
     }
 
@@ -714,6 +724,162 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch { prefsRepo.saveOutputResolution(resolution) }
     }
     fun setSelectedPhoto(file: File?) { _selectedPhoto.value = file }
+
+    // ── Gallery redesign state ──────────────────────────────────────────
+    // Multi-select (grid selection mode). Paths, not Files, so selection
+    // survives list refreshes that swap File instances for the same photo.
+    private val _gallerySelection = MutableStateFlow<Set<String>>(emptySet())
+    val gallerySelection: StateFlow<Set<String>> = _gallerySelection.asStateFlow()
+
+    fun toggleGallerySelection(path: String) {
+        _gallerySelection.value = if (path in _gallerySelection.value) {
+            _gallerySelection.value - path
+        } else {
+            _gallerySelection.value + path
+        }
+    }
+    fun clearGallerySelection() { _gallerySelection.value = emptySet() }
+
+    // Starred photos, persisted by file name (survives reinstalls like the
+    // public MediaStore mirror). Pruned lazily on load, never on toggle.
+    private val _favoritePhotos = MutableStateFlow<Set<String>>(emptySet())
+    val favoritePhotos: StateFlow<Set<String>> = _favoritePhotos.asStateFlow()
+
+    fun isFavorite(file: File?): Boolean = file != null && file.name in _favoritePhotos.value
+
+    fun toggleFavorite(file: File?) {
+        if (file == null) return
+        _favoritePhotos.value = if (file.name in _favoritePhotos.value) {
+            _favoritePhotos.value - file.name
+        } else {
+            _favoritePhotos.value + file.name
+        }
+        viewModelScope.launch { prefsRepo.saveFavoritePhotoNames(_favoritePhotos.value) }
+    }
+
+    // Rotation-safe pending delete: the confirm dialog used to live in a
+    // composable-local `remember`, so rotating with the dialog open silently
+    // dropped it. The dialog now reads this flow.
+    private val _pendingDelete = MutableStateFlow<File?>(null)
+    val pendingDelete: StateFlow<File?> = _pendingDelete.asStateFlow()
+
+    fun requestDelete(file: File?) { _pendingDelete.value = file }
+    fun cancelDelete() { _pendingDelete.value = null }
+
+    // Delete-undo: the raw bytes staged before deletion (capped so a
+    // full-resolution capture can't blow the memory budget). `undoDelete`
+    // writes them back through PhotoStore and refreshes the gallery.
+    private data class DeletedBackup(val fileName: String, val bytes: ByteArray, val isDng: Boolean)
+    private var lastDeletedBackup: DeletedBackup? = null
+    private val _canUndoDelete = MutableStateFlow(false)
+    val canUndoDelete: StateFlow<Boolean> = _canUndoDelete.asStateFlow()
+
+    fun confirmDelete(context: Context, file: File) {
+        _pendingDelete.value = null
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val bytes = runCatching { file.readBytes() }.getOrNull()
+                val isDng = file.extension.lowercase() == "dng"
+                lastDeletedBackup = if (bytes != null && bytes.size <= MAX_UNDO_BYTES) {
+                    DeletedBackup(file.name, bytes, isDng)
+                } else null
+                deletePhotoInternal(file)
+                _canUndoDelete.value = lastDeletedBackup != null
+            } catch (e: Exception) { Log.e("CameraViewModel", "Error confirming delete", e) }
+        }
+    }
+
+    fun undoDelete(context: Context) {
+        val backup = lastDeletedBackup ?: return
+        lastDeletedBackup = null
+        _canUndoDelete.value = false
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                photoStore.restoreBytes(backup.fileName, backup.bytes, backup.isDng)
+                _capturedPhotos.value = photoStore.listPhotos(skipOrphanCleanup = _isCapturing.value)
+            } catch (e: Exception) { Log.e("CameraViewModel", "Error undoing delete", e) }
+        }
+    }
+
+    fun dismissUndo() {
+        lastDeletedBackup = null
+        _canUndoDelete.value = false
+    }
+
+    // EXIF cache: per-page decode+EXIF used to run on the main thread inside
+    // the pager. The UI calls `requestGalleryExif` and reads the cached
+    // entry; parsing happens once per file on IO.
+    private val _galleryExif = MutableStateFlow<Map<String, ExifData>>(emptyMap())
+    val galleryExif: StateFlow<Map<String, ExifData>> = _galleryExif.asStateFlow()
+
+    fun requestGalleryExif(file: File?) {
+        if (file == null || file.absolutePath in _galleryExif.value) return
+        viewModelScope.launch(Dispatchers.IO) {
+            val data = photoStore.readExif(file)
+            _galleryExif.value = _galleryExif.value + (file.absolutePath to data)
+        }
+    }
+
+    /**
+     * Batch delete for multi-select. Deletes everything, rescans once, then
+     * repairs selection: selected photo inside the deleted set advances to
+     * the same index (or last, or closes the viewer when empty).
+     */
+    fun deleteGalleryFiles(context: Context, files: List<File>) {
+        if (files.isEmpty()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                lastDeletedBackup = null
+                _canUndoDelete.value = false
+                val selected = _selectedPhoto.value
+                val selectedIndex = if (selected != null && selected in files) {
+                    _capturedPhotos.value.indexOf(selected)
+                } else -1
+                val deletedNames = files.map { it.name }.toSet()
+                val refreshed = photoStore.deleteManyAndRefresh(
+                    files, skipOrphanCleanup = _isCapturing.value
+                )
+                _capturedPhotos.value = refreshed
+                _gallerySelection.value = emptySet()
+                if (selectedIndex >= 0) {
+                    _selectedPhoto.value = when {
+                        selectedIndex in refreshed.indices -> refreshed[selectedIndex]
+                        refreshed.isNotEmpty() -> refreshed.last()
+                        else -> null
+                    }
+                } else if (selected != null && selected.name in deletedNames) {
+                    _selectedPhoto.value = refreshed.firstOrNull()
+                }
+                // Drop favorites for photos that no longer exist.
+                val liveNames = refreshed.map { it.name }.toSet()
+                if (_favoritePhotos.value.any { it !in liveNames }) {
+                    _favoritePhotos.value = _favoritePhotos.value intersect liveNames
+                    prefsRepo.saveFavoritePhotoNames(_favoritePhotos.value)
+                }
+            } catch (e: Exception) { Log.e("CameraViewModel", "Error batch deleting", e) }
+        }
+    }
+
+    // Shared single-delete choreography (stay-in-gallery advance), used by
+    // both the legacy `deletePhoto` path and `confirmDelete`.
+    private fun deletePhotoInternal(file: File) {
+        val wasSelected = _selectedPhoto.value == file
+        val insertionIndex = if (wasSelected) {
+            _capturedPhotos.value.indexOf(file)
+        } else -1
+        val refreshed = photoStore.deleteAndRefresh(
+            file,
+            skipOrphanCleanup = _isCapturing.value
+        )
+        _capturedPhotos.value = refreshed
+        if (wasSelected) {
+            _selectedPhoto.value = when {
+                insertionIndex in refreshed.indices -> refreshed[insertionIndex]
+                refreshed.isNotEmpty() -> refreshed.last()
+                else -> null
+            }
+        }
+    }
 
     /**
      * Called from a `snapshotFlow` collector in CameraUi every time the

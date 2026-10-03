@@ -2,4 +2,9 @@
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
     <external-files-path name="pictures" path="Pictures" />
     <cache-path name="cache" path="." />
+    <!-- Public mirror (Pictures/ZoomBoxCamera/ incl. RAW/): gallery hands out
+         these Files first (public wins in PhotoStore.listPhotos), so sharing
+         needs a configured root for them — without this getUriForFile throws
+         and share silently does nothing. -->
+    <external-path name="shared_pictures" path="Pictures/ZoomBoxCamera/" />
 </paths>

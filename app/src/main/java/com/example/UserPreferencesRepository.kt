@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.zoom.AspectRatio
 import com.example.zoom.CaptureExtension
@@ -68,6 +69,10 @@ class UserPreferencesRepository(private val context: Context) {
         private val FILM_STYLE_SCROLL_INDEX = intPreferencesKey("film_style_scroll_index")
         private val FILM_STYLE_SCROLL_OFFSET = intPreferencesKey("film_style_scroll_offset")
         private val OUTPUT_RESOLUTION = stringPreferencesKey("output_resolution")
+        // File names the user starred in the gallery. Stored by name (not
+        // absolute path) so favorites survive reinstalls the same way the
+        // public MediaStore mirror does.
+        private val FAVORITE_PHOTOS = stringSetPreferencesKey("favorite_photos")
     }
 
     data class Settings(
@@ -84,7 +89,8 @@ class UserPreferencesRepository(private val context: Context) {
         val selectedLensRole: LensRole = LensRole.PRIMARY,
         val filmStyleScrollIndex: Int = 0,
         val filmStyleScrollOffset: Int = 0,
-        val outputResolution: OutputResolution = OutputResolution.THREE_MEGAPIXEL
+        val outputResolution: OutputResolution = OutputResolution.THREE_MEGAPIXEL,
+        val favoritePhotoNames: Set<String> = emptySet()
     )
 
     val settingsFlow: Flow<Settings> = context.settingsDataStore.data.map { prefs ->
@@ -117,7 +123,8 @@ class UserPreferencesRepository(private val context: Context) {
             filmStyleScrollIndex = (prefs[FILM_STYLE_SCROLL_INDEX] ?: 0)
                 .coerceIn(0, FilmPreset.entries.size - 1),
             filmStyleScrollOffset = prefs[FILM_STYLE_SCROLL_OFFSET] ?: 0,
-            outputResolution = OutputResolution.fromKey(prefs[OUTPUT_RESOLUTION])
+            outputResolution = OutputResolution.fromKey(prefs[OUTPUT_RESOLUTION]),
+            favoritePhotoNames = prefs[FAVORITE_PHOTOS] ?: emptySet()
         )
     }
 
@@ -181,5 +188,9 @@ class UserPreferencesRepository(private val context: Context) {
 
     suspend fun saveOutputResolution(resolution: OutputResolution) {
         context.settingsDataStore.edit { it[OUTPUT_RESOLUTION] = resolution.name }
+    }
+
+    suspend fun saveFavoritePhotoNames(names: Set<String>) {
+        context.settingsDataStore.edit { it[FAVORITE_PHOTOS] = names }
     }
 }

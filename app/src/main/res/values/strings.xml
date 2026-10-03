@@ -48,6 +48,17 @@
     <!-- Photo viewer / gallery -->
     <string name="close_viewfinder_desc">Close Viewfinder</string>
     <string name="gallery_title">Gallery</string>
+    <string name="gallery_photos_suffix">photos</string>
+    <string name="gallery_selected_suffix">selected</string>
+    <string name="gallery_grid_desc">Grid view</string>
+    <string name="gallery_favorite_desc">Favorite photo</string>
+    <string name="gallery_show_more">Show more</string>
+    <string name="gallery_photo_deleted">Photo deleted</string>
+    <string name="gallery_share_failed">Couldn\'t share photo</string>
+    <string name="gallery_empty_title">No captures yet</string>
+    <string name="gallery_empty_message">Photos you take will appear here with their film data.</string>
+    <string name="gallery_empty_cta">Back to camera</string>
+    <string name="undo">Undo</string>
     <string name="share_chooser_title">Share Retro Photo</string>
     <string name="share_retro_capture_desc">Share retro capture</string>
     <string name="delete_captured_photo_desc">Delete captured photo</string>

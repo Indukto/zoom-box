@@ -233,13 +233,13 @@ private val PanelGlassRim: Brush = Brush.linearGradient(
         Color.White.copy(alpha = 0.05f),
         Color.White.copy(alpha = 0.06f)
     ),
-    start = Offset.Zero,
-    end = Offset.Infinite
+    start = Offset.Infinite,
+    end = Offset.Zero
 )
 
 /**
- * Liquid-glass fill for the round aux buttons, lit from the top-left: a
- * tight specular hotspot in the top-left corner over an otherwise clear
+ * Liquid-glass fill for the round aux buttons, lit from the bottom-right: a
+ * tight specular hotspot in the bottom-right corner over an otherwise clear
  * face, fading into dark translucent chrome — real glass keeps the middle
  * clean and puts the light on the edge, not a wash across the whole button.
  */
@@ -250,8 +250,8 @@ private fun auxGlassBackground(active: Boolean = false): Brush = Brush.linearGra
         1.0f to if (active) Color(0xFFFBBF24).copy(alpha = 0.14f)
         else Color(0xFF1C1C1E).copy(alpha = 0.55f)
     ),
-    start = Offset.Zero,
-    end = Offset.Infinite
+    start = Offset.Infinite,
+    end = Offset.Zero
 )
 
 private fun auxGlassBorder(active: Boolean = false): Brush = Brush.linearGradient(
@@ -260,8 +260,8 @@ private fun auxGlassBorder(active: Boolean = false): Brush = Brush.linearGradien
         0.40f to if (active) Color(0xFFFBBF24).copy(alpha = 0.12f) else Color.White.copy(alpha = 0.05f),
         1.0f to if (active) Color(0xFFFBBF24).copy(alpha = 0.12f) else Color.White.copy(alpha = 0.06f)
     ),
-    start = Offset.Zero,
-    end = Offset.Infinite
+    start = Offset.Infinite,
+    end = Offset.Zero
 )
 
 /** Shared glass-chrome modifier for the 45dp round aux buttons. */
@@ -277,9 +277,9 @@ private fun Modifier.deckGlass(active: Boolean = false): Modifier = this
     .border(1.25.dp, deckGlassBorder(active), RoundedCornerShape(14.dp))
 
 /**
- * Deck-tile glass fill, lit from the top-left like [auxGlassBackground]: the
- * specular lives on the top-left corner and falls off toward the
- * bottom-right, so every tile shares one light direction.
+ * Deck-tile glass fill, lit from the bottom-right like [auxGlassBackground]: the
+ * specular lives on the bottom-right corner and falls off toward the
+ * top-left, so every tile shares one light direction.
  */
 private fun deckGlassBackground(active: Boolean = false): Brush = Brush.linearGradient(
     colorStops = arrayOf(
@@ -288,13 +288,13 @@ private fun deckGlassBackground(active: Boolean = false): Brush = Brush.linearGr
         1.0f to if (active) Color(0xFFFBBF24).copy(alpha = 0.14f)
         else Color(0xFF1C1C1E).copy(alpha = 0.55f)
     ),
-    start = Offset.Zero,
-    end = Offset.Infinite
+    start = Offset.Infinite,
+    end = Offset.Zero
 )
 
 /**
- * Deck-tile glass rim, brightest on the top-left (0.0) stop and quiet at the
- * bottom-right (1.0) — matching a top-left key light.
+ * Deck-tile glass rim, brightest on the bottom-right (0.0) stop and quiet at the
+ * top-left (1.0) — matching a bottom-right key light.
  */
 private fun deckGlassBorder(active: Boolean = false): Brush = Brush.linearGradient(
     colorStops = arrayOf(
@@ -302,8 +302,8 @@ private fun deckGlassBorder(active: Boolean = false): Brush = Brush.linearGradie
         0.40f to if (active) Color(0xFFFBBF24).copy(alpha = 0.14f) else Color.White.copy(alpha = 0.07f),
         1.0f to if (active) Color(0xFFFBBF24).copy(alpha = 0.14f) else Color.White.copy(alpha = 0.08f)
     ),
-    start = Offset.Zero,
-    end = Offset.Infinite
+    start = Offset.Infinite,
+    end = Offset.Zero
 )
 
 /**
@@ -1060,8 +1060,8 @@ private fun FloatingBubbleRow(
             // True backdrop blur over the live video (spec `bubble-surface`:
             // black 20% + blur). Both preview paths composite in-window, so
             // Haze samples the actual video frame. The hairline glass rim
-            // shares the top-left key light: hot top-left corner, quiet
-            // bottom-right.
+            // shares the bottom-right key light: hot bottom-right corner,
+            // quiet top-left.
             .clip(RoundedCornerShape(26.dp))
             .hazeEffect(state = hazeState, style = BubbleHazeStyle)
             .border(
@@ -1072,8 +1072,8 @@ private fun FloatingBubbleRow(
                         Color.White.copy(alpha = 0.05f),
                         Color.White.copy(alpha = 0.08f)
                     ),
-                    start = Offset.Zero,
-                    end = Offset.Infinite
+                    start = Offset.Infinite,
+                    end = Offset.Zero
                 ),
                 RoundedCornerShape(26.dp)
             )
@@ -1095,8 +1095,8 @@ private fun FloatingBubbleRow(
         Box(
             modifier = Modifier
                 // Spec `Rectangle 3`: 52.68px tall, full-pill radius 26px.
-                // Liquid glass: top-left sheen over the grey tint, falling
-                // off toward the bottom-right — same key light as the rest
+                // Liquid glass: bottom-right sheen over the grey tint, falling
+                // off toward the top-left — same key light as the rest
                 // of the chrome. Subtle on purpose — the pill already floats
                 // on the blurred bubble, so it only needs an edge to read
                 // as glass.
@@ -1111,8 +1111,8 @@ private fun FloatingBubbleRow(
                             1.0f to if (isFrontCamera) Color.White.copy(alpha = 0.02f)
                             else Color(0xFFB1B1B1).copy(alpha = 0.04f)
                         ),
-                        start = Offset.Zero,
-                        end = Offset.Infinite
+                        start = Offset.Infinite,
+                        end = Offset.Zero
                     ),
                     shape = RoundedCornerShape(26.dp)
                 )
@@ -1124,8 +1124,8 @@ private fun FloatingBubbleRow(
                             0.40f to Color.White.copy(alpha = 0.05f),
                             1.0f to Color.White.copy(alpha = 0.07f)
                         ),
-                        start = Offset.Zero,
-                        end = Offset.Infinite
+                        start = Offset.Infinite,
+                        end = Offset.Zero
                     ),
                     RoundedCornerShape(26.dp)
                 )
@@ -2401,7 +2401,9 @@ fun CameraActiveScreen(
         val activePreset by viewModel.activePreset.collectAsState()
         val selfTimerMode by viewModel.selfTimerMode.collectAsState()
         var showPresetPicker by remember { mutableStateOf(false) }
-        var pendingDelete by remember { mutableStateOf<File?>(null) }
+        // Rotation-safe pending delete lives in the ViewModel (a local
+        // remember used to drop the dialog on rotation).
+        val pendingDelete by viewModel.pendingDelete.collectAsState()
 
         // Lambda that executes the actual capture, extracted so timer can call it.
         // `beginCapture()` is called immediately before the hardware call (NOT
@@ -2870,7 +2872,7 @@ fun CameraActiveScreen(
         // dialog first, not the viewer underneath.
         pendingDelete?.let { fileToDelete ->
             AlertDialog(
-                onDismissRequest = { pendingDelete = null },
+                onDismissRequest = { viewModel.cancelDelete() },
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
@@ -2903,8 +2905,8 @@ fun CameraActiveScreen(
                             // first, then close the dialog. Flipping these two
                             // would dismiss the dialog before the file is gone
                             // and leave the user wondering if the tap registered.
-                            viewModel.deletePhoto(context, fileToDelete)
-                            pendingDelete = null
+                            // Bytes are staged for undo inside the ViewModel.
+                            viewModel.confirmDelete(context, fileToDelete)
                         },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFFEF4444),
@@ -2916,7 +2918,7 @@ fun CameraActiveScreen(
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { pendingDelete = null }) {
+                    TextButton(onClick = { viewModel.cancelDelete() }) {
                         Text(stringResource(R.string.cancel), color = Color.White)
                     }
                 },
@@ -2939,7 +2941,7 @@ fun CameraActiveScreen(
                     allPhotos = capturedPhotos,
                     viewModel = viewModel,
                     onClose = { viewModel.setSelectedPhoto(null) },
-                    onDelete = { file -> pendingDelete = file },
+                    onDelete = { file -> viewModel.requestDelete(file) },
                     onSelectPhoto = { viewModel.setSelectedPhoto(it) }
                 )
             }
@@ -2956,174 +2958,16 @@ fun PhotoViewerOverlay(
     onDelete: (File) -> Unit,
     onSelectPhoto: (File) -> Unit
 ) {
-    val context = LocalContext.current
-    val haptic = LocalHapticFeedback.current
-    val scope = rememberCoroutineScope()
-
-    val pagerState = rememberPagerState(
-        initialPage = initialPhotoIndex.coerceIn(0, (allPhotos.size - 1).coerceAtLeast(0)),
-        pageCount = { allPhotos.size }
+    // Redesigned gallery lives in GalleryScreen.kt (counter/date header,
+    // EXIF chip, pinch-zoom + swipe-dismiss, grid overview, multi-select,
+    // MIME-correct share, undo). The legacy callbacks are kept so existing
+    // call sites keep compiling; delete + selection route through the
+    // ViewModel inside GalleryViewer now.
+    GalleryViewer(
+        photos = allPhotos,
+        initialIndex = initialPhotoIndex,
+        viewModel = viewModel,
+        onClose = onClose
     )
-
-    LaunchedEffect(pagerState.currentPage) {
-        if (allPhotos.isNotEmpty()) {
-            onSelectPhoto(allPhotos[pagerState.currentPage])
-        }
-    }
-
-    BackHandler(onBack = onClose)
-
-    // Outer Column keeps its original top = 16 dp baseline so non-cutout
-    // phones see no visual change. The cutout-safe offset is supplied by
-    // the inner Row below.
-    Column(
-        modifier = Modifier.fillMaxSize().background(Color.Black).padding(top = 16.dp)
-    ) {
-        val currentPhoto = allPhotos.getOrNull(pagerState.currentPage)
-        // displayCutoutPadding() pads by the device's display-cutout inset
-        // only where one exists: center cutouts get top padding (~32 dp on
-        // Pixel 6+ / Dynamic Island on iPhone 14 Pro), top-LEFT/TOP-RIGHT
-        // corner cutouts get vertical AND horizontal padding (Pixel 6 Pro,
-        // OnePlus 7, Galaxy S). Non-cutout phones report a 0 dp inset, so
-        // the X + "Gallery" row sits at the original y-offset.
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .displayCutoutPadding()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            IconButton(
-                onClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onClose() },
-                colors = IconButtonDefaults.iconButtonColors(containerColor = Color(0xFF1C1C1E))
-            ) {
-                Icon(imageVector = Icons.Rounded.Close, contentDescription = stringResource(R.string.close_viewfinder_desc), tint = Color.White)
-            }
-
-            Text(
-                text = stringResource(R.string.gallery_title),
-                fontSize = 15.sp, color = Color.White, fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp, fontFamily = Inter
-            )
-
-            if (currentPhoto != null) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    IconButton(
-                        onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            try {
-                                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", currentPhoto)
-                                val intent = Intent(Intent.ACTION_SEND).apply {
-                                    type = "image/jpeg"
-                                    putExtra(Intent.EXTRA_STREAM, uri)
-                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                }
-                                context.startActivity(Intent.createChooser(intent, context.getString(R.string.share_chooser_title)))
-                            } catch (e: Exception) { Log.e("PhotoViewerOverlay", "Error sharing photo", e) }
-                        },
-                        colors = IconButtonDefaults.iconButtonColors(containerColor = Color(0xFF1C1C1E))
-                    ) {
-                        Icon(imageVector = Icons.Rounded.Share, contentDescription = stringResource(R.string.share_retro_capture_desc), tint = Color.White, modifier = Modifier.size(18.dp))
-                    }
-
-                    IconButton(
-                        onClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onDelete(currentPhoto) },
-                        colors = IconButtonDefaults.iconButtonColors(containerColor = Color(0xFF2A1C1C)),
-                        modifier = Modifier.testTag("delete_photo_button")
-                    ) {
-                        Icon(imageVector = Icons.Rounded.Delete, contentDescription = stringResource(R.string.delete_captured_photo_desc), tint = Color(0xFFEF4444), modifier = Modifier.size(18.dp))
-                    }
-                }
-            }
-        }
-
-        // Photo Pager
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier.weight(1f).fillMaxWidth(),
-            beyondViewportPageCount = 1
-        ) { page ->
-            val photo = allPhotos[page]
-
-            var photoDims by remember(photo) { mutableStateOf<IntSize?>(null) }
-            LaunchedEffect(photo) {
-                val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                BitmapFactory.decodeFile(photo.absolutePath, options)
-                var w = options.outWidth
-                var h = options.outHeight
-                if (w > 0 && h > 0) {
-                    // BitmapFactory reports the raw pixel dimensions, but Coil
-                    // renders the image with the EXIF orientation applied (it
-                    // respects the tag by default). Swap the bounds for 90°/
-                    // 270° rotations so the card aspect matches the rendered
-                    // image — without this, a horizontal (landscape) photo
-                    // carrying an EXIF rotation would be framed by a
-                    // portrait-shaped card and vice versa.
-                    val orientation = try {
-                        ExifInterface(photo.absolutePath).getAttributeInt(
-                            ExifInterface.TAG_ORIENTATION,
-                            ExifInterface.ORIENTATION_NORMAL
-                        )
-                    } catch (e: Exception) { ExifInterface.ORIENTATION_NORMAL }
-                    if (orientation == ExifInterface.ORIENTATION_ROTATE_90 ||
-                        orientation == ExifInterface.ORIENTATION_ROTATE_270 ||
-                        orientation == ExifInterface.ORIENTATION_TRANSPOSE ||
-                        orientation == ExifInterface.ORIENTATION_TRANSVERSE) {
-                        w = h.also { h = w }
-                    }
-                    photoDims = IntSize(w, h)
-                }
-            }
-            val photoAspect = photoDims?.let { d -> d.width.toFloat() / d.height.toFloat() } ?: (1f / 1.35f)
-
-            BoxWithConstraints(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                // Show the photo exactly as saved: the film-card frame, when
-                // enabled, is baked into the JPEG itself, so the gallery just
-                // renders the file as-is (no double frame). Size it to fit the
-                // available area while preserving the photo's aspect ratio:
-                // width-bound for portrait shots, height-bound for horizontal
-                // (landscape) shots so a wide image fills the screen instead
-                // of overflowing (or shrinking to a strip) when the device is
-                // held sideways.
-                val imgWidth = minOf(maxWidth, maxHeight * photoAspect)
-                val imgHeight = imgWidth / photoAspect
-                Image(
-                    painter = rememberAsyncImagePainter(model = photo),
-                    contentDescription = stringResource(R.string.enlarged_capture_desc),
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.width(imgWidth).height(imgHeight)
-                )
-            }
-        }
-
-        // Filmstrip
-        Spacer(modifier = Modifier.height(16.dp))
-        Box(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
-            LazyRow(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                items(items = allPhotos, key = { it.absolutePath }) { item ->
-                    val idx = allPhotos.indexOf(item)
-                    val isSelected = idx == pagerState.currentPage
-                    Box(
-                        modifier = Modifier
-                            .size(62.dp).clip(RoundedCornerShape(6.dp))
-                            .border(width = if (isSelected) 3.dp else 0.dp, color = if (isSelected) Color(0xFFF59E0B) else Color.Transparent, shape = RoundedCornerShape(6.dp))
-                            .clickable {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                scope.launch { pagerState.animateScrollToPage(idx) }
-                            }
-                    ) {
-                        Image(painter = rememberAsyncImagePainter(model = item), contentDescription = stringResource(R.string.filmstrip_photo_desc), contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                    }
-                }
-            }
-        }
-    }
 }
 
