@@ -235,7 +235,7 @@ class LutPreviewRenderer(
      */
     fun setGlassOverlay(overlay: GlassOverlay?) {
         glassOverlay = overlay
-        glSurfaceView.requestRender()
+        onRequestRender()
     }
 
     fun setSurfaceBufferSize(width: Int, height: Int) {
