@@ -267,6 +267,12 @@ private fun Modifier.auxGlass(active: Boolean = false): Modifier = this
     .background(auxGlassBackground(active), CircleShape)
     .border(1.dp, auxGlassBorder(active), CircleShape)
 
+/** Same liquid-glass chrome for the 14dp rounded bottom-deck tiles. */
+private fun Modifier.deckGlass(active: Boolean = false): Modifier = this
+    .clip(RoundedCornerShape(14.dp))
+    .background(auxGlassBackground(active), RoundedCornerShape(14.dp))
+    .border(1.dp, auxGlassBorder(active), RoundedCornerShape(14.dp))
+
 /**
  * ZoomBox Figma spec (393×852 `zoombox-camera-main-screen`).
  * All fractions are relative to the full screen so the layout scales to
@@ -910,13 +916,39 @@ private fun FloatingBubbleRow(
         }
         Box(
             modifier = Modifier
-                // Spec `Rectangle 3`: 52.68px tall, rgba(177,177,177,0.12),
-                // full-pill radius 26px, "38" in JetBrains Mono 700 16px.
+                // Spec `Rectangle 3`: 52.68px tall, full-pill radius 26px.
+                // Liquid glass: faint diagonal sheen over the grey tint +
+                // hairline rim, same -45° light as the rest of the chrome.
+                // Subtle on purpose — the pill already floats on the blurred
+                // bubble, so it only needs an edge to read as glass.
                 .height(52.dp)
                 .clip(RoundedCornerShape(26.dp))
                 .background(
-                    if (isFrontCamera) Color.White.copy(alpha = 0.06f)
-                    else Color(0xFFB1B1B1).copy(alpha = 0.12f)
+                    brush = Brush.linearGradient(
+                        colorStops = arrayOf(
+                            0.0f to Color.White.copy(alpha = 0.10f),
+                            0.35f to if (isFrontCamera) Color.White.copy(alpha = 0.06f)
+                            else Color(0xFFB1B1B1).copy(alpha = 0.12f),
+                            1.0f to if (isFrontCamera) Color.White.copy(alpha = 0.06f)
+                            else Color(0xFFB1B1B1).copy(alpha = 0.12f)
+                        ),
+                        start = Offset.Zero,
+                        end = Offset.Infinite
+                    ),
+                    shape = RoundedCornerShape(26.dp)
+                )
+                .border(
+                    1.dp,
+                    Brush.linearGradient(
+                        colorStops = arrayOf(
+                            0.0f to Color.White.copy(alpha = 0.20f),
+                            0.45f to Color.White.copy(alpha = 0.04f),
+                            1.0f to Color.White.copy(alpha = 0.10f)
+                        ),
+                        start = Offset.Zero,
+                        end = Offset.Infinite
+                    ),
+                    RoundedCornerShape(26.dp)
                 )
                 .clickable(enabled = !isFrontCamera) { onLensClick() }
                 .padding(horizontal = 16.dp)
@@ -2454,15 +2486,12 @@ fun CameraActiveScreen(
                     .padding(start = 24.dp, end = 21.dp),
                 contentAlignment = Alignment.Center
             ) {
-                // Left: last-captured thumbnail card (spec `gallery-button`:
-                // ~59px square, #1C1C1E).
+                // Left: last-captured thumbnail card with liquid-glass chrome.
                 Box(
                     modifier = Modifier
                         .align(Alignment.CenterStart)
                         .size(60.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Color(0xFF1C1C1E))
-                        .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(14.dp))
+                        .deckGlass()
                         .clickable {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             if (capturedPhotos.isNotEmpty()) viewModel.setSelectedPhoto(capturedPhotos.first())
@@ -2537,15 +2566,13 @@ fun CameraActiveScreen(
                     )
                 }
 
-                // Right: Retro camera preset picker button (spec `preset-button`:
-                // ~62px square, #1C1C1E, neutral border, live swatch).
+                // Right: Retro camera preset picker button with liquid-glass
+                // chrome, live swatch.
                 Box(
                     modifier = Modifier
                         .align(Alignment.CenterEnd)
                         .size(62.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Color(0xFF1C1C1E))
-                        .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(14.dp))
+                        .deckGlass()
                         .clickable {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             showPresetPicker = true
