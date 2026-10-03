@@ -548,8 +548,9 @@ private fun tempToKelvin(temp: Float): Int {
  * 0 detent in both directions over a dim track, with a glass thumb that
  * gains an amber ring whenever the value leaves center. 61 snapped stops
  * (-3..3 EV in 1/10 steps); M3 handles tap-to-set, drag, ripple, and
- * accessibility. Reported values are re-quantized to kill float drift
- * (0.30000004) and keep the exact center reading exactly 0.
+ * accessibility. Double-tapping the thumb circle resets to 0 EV. Reported
+ * values are re-quantized to kill float drift (0.30000004) and keep the
+ * exact center reading exactly 0.
  */
 @Composable
 private fun CenteredEvSlider(
@@ -575,6 +576,13 @@ private fun CenteredEvSlider(
                 Box(
                     modifier = Modifier
                         .size(22.dp)
+                        .pointerInput(value) {
+                            detectTapGestures(
+                                onDoubleTap = {
+                                    if (value != 0f) onValueChange(0f)
+                                }
+                            )
+                        }
                         .background(Color.White, CircleShape)
                         .border(
                             2.dp,
