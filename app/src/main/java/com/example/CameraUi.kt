@@ -505,7 +505,6 @@ private fun filmPresetColor(preset: FilmPreset): Color = when (preset) {
     FilmPreset.STREET_MONO_400    -> Color(0xFF3B3B3B)
     FilmPreset.VIVID_COOL_400     -> Color(0xFF2E9E8F)
     FilmPreset.CCD_DIGICAM        -> Color(0xFF5A7D8C)
-    FilmPreset.PASTEL_INSTANT     -> Color(0xFFE8A0B8)
     // Slightly darker than the surrounding chrome so the "no grade"
     // chip reads as a deliberate preset on the picker bar instead of
     // visually disappearing into the dim chrome of the rest of the row.
@@ -525,7 +524,6 @@ private fun filmPresetEmoji(preset: FilmPreset): String = when (preset) {
     FilmPreset.STREET_MONO_400    -> "🖤"
     FilmPreset.VIVID_COOL_400     -> "🍃"
     FilmPreset.CCD_DIGICAM        -> "📟"
-    FilmPreset.PASTEL_INSTANT     -> "🌸"
     FilmPreset.NORMAL              -> "📷"
 }
 
@@ -2797,7 +2795,7 @@ fun CameraActiveScreen(
                                 contentAlignment = Alignment.BottomStart
                             ) {
                                 // Bottom scrim so the name stays legible on
-                                // the lightest styles (Pastel, Golden, …).
+                                // the lightest styles (Golden, Sunlit Spill, …).
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
