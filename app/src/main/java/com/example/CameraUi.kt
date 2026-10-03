@@ -2350,12 +2350,13 @@ fun CameraActiveScreen(
             verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
             // ── Row 1: Auxiliary Controls ──────────────────────────────
-            // Spec `aux-row`: sides 7.63%/7.38% (~30dp/29dp on 393px wide),
-            // height ~45px. Active Trot (grid) uses rgba(251,191,36,0.2).
+            // Outer 56dp buttons centered above the 60dp gallery / 62dp
+            // preset tiles below (24/30 and 21/31 insets) → 26/24dp here.
+            // Tighter side insets also widen the inner gaps (SpaceBetween).
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 30.dp, end = 29.dp, top = 10.dp, bottom = 10.dp),
+                    .padding(start = 26.dp, end = 24.dp, top = 6.dp, bottom = 14.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
