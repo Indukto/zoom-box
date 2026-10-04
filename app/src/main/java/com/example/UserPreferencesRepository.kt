@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.example.color.profileId
 import com.example.zoom.AspectRatio
 import com.example.zoom.CaptureExtension
 import com.example.zoom.LensRole
@@ -49,9 +50,39 @@ enum class OutputResolution(val inSampleSize: Int) {
 class UserPreferencesRepository(private val context: Context) {
 
     companion object {
+        /**
+         * The look the user last picked, stored as a [CameraProfileRegistry]
+         * look id (`"warm_portrait"`) rather than a [FilmPreset] enum name
+         * (`"WARM_PORTRAIT"`). The DataStore key string itself is unchanged,
+         * so existing installs keep their selection; [resolveLookId] translates
+         * the legacy enum names written before the registry-driven picker.
+         *
+         * An id that no longer resolves is preserved verbatim instead of being
+         * rewritten to the default: a look whose asset fails to load on one
+         * launch must not silently erase the user's choice.
+         */
+        val DEFAULT_LOOK_ID: String = FilmPreset.WARM_PORTRAIT.profileId
+
+        /**
+         * Upper bound for the legacy Film-Style scroll index. The grid picker
+         * that replaced the old LazyRow no longer reads this, so the clamp is
+         * a fixed sanity bound rather than the size of a particular catalog.
+         */
+        private const val MAX_LEGACY_SCROLL_INDEX = 63
+
+        /** Maps a persisted value (look id or legacy enum name) to a look id. */
+        fun resolveLookId(stored: String?): String {
+            val raw = stored?.trim().orEmpty()
+            if (raw.isEmpty()) return DEFAULT_LOOK_ID
+            // Legacy installs stored the enum name. Exact match first so a
+            // future enum/asset id collision can't be resolved the wrong way.
+            FilmPreset.entries.firstOrNull { it.name == raw }?.let { return it.profileId }
+            return raw.lowercase()
+        }
+
         private val RAW_MODE = booleanPreferencesKey("raw_mode")
         private val ASPECT_RATIO = stringPreferencesKey("aspect_ratio")
-        private val ACTIVE_PRESET = stringPreferencesKey("active_preset")
+        private val ACTIVE_LOOK = stringPreferencesKey("active_preset")
         private val FLASH_MODE = intPreferencesKey("flash_mode")
         private val SHOW_GRID_LINES = booleanPreferencesKey("show_grid_lines")
         private val GALLERY_FRAME = booleanPreferencesKey("gallery_frame")
@@ -78,7 +109,8 @@ class UserPreferencesRepository(private val context: Context) {
     data class Settings(
         val rawModeEnabled: Boolean = false,
         val aspectRatio: AspectRatio = AspectRatio.DEFAULT,
-        val activePreset: FilmPreset = FilmPreset.WARM_PORTRAIT,
+        /** Active look id — see [ACTIVE_LOOK]. */
+        val activeLookId: String = DEFAULT_LOOK_ID,
         val flashMode: Int = 0,
         val showGridLines: Boolean = false,
         val showGalleryFrame: Boolean = false,
@@ -99,9 +131,7 @@ class UserPreferencesRepository(private val context: Context) {
             aspectRatio = prefs[ASPECT_RATIO]?.let { name ->
                 try { AspectRatio.valueOf(name) } catch (_: Exception) { AspectRatio.DEFAULT }
             } ?: AspectRatio.DEFAULT,
-            activePreset = prefs[ACTIVE_PRESET]?.let { name ->
-                try { FilmPreset.valueOf(name) } catch (_: Exception) { FilmPreset.WARM_PORTRAIT }
-            } ?: FilmPreset.WARM_PORTRAIT,
+            activeLookId = resolveLookId(prefs[ACTIVE_LOOK]),
             flashMode = prefs[FLASH_MODE] ?: 0,
             showGridLines = prefs[SHOW_GRID_LINES] ?: false,
             showGalleryFrame = prefs[GALLERY_FRAME] ?: false,
@@ -114,14 +144,13 @@ class UserPreferencesRepository(private val context: Context) {
             selectedLensRole = prefs[SELECTED_LENS_ROLE]?.let { name ->
                 try { LensRole.valueOf(name) } catch (_: Exception) { LensRole.PRIMARY }
             } ?: LensRole.PRIMARY,
-            // Clamp to a sane non-negative index, and to the current enum
-            // size so a previously persisted out-of-range index (saved
-            // before a preset was added/removed — e.g. NORMAL shifting
-            // from index 8 → 9 when a new preset is inserted before it)
-            // doesn't strand the LazyListState on a non-existent chip.
-            // The Compose layer clamps again with the same upper bound.
+            // Clamp to a sane non-negative index so a previously persisted
+            // out-of-range index (saved before a preset was added/removed)
+            // can't be handed back to the picker. The grid picker that
+            // replaced the LazyRow ignores this entirely; it is kept so the
+            // persisted keys stay readable.
             filmStyleScrollIndex = (prefs[FILM_STYLE_SCROLL_INDEX] ?: 0)
-                .coerceIn(0, FilmPreset.entries.size - 1),
+                .coerceIn(0, MAX_LEGACY_SCROLL_INDEX),
             filmStyleScrollOffset = prefs[FILM_STYLE_SCROLL_OFFSET] ?: 0,
             outputResolution = OutputResolution.fromKey(prefs[OUTPUT_RESOLUTION]),
             favoritePhotoNames = prefs[FAVORITE_PHOTOS] ?: emptySet()
@@ -136,8 +165,8 @@ class UserPreferencesRepository(private val context: Context) {
         context.settingsDataStore.edit { it[ASPECT_RATIO] = ratio.name }
     }
 
-    suspend fun saveActivePreset(preset: FilmPreset) {
-        context.settingsDataStore.edit { it[ACTIVE_PRESET] = preset.name }
+    suspend fun saveActiveLookId(lookId: String) {
+        context.settingsDataStore.edit { it[ACTIVE_LOOK] = lookId }
     }
 
     suspend fun saveFlashMode(mode: Int) {
