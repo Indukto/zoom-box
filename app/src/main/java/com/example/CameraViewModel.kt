@@ -35,6 +35,9 @@ import com.example.color.CameraProfileRegistry
 import com.example.color.GpuCaptureProcessor
 import com.example.color.RetroRenderParams
 import com.example.color.applyRetroFilter
+import com.example.color.DoubleExposure
+import com.example.color.LookEntry
+import com.example.color.profileId
 // The former standalone LutColorFilter class was removed when its trilinear
 // blend got inlined into applyRetroFilter's parallel chunks (one pixel pass total).
 import com.example.zoom.AspectRatio
@@ -148,8 +151,24 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     // Start in the pass-through route while persisted settings are loading.
     // CameraUi waits for settingsLoaded before creating any preview surface, so
     // the startup route never flips from the LUT GL view to PreviewView.
-    private val _activePreset = MutableStateFlow(FilmPreset.NORMAL)
-    val activePreset: StateFlow<FilmPreset> = _activePreset.asStateFlow()
+    // Keyed by look id (not FilmPreset) so JSON-only looks are selectable
+    // too; FilmPreset.NORMAL's id is the pass-through default.
+    private val _activeLookId = MutableStateFlow(FilmPreset.NORMAL.profileId)
+    val activeLookId: StateFlow<String> = _activeLookId.asStateFlow()
+
+    // Every selectable look. Seeded synchronously from the enum (no asset I/O,
+    // so the picker can never render an empty grid) and replaced with the
+    // registry catalog once the IO warm-up below has scanned `assets/cameras/`
+    // — that pass is what adds JSON-only looks and any parameter tweaks.
+    private val _lookCatalog = MutableStateFlow(CameraProfileRegistry.enumEntries())
+    val lookCatalog: StateFlow<List<LookEntry>> = _lookCatalog.asStateFlow()
+
+    /**
+     * Display name for [lookId], for the swipe toast. Unknown ids fall back
+     * to the pass-through look's name rather than rendering an empty label.
+     */
+    fun lookDisplayName(lookId: String): String =
+        cameraProfileRegistry.entryFor(lookId)?.displayName ?: FilmPreset.NORMAL.displayName
 
     private val _settingsLoaded = MutableStateFlow(false)
     val settingsLoaded: StateFlow<Boolean> = _settingsLoaded.asStateFlow()
@@ -261,6 +280,16 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     private val _doubleExposureActive = MutableStateFlow(false)
     val doubleExposureActive: StateFlow<Boolean> = _doubleExposureActive.asStateFlow()
 
+    // The retained "previous exposure" the next shot composites onto, plus
+    // whether one exists yet (the Settings subtitle says so instead of the
+    // user wondering why enabling it changed nothing yet). Touched only from
+    // the capture coroutine, so no locking is needed around the bitmap
+    // itself; the boolean mirror is what the UI reads.
+    private var doubleExposureGhost: Bitmap? = null
+
+    private val _doubleExposureHasGhost = MutableStateFlow(false)
+    val doubleExposureHasGhost: StateFlow<Boolean> = _doubleExposureHasGhost.asStateFlow()
+
     // ── RAW capture mode ──────────────────────────────────────────────────
     // When true, the shutter routes through RawCapture.captureDng() instead of
     // the JPEG ImageCapture path. Capability-checked per lens via the catalog:
@@ -307,7 +336,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                 prefsRepo.settingsFlow.first().let { saved ->
                     _rawModeEnabled.value = saved.rawModeEnabled
                     _aspectRatio.value = saved.aspectRatio
-                    _activePreset.value = saved.activePreset
+                    _activeLookId.value = saved.activeLookId
                     _flashMode.value = saved.flashMode
                     _showGridLines.value = saved.showGridLines
                     _showGalleryFrame.value = saved.showGalleryFrame
@@ -350,6 +379,10 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch(Dispatchers.IO) {
             val app = getApplication<Application>()
             for (preset in FilmPreset.entries) loadLut(app, preset)
+            // Same warm-up for the catalog itself: `assets/cameras/` is read
+            // and parsed once here so the Film-Style picker never blocks on
+            // asset I/O the first time it is opened.
+            _lookCatalog.value = cameraProfileRegistry.catalog()
         }
 
         // ── MediaStore sync ─────────────────────────────────────────────────
@@ -589,12 +622,22 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     fun setExposure(value: Float) { _exposure.value = value.coerceIn(-3.0f, 3.0f) }
     fun setTemperature(value: Float) { _temperature.value = value.coerceIn(-2.0f, 2.0f) }
     fun setTint(value: Float) { _tint.value = value.coerceIn(-2.0f, 2.0f) }
-    fun setCameraPreset(preset: FilmPreset) {
-        _activePreset.value = preset
-        viewModelScope.launch { prefsRepo.saveActivePreset(preset) }
-        setTemperature(preset.defaultTemp)
-        setTint(preset.defaultTint)
-        setExposure(preset.defaultExposure)
+    fun setCameraPreset(preset: FilmPreset) = setLook(preset.profileId)
+
+    /**
+     * Selects the look named [lookId] from [CameraProfileRegistry.catalog].
+     * The profile owns the default WB/exposure the picker resets the sliders
+     * to, exactly like the enum used to — the bundled profiles mirror the
+     * enum, so every existing look resets to the same values as before.
+     * Unknown ids are ignored: they can't be selected again once rejected.
+     */
+    fun setLook(lookId: String) {
+        val profile = cameraProfileRegistry.profileFor(lookId) ?: return
+        _activeLookId.value = lookId
+        viewModelScope.launch { prefsRepo.saveActiveLookId(lookId) }
+        setTemperature(profile.look.temperature)
+        setTint(profile.look.tint)
+        setExposure(profile.look.exposure)
     }
 
     /**
@@ -609,37 +652,64 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
      * exposure / temperature / tint are applied exactly like a tap in
      * the bottom-sheet picker, and the choice is persisted.
      */
-    fun cycleCameraPreset(direction: Int) {
-        val ordered = FilmPreset.entries
+    fun cycleCameraPreset(direction: Int) = cycleLook(direction)
+
+    /**
+     * Step the active look by [direction] slots in catalog order, wrapping at
+     * the ends. Used by the viewfinder horizontal-swipe gesture so
+     * consecutive swipes walk the whole picker grid then loop back.
+     *
+     * @param direction +1 advances to the next look (swipe left);
+     *                  -1 advances to the previous look (swipe right).
+     * Delegates to [setLook] so the new look's default exposure /
+     * temperature / tint are applied exactly like a tap in the bottom-sheet
+     * picker, and the choice is persisted.
+     */
+    fun cycleLook(direction: Int) {
+        val ordered = lookCatalog.value.map { it.id }
         if (ordered.size <= 1) return
-        val currentIndex = ordered.indexOf(_activePreset.value).let { if (it < 0) 0 else it }
+        val currentIndex = ordered.indexOf(_activeLookId.value).let { if (it < 0) 0 else it }
         val step = if (direction >= 0) 1 else -1
         val nextIndex = ((currentIndex + step) % ordered.size + ordered.size) % ordered.size
-        val nextPreset = ordered[nextIndex]
-        if (nextPreset == _activePreset.value) return
-        setCameraPreset(nextPreset)
+        val nextLook = ordered[nextIndex]
+        if (nextLook == _activeLookId.value) return
+        setLook(nextLook)
     }
 
     /**
-     * Returns the parsed LUT for [preset], loading and caching it on first use.
-     * Returns null if the asset cannot be read (the pipeline then skips the
-     * LUT step and falls back to the manual color filters only).
+     * Returns the parsed LUT the capture pipeline should use for [lookId],
+     * loading and caching it on first use. The path comes from the
+     * registry's profile (so a JSON-only look, or a look whose bundled
+     * profile points somewhere else, grades the same way the viewfinder
+     * does). Returns null when the look has no LUT or the asset cannot be
+     * read — the pipeline then skips the LUT step and falls back to the
+     * manual color filters only.
      */
+    fun loadLut(context: Context, lookId: String): CubeLut? =
+        loadLutByPath(context, lutPathFor(lookId))
+
+    /** Enum-shaped wrapper around [loadLut]. */
     fun loadLut(context: Context, preset: FilmPreset): CubeLut? =
-        loadLutByPath(context, preset.assetPath)
+        loadLut(context, preset.profileId)
+
+    private fun lutPathFor(lookId: String): String =
+        cameraProfileRegistry.profileFor(lookId)?.look?.lutPath.orEmpty()
 
     /**
-     * Loads the LUT the *live preview* should use for [preset]. Differs from
-     * [loadLut] in that it honours the JSON look profile: the registry's
-     * `lutPath` wins when the profile is bundled, so a JSON profile that
-     * points at a different `.cube` grades the viewfinder exactly like the
-     * capture pipeline instead of silently using the enum's LUT.
+     * Loads the LUT the *live preview* should use for [lookId]. Honours the
+     * JSON look profile's `lutPath`, so a profile that points at a different
+     * `.cube` grades the viewfinder exactly like the capture pipeline.
      */
-    fun loadPreviewLut(context: Context, preset: FilmPreset): CubeLut? {
-        val profile = cameraProfileRegistry.profileFor(preset)
-        val path = profile.look.lutPath.ifBlank { preset.assetPath }
-        return loadLutByPath(context, path)
-    }
+    fun loadPreviewLut(context: Context, lookId: String): CubeLut? =
+        loadLutByPath(context, lutPathFor(lookId))
+
+    /** Enum-shaped wrapper around [loadPreviewLut]. */
+    fun loadPreviewLut(context: Context, preset: FilmPreset): CubeLut? =
+        loadPreviewLut(context, preset.profileId)
+
+    /** True when [lookId] grades nothing, i.e. the viewfinder stays unfiltered. */
+    fun isPassThroughLook(lookId: String): Boolean =
+        cameraProfileRegistry.isPassThrough(lookId)
 
     private fun loadLutByPath(context: Context, assetPath: String): CubeLut? {
         // Pass-through / no-grade preset (e.g. NORMAL): skip the parser
@@ -660,18 +730,24 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     /**
-     * The render snapshot the *live viewfinder* should show for [preset].
+     * The render snapshot the *live viewfinder* should show for [lookId].
      * Goes through the same [CameraProfileRegistry] as the capture pipeline
-     * ([renderParamsFor]), so JSON look profiles drive preview and capture
-     * from one source of truth — the viewfinder can no longer drift from the
-     * saved JPEG when a profile is tweaked in `assets/cameras/`.
+     * (`renderParamsFor`), so JSON look profiles drive preview and capture
+     * from one source of truth: the viewfinder can no longer drift from the
+     * saved JPEG when a profile is tweaked in `assets/cameras/`. An id with
+     * no bundled profile falls back to the neutral NORMAL look instead of
+     * failing the composition.
      */
     fun previewRenderParams(
-        preset: FilmPreset,
+        lookId: String,
         temperature: Float,
         tint: Float,
         exposure: Float
-    ): RetroRenderParams = cameraProfileRegistry.renderParamsFor(preset, temperature, tint, exposure)
+    ): RetroRenderParams =
+        cameraProfileRegistry.renderParamsFor(lookId, temperature, tint, exposure)
+            ?: cameraProfileRegistry.renderParamsFor(
+                FilmPreset.NORMAL, temperature, tint, exposure
+            )
     fun toggleFlash() {
         _flashMode.value = (_flashMode.value + 1) % 3
         viewModelScope.launch { prefsRepo.saveFlashMode(_flashMode.value) }
@@ -688,6 +764,9 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch { prefsRepo.saveFlashMode(clamped) }
     }
     fun toggleCamera() {
+        // A ghost from the rear lens over a selfie (or the reverse) is a
+        // compositing accident, not a double exposure: drop it with the lens.
+        clearDoubleExposureGhost()
         val nowFront = !_isFrontCamera.value
         _isFrontCamera.value = nowFront
         viewModelScope.launch { prefsRepo.saveIsFrontCamera(nowFront) }
@@ -727,9 +806,76 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         _selfTimerMode.value = mode
         viewModelScope.launch { prefsRepo.saveSelfTimerMode(mode) }
     }
-    fun toggleDoubleExposure() {
-        _doubleExposureActive.value = !_doubleExposureActive.value
-        viewModelScope.launch { prefsRepo.saveDoubleExposure(_doubleExposureActive.value) }
+    fun toggleDoubleExposure() = setDoubleExposureEnabled(!_doubleExposureActive.value)
+
+    /**
+     * Turns the double-exposure effect on or off. Switching it off also drops
+     * the retained ghost, so re-enabling starts a fresh sequence instead of
+     * resurrecting whatever frame happened to be in memory before.
+     */
+    fun setDoubleExposureEnabled(enabled: Boolean) {
+        if (_doubleExposureActive.value == enabled) return
+        _doubleExposureActive.value = enabled
+        if (!enabled) clearDoubleExposureGhost()
+        viewModelScope.launch { prefsRepo.saveDoubleExposure(enabled) }
+    }
+
+    /** Drops the retained ghost frame, if any. Safe to call at any time. */
+    fun clearDoubleExposureGhost() {
+        val ghost = doubleExposureGhost ?: return
+        doubleExposureGhost = null
+        _doubleExposureHasGhost.value = false
+        try {
+            if (!ghost.isRecycled) ghost.recycle()
+        } catch (_: Exception) {
+            // Recycling a bitmap that a half-finished capture is still
+            // sampling is the only realistic failure here, and losing the
+            // ghost is the intended outcome anyway.
+        }
+    }
+
+    /**
+     * Composites this (already graded) frame over the retained ghost and
+     * records the frame as the next ghost. Returns [this] when the effect is
+     * off, when no ghost exists yet, or when the ghost copy fails — the
+     * caller keeps its `!== ` recycle guard either way.
+     */
+    private fun Bitmap.applyDoubleExposure(): Bitmap {
+        val previous = doubleExposureGhost
+        if (previous == null || previous.isRecycled) {
+            // First shot of a sequence: nothing to expose it over yet, so it
+            // becomes the ghost the *next* shot composites onto.
+            rememberAsDoubleExposureGhost()
+            return this
+        }
+        val merged = try {
+            DoubleExposure.blend(this, previous)
+        } catch (e: Exception) {
+            Log.e("CameraViewModel", "Double exposure blend failed", e)
+            null
+        }
+        // Snapshot before returning: the caller recycles `this` as soon as a
+        // distinct merged bitmap exists, so the next ghost has to be copied
+        // while these pixels are still alive. This also frees the ghost the
+        // blend just consumed.
+        rememberAsDoubleExposureGhost()
+        return merged ?: this
+    }
+
+    /** Copies this frame into the retained ghost slot, freeing the old one. */
+    private fun Bitmap.rememberAsDoubleExposureGhost() {
+        val next = try {
+            DoubleExposure.prepareGhost(this)
+        } catch (e: Exception) {
+            Log.e("CameraViewModel", "Double exposure ghost snapshot failed", e)
+            null
+        }
+        val previous = doubleExposureGhost
+        doubleExposureGhost = next
+        _doubleExposureHasGhost.value = next != null
+        if (previous != null && previous !== next && !previous.isRecycled) {
+            try { previous.recycle() } catch (_: Exception) {}
+        }
     }
     fun setAspectRatio(ratio: AspectRatio) {
         _aspectRatio.value = ratio
@@ -761,6 +907,8 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         _flashMode.value = 0
         _showGalleryFrame.value = false
         _activeExtension.value = CaptureExtension.NONE
+        setDoubleExposureEnabled(false)
+        clearDoubleExposureGhost()
         viewModelScope.launch {
             prefsRepo.saveRawMode(false)
             prefsRepo.saveAspectRatio(AspectRatio.DEFAULT)
@@ -1332,19 +1480,24 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                     if (finalBitmap !== normalizedBitmap) normalizedBitmap.recycle()
                 }
 
-                val preset = _activePreset.value
+                val lookId = _activeLookId.value
                 // One shared snapshot drives both the live preview and the
                 // post-capture filter, so the saved JPEG can never drift from
                 // what the viewfinder showed. The registry prefers a JSON
                 // profile over the enum when one is bundled; the bundled
                 // profile mirrors the enum so output is unchanged today.
                 val renderParams = cameraProfileRegistry.renderParamsFor(
-                    preset,
+                    lookId,
+                    temperature = _temperature.value,
+                    tint = _tint.value,
+                    exposure = _exposure.value
+                ) ?: cameraProfileRegistry.renderParamsFor(
+                    FilmPreset.NORMAL,
                     temperature = _temperature.value,
                     tint = _tint.value,
                     exposure = _exposure.value
                 )
-                val currentLut = loadLut(context, preset)
+                val currentLut = loadLut(context, lookId)
                 if (currentLut != null || renderParams.needsProcessing) {
                     val filtered = if (USE_GPU_CAPTURE) {
                         // GPU still capture with a CPU fallback.
@@ -1364,6 +1517,20 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                     if (filtered !== finalBitmap) {
                         finalBitmap.recycle()
                         finalBitmap = filtered
+                    }
+                }
+
+                // Double exposure runs on the graded frame, not the raw one:
+                // the ghost has to carry the same look as the current shot or
+                // the two "exposures" would disagree on contrast, grain and
+                // white balance, which reads as a compositing bug rather than
+                // as a film effect. Applied before the gallery-frame bake so
+                // the frame is drawn once over the finished picture.
+                if (_doubleExposureActive.value) {
+                    val exposed = finalBitmap.applyDoubleExposure()
+                    if (exposed !== finalBitmap) {
+                        finalBitmap.recycle()
+                        finalBitmap = exposed
                     }
                 }
 
@@ -1470,6 +1637,10 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     override fun onCleared() {
         super.onCleared()
         gpuCaptureProcessor.release()
+        // The retained double-exposure ghost is native memory this ViewModel
+        // owns outright; nothing else can reach it once the VM is gone.
+        try { doubleExposureGhost?.takeIf { !it.isRecycled }?.recycle() } catch (_: Exception) {}
+        doubleExposureGhost = null
         try { orientationListener?.disable() } catch (_: Exception) {}
         try { shutterSound?.release() } catch (_: Exception) {}
         // Unregister the MediaStore observer we set up in init. Without this

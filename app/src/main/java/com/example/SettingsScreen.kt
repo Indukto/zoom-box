@@ -23,6 +23,7 @@ import androidx.compose.material.icons.rounded.Crop
 import androidx.compose.material.icons.rounded.FlashOn
 import androidx.compose.material.icons.rounded.GridOn
 import androidx.compose.material.icons.rounded.Hd
+import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.Refresh
@@ -109,6 +110,11 @@ private fun SettingsContent(viewModel: CameraViewModel, onClose: () -> Unit) {
     val outputResolution by viewModel.outputResolution.collectAsState()
     val showGalleryFrame by viewModel.showGalleryFrame.collectAsState()
     val showGridLines by viewModel.showGridLines.collectAsState()
+    val doubleExposureActive by viewModel.doubleExposureActive.collectAsState()
+    // No ghost yet means the effect is armed but has nothing to blend with:
+    // the first shot after switching it on is a normal one. Say so rather
+    // than letting the user conclude the toggle did nothing.
+    val doubleExposureHasGhost by viewModel.doubleExposureHasGhost.collectAsState()
     val selfTimerMode by viewModel.selfTimerMode.collectAsState()
     val flashMode by viewModel.flashMode.collectAsState()
     val activeExtension by viewModel.activeExtension.collectAsState()
@@ -231,6 +237,23 @@ private fun SettingsContent(viewModel: CameraViewModel, onClose: () -> Unit) {
                             onSelect = { newRatio ->
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 viewModel.setAspectRatio(newRatio)
+                            }
+                        )
+                        CardDivider()
+                        SettingsSwitchRow(
+                            icon = Icons.Rounded.Layers,
+                            label = stringResource(R.string.double_exposure_label),
+                            subtitle = if (doubleExposureActive && !doubleExposureHasGhost) {
+                                stringResource(R.string.double_exposure_subtitle_warming)
+                            } else {
+                                stringResource(R.string.double_exposure_subtitle)
+                            },
+                            checked = doubleExposureActive,
+                            enabled = true,
+                            testTag = "double_exposure_switch",
+                            onCheckedChange = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                viewModel.setDoubleExposureEnabled(!doubleExposureActive)
                             }
                         )
                     }

@@ -236,9 +236,9 @@ suspend fun Bitmap.applyRetroFilter(
                         val a = chunk * blurChunkSize
                         val b = (a + blurChunkSize).coerceAtMost(total)
                         var p = a
+                        var x = a % w
+                        var y = a / w
                         while (p < b) {
-                            val x = p % w
-                            val y = p / w
                             var sumR = 0
                             var sumG = 0
                             var sumB = 0
@@ -306,6 +306,8 @@ suspend fun Bitmap.applyRetroFilter(
                             val mixB = (origB + (bB - origB) * softFocus).toInt().coerceIn(0, 255)
                             pixels[p] = alphaMask or (mixR shl 16) or (mixG shl 8) or mixB
                             p++
+                            x++
+                            if (x == w) { x = 0; y++ }
                         }
                     }
                 }
@@ -328,9 +330,9 @@ suspend fun Bitmap.applyRetroFilter(
                 val end = (start + chunkSize).coerceAtMost(total)
                 async(Dispatchers.Default) {
                     var p = start
+                    var x = start % w
+                    var y = start / w
                     while (p < end) {
-                        val x = p % w
-                        val y = p / w
                         val dx = x - cx
 
                         val c = pixels[p]
@@ -644,6 +646,8 @@ suspend fun Bitmap.applyRetroFilter(
                             }
                         }
                         p++
+                        x++
+                        if (x == w) { x = 0; y++ }
                     }
                 }
             }.awaitAll()
@@ -662,9 +666,9 @@ suspend fun Bitmap.applyRetroFilter(
                     val end = (start + chunkSize).coerceAtMost(total)
                     async(Dispatchers.Default) {
                         var p = start
+                        var x = start % w
+                        var y = start / w
                         while (p < end) {
-                            val x = p % w
-                            val y = p / w
                             val c = pixels[p]
                             val a = (c ushr 24) and 0xFF
                             var rr = ((c ushr 16) and 0xFF) / 255f
@@ -731,6 +735,8 @@ suspend fun Bitmap.applyRetroFilter(
                             val fb8 = (bb * 255f + 0.5f).toInt().coerceIn(0, 255)
                             pixels[p] = (a shl 24) or (fr8 shl 16) or (fg8 shl 8) or fb8
                             p++
+                            x++
+                            if (x == w) { x = 0; y++ }
                         }
                     }
                 }.awaitAll()
@@ -751,21 +757,36 @@ suspend fun Bitmap.applyRetroFilter(
     }
 }
 
+/** GLSL `fract(x)` = x - floor(x), in [0, 1). */
+private fun fract(x: Float): Float = x - kotlin.math.floor(x.toDouble()).toFloat()
+
 /**
  * Portable float hash matching the GLSL `hash(vec2)` used by the live
- * preview and GPU capture shaders:
- * `fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453)`.
+ * preview and GPU capture shaders (both `FRAG_SHADER` copies):
  *
- * Replaced the previous 32-bit integer Murmur-style hash so the CPU and
- * GPU film-grain key off the same noise field and therefore match within
- * float precision. `sin`/`floor` run in double precision on the JVM and
- * are narrowed back to Float, which mirrors the shader's mediump path
- * closely enough for grain.
+ * ```
+ * vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+ * p3 += dot(p3, p3.yzx + 33.33);
+ * return fract((p3.x + p3.y) * p3.z);
+ * ```
+ *
+ * This is the classic sin-free "hash12" fract-multiply hash. It replaces
+ * `fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453)`, whose double-
+ * precision `sin` cost 8–20 transcendental calls per grain pixel (~100 M
+ * per 12 MP capture). The fract-multiply form is only multiplies and adds,
+ * and it changed in lock-step with the GLSL helper so the CPU and GPU
+ * still key film grain / dust / scratches off the same noise field and
+ * match within float precision (the JVM computes in strict IEEE float;
+ * the shader's mediump path may round slightly differently on some GPUs,
+ * as before).
  */
 private fun hashF(x: Float, y: Float): Float {
-    val dot = x * 127.1f + y * 311.7f
-    val s = kotlin.math.sin(dot.toDouble()).toFloat() * 43758.5453f
-    return s - kotlin.math.floor(s.toDouble()).toFloat()
+    // vec3(p.xyx): the z component mirrors x.
+    val p1 = fract(x * 0.1031f)
+    val p2 = fract(y * 0.1031f)
+    val p3 = fract(x * 0.1031f)
+    val d = p1 * (p2 + 33.33f) + p2 * (p3 + 33.33f) + p3 * (p1 + 33.33f)
+    return fract((p1 + d + p2 + d) * (p3 + d))
 }
 
 /** 5th-order smootherstep, matching the shader's `smootherstepNoise`. */

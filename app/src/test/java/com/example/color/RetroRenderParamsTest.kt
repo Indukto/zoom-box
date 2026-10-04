@@ -153,12 +153,6 @@ class RetroRenderParamsTest {
         assertEquals(0.08f, ccd.lightLeak, 0f)
         assertEquals(1.12f, ccd.vignette, 0f)
 
-        val pastel = FilmPreset.PASTEL_INSTANT.toRetroRenderParams()
-        assertEquals(0.06f, pastel.fade, 0f)
-        assertEquals(0.15f, pastel.lightLeak, 0f)
-        assertEquals(1.15f, pastel.vignette, 0f)
-        assertEquals(0.12f, pastel.milkyMix, 0f)
-
         val street = FilmPreset.STREET_MONO_400.toRetroRenderParams()
         assertEquals(1.10f, street.vignette, 0f)
         assertEquals(0.35f, street.grainStrength, 0f)

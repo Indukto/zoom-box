@@ -2,6 +2,8 @@ package com.example.color
 
 import com.example.FilmPreset
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -155,5 +157,50 @@ class CameraProfileLoaderTest {
         assertEquals(1.12f, fromJson.vignette, 0f)
         assertEquals(0.20f, fromJson.dust, 0f)
         assertEquals(0.08f, fromJson.lightLeak, 0f)
+    }
+
+    /**
+     * The enum half of the registry catalog, built without asset I/O so the
+     * picker can be seeded synchronously at startup. Its ids must match the
+     * enum's profileIds exactly: that string is what gets persisted.
+     */
+    @Test
+    fun `enum entries expose one catalog slot per preset in order`() {
+        val entries = CameraProfileRegistry.enumEntries()
+
+        assertEquals(FilmPreset.entries.map { it.profileId }, entries.map { it.id })
+        assertEquals(entries.size, entries.map { it.id }.toSet().size)
+        for (entry in entries) {
+            assertEquals(entry.id, entry.profile.id)
+            assertNotNull(entry.preset)
+        }
+    }
+
+    /** Only the pass-through look may skip both the LUT and the render chain. */
+    @Test
+    fun `only the normal look is pass-through`() {
+        val passThrough = CameraProfileRegistry.enumEntries()
+            .filter { it.isPassThrough }
+            .map { it.id }
+
+        assertEquals(listOf(FilmPreset.NORMAL.profileId), passThrough)
+    }
+
+    /** A JSON-defined look grades even with no render stage switched on. */
+    @Test
+    fun `a bundled lut makes a look non-pass-through`() {
+        val jsonOnly = CameraProfileLoader.parse(
+            """{"id": "lut_only", "displayName": "Lut Only",
+               "look": {"lutPath": "luts/moody.cube"}}"""
+        )
+        val entry = LookEntry(
+            id = jsonOnly.id,
+            displayName = jsonOnly.displayName,
+            category = jsonOnly.category,
+            preset = null,
+            profile = jsonOnly
+        )
+
+        assertTrue(!entry.isPassThrough)
     }
 }

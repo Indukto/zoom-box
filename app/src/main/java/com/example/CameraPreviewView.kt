@@ -56,6 +56,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.flow.StateFlow
@@ -67,7 +69,6 @@ import com.example.color.CubeLut
 import com.example.color.CubeLutParser
 import com.example.color.LutPreviewView
 import com.example.color.RetroRenderParams
-import com.example.FilmPreset
 import com.example.zoom.CaptureExtension
 import com.example.zoom.LensCatalog
 import com.example.zoom.LensRole
@@ -234,7 +235,7 @@ fun CameraPreviewView(
     zoomEnabled: Boolean = true,
     renderParams: RetroRenderParams = RetroRenderParams(),
     activeLut: CubeLut? = null,
-    activePreset: FilmPreset = FilmPreset.WARM_PORTRAIT,
+    useFilteredPreview: Boolean = true,
     onZoomChanged: (Float) -> Unit,
     onZoomTick: () -> Unit = {},
     onAvailableFocalLengths: (List<Float>) -> Unit,
@@ -246,15 +247,21 @@ fun CameraPreviewView(
 
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
 
-    // Filtered styles use the OpenGL preview so their LUT/effects are rendered
-    // live. NORMAL deliberately uses CameraX's stock PreviewView instead of
-    // the custom GL view: the latter owns an extra EGL context whose buffer
-    // can be resized during the first edge-to-edge Compose layout pass (the
-    // Pixel logcat shows that as a BLASTBufferQueue size mismatch and an
-    // abandoned consumer). Normal has no GPU effects to justify that extra
-    // surface, so keeping it on the stable CameraX path avoids the startup
-    // race entirely. Both views are TextureView-based (in-window), which is
-    // also what lets the control bubble's backdrop blur sample the video.
+    // Filtered looks use the OpenGL preview so their LUT/effects are rendered
+    // live. A pass-through look (no LUT and no render stage — NORMAL, or any
+    // bundled profile that grades nothing) deliberately uses CameraX's stock
+    // PreviewView instead of the custom GL view: the latter owns an extra EGL
+    // context whose buffer can be resized during the first edge-to-edge
+    // Compose layout pass (the Pixel logcat shows that as a BLASTBufferQueue
+    // size mismatch and an abandoned consumer). A look with no GPU effects to
+    // justify that extra surface keeps it on the stable CameraX path, which
+    // avoids the startup race entirely. Both views are TextureView-based
+    // (in-window), which is also what lets the control bubble's backdrop blur
+    // sample the video.
+    //
+    // The caller decides this from the registry (`CameraProfileRegistry
+    // .isPassThrough`), so a JSON-only look routes the same way an enum one
+    // does.
     val lutPreviewView = remember { LutPreviewView(context) }
     val normalPreviewView = remember {
         PreviewView(context).apply {
@@ -266,7 +273,6 @@ fun CameraPreviewView(
             scaleType = PreviewView.ScaleType.FILL_CENTER
         }
     }
-    val useFilteredPreview = activePreset != FilmPreset.NORMAL
     val activePreviewView = if (useFilteredPreview) lutPreviewView else normalPreviewView
     val activeSurfaceProvider = if (useFilteredPreview) {
         lutPreviewView.surfaceProvider
@@ -307,6 +313,66 @@ fun CameraPreviewView(
     val previewManager = remember { PreviewSessionManager(context, lifecycleOwner) }
 
     LaunchedEffect(activeImageCapture) { imageCaptureProvider(activeImageCapture) }
+
+    // ── Standby recovery: black viewfinder after screen-off / background ──
+    // After standby the activity goes STOP → START and the app used to rely
+    // entirely on CameraX's *implicit* camera reopen. That reopen fails
+    // intermittently (same flaky-HAL family the manual bind path already
+    // works around with unbindAll + retry delays), and nothing ever re-ran
+    // the bind effect below — its keys (lens, front, extension, RAW,
+    // preset, catalog) don't change across standby — so the viewfinder
+    // stayed black until a lens switch forced a fresh bind. That is exactly
+    // the reported symptom and its workaround.
+    //
+    // Fix: make the transition explicit. On STOP we proactively
+    // PreviewSessionManager.release() (its own doc comment already names
+    // lifecycle STOP as a caller — it just was never wired) and drop the
+    // stale Camera handle so the zoom/exposure/flash effects stop driving a
+    // closed camera. On the next START we bump resumeRebindTick, which is
+    // part of the bind effect's keys, so resume performs the exact same
+    // proven unbindAll → bindToLifecycle path (with MTK retry delays and
+    // the recovery branch) as a lens switch.
+    //
+    // The sawStopSinceBind guard keeps cold start cheap: the first ON_START
+    // arrives with no preceding STOP, so it no-ops instead of paying a
+    // redundant unbindAll + rebind flash on every launch.
+    var resumeRebindTick by remember { mutableStateOf(0) }
+    var sawStopSinceBind by remember { mutableStateOf(false) }
+    // Last provider instance seen by the bind effect. Used for the
+    // non-blocking ON_STOP release below: cameraProviderFuture.get() would
+    // block the main thread if the provider weren't ready yet, while this
+    // ref is only ever non-null after a bind pass actually ran — i.e.
+    // exactly when there can be something bound worth releasing.
+    var boundProvider by remember { mutableStateOf<ProcessCameraProvider?>(null) }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_STOP -> {
+                    sawStopSinceBind = true
+                    camera = null
+                    try {
+                        boundProvider?.let { previewManager.release(it) }
+                    } catch (_: Exception) {
+                    }
+                }
+                Lifecycle.Event.ON_START -> {
+                    if (sawStopSinceBind) {
+                        sawStopSinceBind = false
+                        resumeRebindTick++
+                    }
+                }
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            try {
+                lifecycleOwner.lifecycle.removeObserver(observer)
+            } catch (_: Exception) {
+            }
+        }
+    }
 
     // Defensive teardown: the CameraUi overlay fix keeps the camera session
     // alive across the settings screen, but if anything ever re-introduces a
@@ -361,16 +427,23 @@ fun CameraPreviewView(
     // CameraX session. We keep catalogHolder.value in the keys so a
     // rebind that fires BEFORE the enumeration completes will re-fire
     // once the catalog lands; otherwise the early `?: return@LaunchedEffect`
-    // below would silently no-op the user's first lens tap.
+    // below would silently no-op the user's first lens tap. resumeRebindTick
+    // is bumped by the standby lifecycle observer above so returning from
+    // screen-off / background re-binds through this same path.
     LaunchedEffect(
         selectedLensRole,
         isFrontCamera,
         activeExtension,
         isRawCapturing,
         useFilteredPreview,
-        catalogHolder.value
+        catalogHolder.value,
+        resumeRebindTick
     ) {
         val cp = try { cameraProviderFuture.get() } catch (e: Exception) { null } ?: return@LaunchedEffect
+        // Remember the provider for the non-blocking ON_STOP release (see
+        // the standby observer above). Not part of the effect keys — it's
+        // the process singleton, so this never triggers a restart loop.
+        if (boundProvider !== cp) boundProvider = cp
 
         if (isRawCapturing) {
             // RELEASE the camera so RawCapture (Camera2) can take over

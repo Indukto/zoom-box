@@ -183,6 +183,8 @@ import dev.chrisbanes.haze.rememberHazeState
 import java.util.Locale
 import com.example.zoom.AspectRatio
 import com.example.color.CubeLut
+import com.example.color.LookSwatch
+import com.example.color.profileId
 import com.example.zoom.LensRole
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
@@ -492,42 +494,19 @@ private fun BoxScope.ZoomBoxOverlay(
     }
 }
 
-private fun filmPresetColor(preset: FilmPreset): Color = when (preset) {
-    FilmPreset.WARM_PORTRAIT       -> Color(0xFFD4A56A)
-    FilmPreset.MONOCHROME_400      -> Color(0xFF6B6B6B)
-    FilmPreset.INSTANT_CLASSIC     -> Color(0xFF4A90B0)
-    FilmPreset.CROSS_PROCESS       -> Color(0xFFC04040)
-    FilmPreset.INSTANT_VINTAGE     -> Color(0xFF8B5E8B)
-    FilmPreset.MOODY              -> Color(0xFF2C3E50)
-    FilmPreset.MUTED_MEADOW       -> Color(0xFF7DCEA0)
-    FilmPreset.SUNLIT_SPILL       -> Color(0xFFF39C12)
-    FilmPreset.GOLDEN_200         -> Color(0xFFE0A54A)
-    FilmPreset.STREET_MONO_400    -> Color(0xFF3B3B3B)
-    FilmPreset.VIVID_COOL_400     -> Color(0xFF2E9E8F)
-    FilmPreset.CCD_DIGICAM        -> Color(0xFF5A7D8C)
-    FilmPreset.PASTEL_INSTANT     -> Color(0xFFE8A0B8)
-    // Slightly darker than the surrounding chrome so the "no grade"
-    // chip reads as a deliberate preset on the picker bar instead of
-    // visually disappearing into the dim chrome of the rest of the row.
-    FilmPreset.NORMAL              -> Color(0xFF9CA3AF)
-}
+/**
+ * Swatch for a look id. The hand-tuned colors live in [LookSwatch] next to
+ * the look catalog so the picker, the preset button and the swipe toast all
+ * read one table; looks without a hand-tuned entry get a stable derived hue.
+ */
+private fun filmPresetColor(lookId: String): Color = Color(LookSwatch.colorFor(lookId))
 
-private fun filmPresetEmoji(preset: FilmPreset): String = when (preset) {
-    FilmPreset.WARM_PORTRAIT       -> "🌅"
-    FilmPreset.MONOCHROME_400      -> "🌑"
-    FilmPreset.INSTANT_CLASSIC     -> "📸"
-    FilmPreset.CROSS_PROCESS       -> "🎞️"
-    FilmPreset.INSTANT_VINTAGE     -> "🌆"
-    FilmPreset.MOODY              -> "🌧️"
-    FilmPreset.MUTED_MEADOW       -> "🌿"
-    FilmPreset.SUNLIT_SPILL       -> "☀️"
-    FilmPreset.GOLDEN_200         -> "🌟"
-    FilmPreset.STREET_MONO_400    -> "🖤"
-    FilmPreset.VIVID_COOL_400     -> "🍃"
-    FilmPreset.CCD_DIGICAM        -> "📟"
-    FilmPreset.PASTEL_INSTANT     -> "🌸"
-    FilmPreset.NORMAL              -> "📷"
-}
+/** Glyph for a look id, with the same hand-tuned / derived split as the swatch. */
+private fun filmPresetEmoji(lookId: String): String = LookSwatch.emojiFor(lookId)
+
+/** Display name for a look id, resolved through the registry catalog. */
+private fun lookDisplayName(viewModel: CameraViewModel, lookId: String): String =
+    viewModel.lookDisplayName(lookId)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Color-temperature & exposure controls
@@ -1426,12 +1405,12 @@ fun CameraUi(
                         onZoomAction = {
                             viewModel.setZoom(currentZoomRatio * 1.20f)
                         },
-                        // Cycle the film preset directly. Direction
+                        // Cycle the active look directly. Direction
                         // convention matches the camera's own
                         // `detectHorizontalDragGestures` block so
                         // LEFT → next, RIGHT → prev.
                         onSwipeAction = { direction ->
-                            viewModel.cycleCameraPreset(direction)
+                            viewModel.cycleLook(direction)
                         },
                         // Either skip button drops the user straight
                         // into the camera. Power users shouldn't be
@@ -1803,7 +1782,7 @@ fun CameraActiveScreen(
 
     val rawModeEnabled by viewModel.rawModeEnabled.collectAsState()
     val activeExtension by viewModel.activeExtension.collectAsState()
-    val activePreset by viewModel.activePreset.collectAsState()
+    val activeLookId by viewModel.activeLookId.collectAsState()
     val settingsLoaded by viewModel.settingsLoaded.collectAsState()
     // NOTE: Film-Style picker scroll position is intentionally NOT
     // collected via `collectAsState`. Doing so would subscribe this whole
@@ -1812,13 +1791,13 @@ fun CameraActiveScreen(
     // The seed value is captured once per sheet open (see below) and the
     // save path operates through `snapshotFlow`.
 
-    // Load the active preset's LUT for the live viewfinder GL shader.
+    // Load the active look's LUT for the live viewfinder GL shader.
     // Goes through the JSON profile registry (loadPreviewLut) so a profile's
     // lutPath — not just the enum's — drives the preview, matching capture.
     var previewLut by remember { mutableStateOf<CubeLut?>(null) }
-    LaunchedEffect(activePreset) {
+    LaunchedEffect(activeLookId) {
         previewLut = withContext(Dispatchers.IO) {
-            viewModel.loadPreviewLut(context, activePreset)
+            viewModel.loadPreviewLut(context, activeLookId)
         }
     }
 
@@ -1827,8 +1806,8 @@ fun CameraActiveScreen(
     // `remember` keyed on the same inputs the capture path reads, so a JSON
     // profile tweak changes preview and JPEG together instead of letting
     // them drift (preview used to flatten the FilmPreset enum directly).
-    val previewRenderParams = remember(activePreset, temperature, tint, exposure) {
-        viewModel.previewRenderParams(activePreset, temperature, tint, exposure)
+    val previewRenderParams = remember(activeLookId, temperature, tint, exposure) {
+        viewModel.previewRenderParams(activeLookId, temperature, tint, exposure)
     }
 
     val mainExecutor = ContextCompat.getMainExecutor(context)
@@ -1913,12 +1892,14 @@ fun CameraActiveScreen(
         // because `CameraPreviewView`'s modifier-chain pointerInput below
         // writes to these on a horizontal-fling fire).
         // ─────────────────────────────────────────────────────────────────
-        // Invariant: `toastPresetSnapshot` is NEVER null. Driving
-        // visibility from a separate Boolean avoids the AnimatedVisibility-
-        // exit NPE a nullable + `!!` design hit earlier. A rapid
-        // "next, next, next" sequence bumps `toastEpoch` each time so
-        // the LaunchedEffect below restarts its 900 ms delay cleanly.
-        var toastPresetSnapshot by remember { mutableStateOf(FilmPreset.WARM_PORTRAIT) }
+        // Invariant: `toastLookIdSnapshot` always names a look (it is seeded with
+        // the default and only ever written from `activeLookId`, itself
+        // rejected when it names nothing). Driving visibility from a separate
+        // Boolean avoids the AnimatedVisibility-exit NPE a nullable + `!!`
+        // design hit earlier. A rapid "next, next, next" sequence bumps
+        // `toastEpoch` each time so the LaunchedEffect below restarts its
+        // 900 ms delay cleanly.
+        var toastLookIdSnapshot by remember { mutableStateOf(FilmPreset.WARM_PORTRAIT.profileId) }
         var showToast by remember { mutableStateOf(false) }
         var toastEpoch by remember { mutableStateOf(0) }
 
@@ -2026,12 +2007,11 @@ fun CameraActiveScreen(
                                     // next preset; swipe RIGHT returns to
                                     // the previous one.
                                     val direction = if (totalDrag < 0f) 1 else -1
-                                    viewModel.cycleCameraPreset(direction)
+                                    viewModel.cycleLook(direction)
                                     haptic.performHapticFeedback(
                                         HapticFeedbackType.LongPress
                                     )
-                                    toastPresetSnapshot =
-                                        viewModel.activePreset.value
+                                    toastLookIdSnapshot = viewModel.activeLookId.value
                                     showToast = true
                                     toastEpoch++
                                     change.consume()
@@ -2050,7 +2030,7 @@ fun CameraActiveScreen(
             zoomEnabled = !(showExpSlider || showTempSlider),
             renderParams = previewRenderParams,
             activeLut = previewLut,
-            activePreset = activePreset,
+            useFilteredPreview = !viewModel.isPassThroughLook(activeLookId),
             onZoomChanged = { viewModel.setZoom(it) },
             onZoomTick = {
                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -2101,10 +2081,10 @@ fun CameraActiveScreen(
                 .align(Alignment.TopCenter)
                 .padding(top = vfTop + 14.dp)
         ) {
-            // Snapshot is non-null by construction (see invariant above),
-            // so a plain read here is safe across both enter and exit
-            // recompositions — no `!!` to crash mid-animation.
-            val toastPreset = toastPresetSnapshot
+            // Snapshot always names a look (see invariant above), so a plain
+            // read is safe across both enter and exit recompositions.
+            val toastLookId = toastLookIdSnapshot
+            val toastLookDisplayName = lookDisplayName(viewModel, toastLookId)
             Row(
                 modifier = Modifier
                     .background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(24.dp))
@@ -2117,13 +2097,13 @@ fun CameraActiveScreen(
                     modifier = Modifier
                         .size(28.dp)
                         .clip(RoundedCornerShape(6.dp))
-                        .background(filmPresetColor(toastPreset)),
+                        .background(filmPresetColor(toastLookId)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(text = filmPresetEmoji(toastPreset), fontSize = 16.sp)
+                    Text(text = filmPresetEmoji(toastLookId), fontSize = 16.sp)
                 }
                 Text(
-                    text = toastPreset.displayName,
+                    text = toastLookDisplayName,
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
@@ -2407,7 +2387,8 @@ fun CameraActiveScreen(
         }
 
         // 6. Bottom Deck Controls (two-row Dazz-cam style)
-        val activePreset by viewModel.activePreset.collectAsState()
+        val activeLookId by viewModel.activeLookId.collectAsState()
+        val lookCatalog by viewModel.lookCatalog.collectAsState()
         val selfTimerMode by viewModel.selfTimerMode.collectAsState()
         var showPresetPicker by remember { mutableStateOf(false) }
         // Rotation-safe pending delete lives in the ViewModel (a local
@@ -2703,12 +2684,12 @@ fun CameraActiveScreen(
                             modifier = Modifier
                                 .size(36.dp)
                                 .clip(RoundedCornerShape(6.dp))
-                                .background(filmPresetColor(activePreset))
+                                .background(filmPresetColor(activeLookId))
                                 .rotate(animatedControlAngle),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = filmPresetEmoji(activePreset),
+                                text = filmPresetEmoji(activeLookId),
                                 fontSize = 18.sp
                             )
                         }
@@ -2744,7 +2725,7 @@ fun CameraActiveScreen(
                     Text(
                         text = stringResource(
                             R.string.film_style_count,
-                            FilmPreset.entries.size
+                            lookCatalog.size
                         ),
                         color = Color.White.copy(alpha = 0.55f),
                         fontSize = 12.sp,
@@ -2759,9 +2740,9 @@ fun CameraActiveScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        items(FilmPreset.entries, key = { it.name }) { preset ->
-                            val selected = preset == activePreset
-                            val base = filmPresetColor(preset)
+                        items(lookCatalog, key = { it.id }) { look ->
+                            val selected = look.id == activeLookId
+                            val base = filmPresetColor(look.id)
                             val dark = Color(
                                 red = base.red * 0.45f,
                                 green = base.green * 0.45f,
@@ -2790,14 +2771,14 @@ fun CameraActiveScreen(
                                     )
                                     .clickable {
                                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        viewModel.setCameraPreset(preset)
+                                        viewModel.setLook(look.id)
                                         showPresetPicker = false
                                     }
-                                    .testTag("film_style_card_${preset.name}"),
+                                    .testTag("film_style_card_${look.id}"),
                                 contentAlignment = Alignment.BottomStart
                             ) {
                                 // Bottom scrim so the name stays legible on
-                                // the lightest styles (Pastel, Golden, …).
+                                // the lightest styles (Golden, Sunlit Spill, …).
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
@@ -2828,7 +2809,7 @@ fun CameraActiveScreen(
                                     }
                                 }
                                 Text(
-                                    text = preset.displayName,
+                                    text = look.displayName,
                                     color = Color.White,
                                     fontSize = 12.sp,
                                     fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
