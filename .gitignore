@@ -34,9 +34,12 @@ debug.keystore
 # Build outputs — never commit.
 /app/debug/
 /app/release/
-/.build_tmp/*.class
-/.build_tmp/**/*.class
+/.build_tmp/
 __pycache__/
 *.pyc
 app/release/mapping.txt
-/.build_tmp/manual-test-classes/
+
+# Agent scratch: implementation plans, task artifacts, walkthroughs and
+# session plans — never commit.
+/.artifacts/
+/.zcode/

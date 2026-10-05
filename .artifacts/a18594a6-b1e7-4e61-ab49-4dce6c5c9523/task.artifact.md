@@ -1,3 +1,0 @@
-- [x] Rename `applicationId` in `app/build.gradle.kts`
-- [x] Run Gradle build to verify changes
-- [x] Verify `BuildConfig` update
