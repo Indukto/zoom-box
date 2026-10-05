@@ -43,3 +43,7 @@ app/release/mapping.txt
 # session plans — never commit.
 /.artifacts/
 /.zcode/
+
+# Internal-only: Play Store docs and dev tools stay local, not public.
+/docs/
+/tools/
