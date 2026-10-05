@@ -61,6 +61,10 @@ class LutPreviewRenderer(
     private var uExposureLoc = 0
     private var uLutEnabledLoc = 0
     private var uLutLoc = 0
+    // ── Crossfade blend (second LUT slot + mix factor) ──
+    private var uLut2Loc = 0
+    private var uLut2EnabledLoc = 0
+    private var uLutMixLoc = 0
     private var uViewSizeLoc = 0
 
     // ── New effect uniforms ──
@@ -98,6 +102,13 @@ class LutPreviewRenderer(
     private var inputTexture = 0
     private var lutTexture = 0
     private var lutWidth = 0  // 0 == no LUT uploaded yet
+    // Second 3D-LUT slot for the look crossfade: the outgoing look stays in
+    // slot A while the incoming look uploads into slot B, and the shader
+    // mixes the two graded colors by uLutMix. Either slot may be absent
+    // (pass-through side), in which case that side contributes ungraded c.
+    private var lutTextureB = 0
+    private var lutWidthB = 0
+    private var lutBEnabled = false
     private var has3dTextures = false  // false when GPU lacks GL_OES_texture_3D
 
     // Intermediate render target for the OES -> 2D copy pass. It is sized to
@@ -156,6 +167,17 @@ class LutPreviewRenderer(
     // context recreation. The pending value is consumed only on the GL thread.
     @Volatile private var activeLut: CubeLut? = null
     @Volatile private var pendingLut: CubeLut? = null
+    // Crossfade blend state (slot B + mix). [lutRevision] bumps on every
+    // setLut/setLutBlend so a null assignment (fade to pass-through) is an
+    // observable change too — the GL thread applies the slots when the
+    // revision differs from [lastAppliedRevision], or when [lutDirty] forces
+    // a re-upload after context recreation. [lutMix] 0 = fully slot A.
+    @Volatile private var activeLutB: CubeLut? = null
+    @Volatile private var pendingLutB: CubeLut? = null
+    @Volatile private var lutMix = 0f
+    @Volatile private var lutRevision = 0
+    private var lastAppliedRevision = -1
+    private var lutDirty = true
 
     // Surface-buffer aspect (set by SurfaceProvider), used for FILL_CENTER crop.
     @Volatile private var surfaceBufferWidth = 0
@@ -216,8 +238,23 @@ class LutPreviewRenderer(
      * The upload happens on the GL thread on the next frame.
      */
     fun setLut(lut: CubeLut?) {
-        activeLut = lut
-        pendingLut = lut
+        setLutBlend(from = lut, to = null, mix = 0f)
+    }
+
+    /**
+     * Crossfade entry point: grades with [from] at mix = 0 morphing to [to]
+     * at mix = 1. Either side may be null (pass-through), in which case that
+     * side contributes the ungraded color. Slot uploads happen on the GL
+     * thread on the next frame; a null slot actively disables its side
+     * (unlike the old single-slot path, which left a stale LUT bound).
+     */
+    fun setLutBlend(from: CubeLut?, to: CubeLut?, mix: Float) {
+        activeLut = from
+        pendingLut = from
+        activeLutB = to
+        pendingLutB = to
+        lutMix = mix.coerceIn(0f, 1f)
+        lutRevision++
         onRequestRender()
     }
 
@@ -268,10 +305,13 @@ class LutPreviewRenderer(
         surfaceTextureReady = false
         destroyGlResources()
 
-        // A context loss invalidates the uploaded 3D texture, but not the
-        // immutable CubeLut value held by the UI. Re-upload it on the first
-        // frame of the new context unless a newer request is already pending.
+        // A context loss invalidates the uploaded 3D textures, but not the
+        // immutable CubeLut values held by the UI. Re-upload both blend slots
+        // on the first frame of the new context unless a newer request is
+        // already pending.
         if (pendingLut == null) pendingLut = activeLut
+        if (pendingLutB == null) pendingLutB = activeLutB
+        lutDirty = true
 
         // Pass 1: external OES camera frame -> stable 2D texture.
         copyProgram = createProgram(VERT_SHADER, COPY_FRAGMENT_SHADER)
@@ -302,6 +342,9 @@ class LutPreviewRenderer(
         uExposureLoc = GLES20.glGetUniformLocation(program, "uExposure")
         uLutEnabledLoc = GLES20.glGetUniformLocation(program, "uLutEnabled")
         uLutLoc = GLES20.glGetUniformLocation(program, "uLut")
+        uLut2Loc = GLES20.glGetUniformLocation(program, "uLut2")
+        uLut2EnabledLoc = GLES20.glGetUniformLocation(program, "uLut2Enabled")
+        uLutMixLoc = GLES20.glGetUniformLocation(program, "uLutMix")
         uViewSizeLoc = GLES20.glGetUniformLocation(program, "uViewSize")
 
         // ── New effect uniform locations ──
@@ -367,10 +410,12 @@ class LutPreviewRenderer(
         surfaceTexture = st
         surfaceTextureReady = true
 
-        // LUT texture (3D). Created lazily when setLut() provides one.
-        val lut = IntArray(1)
-        GLES20.glGenTextures(1, lut, 0)
-        lutTexture = lut[0]
+        // LUT textures (3D slots A + B for the crossfade blend). Created up
+        // front; uploads happen lazily when setLut/setLutBlend provides one.
+        val lutIds = IntArray(2)
+        GLES20.glGenTextures(2, lutIds, 0)
+        lutTexture = lutIds[0]
+        lutTextureB = lutIds[1]
 
         // Default GL_UNPACK_ALIGNMENT is 4, which only works when rows are a
         // multiple of 4 bytes. A 3D LUT stored as GL_RGB has 3 bytes per texel
@@ -390,8 +435,12 @@ class LutPreviewRenderer(
     }
 
     fun drawFrame() {
-        // Upload any pending LUT on the GL thread.
-        pendingLut?.let { uploadLut(it); pendingLut = null }
+        // Upload any pending LUT slots on the GL thread. The revision check
+        // (not nullness) is what observes a fade-to-null: clearing a slot is
+        // a real state change that must unbind that side of the blend.
+        if (lutDirty || lutRevision != lastAppliedRevision) {
+            applyPendingLuts()
+        }
 
         val st = surfaceTexture ?: return
         try {
@@ -491,14 +540,25 @@ class LutPreviewRenderer(
         GLES20.glUniform1f(uScratchLoc, 0f)
         GLES20.glUniform1f(uLightLeakLoc, 0f)
 
-        if (has3dTextures && lutEnabled && lutWidth > 0) {
+        // Dual-slot LUT blend for the look crossfade. Each present slot is
+        // bound to its own texture unit; absent sides fall back to ungraded
+        // c inside the shader. mix = 0 reproduces the old single-LUT path
+        // exactly, so still captures (which never set slot B) are unchanged.
+        val aOn = has3dTextures && lutEnabled && lutWidth > 0
+        val bOn = has3dTextures && lutBEnabled && lutWidthB > 0
+        if (aOn) {
             GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
             GLES20.glBindTexture(GLES30.GL_TEXTURE_3D, lutTexture)
             GLES20.glUniform1i(uLutLoc, 1)
-            GLES20.glUniform1i(uLutEnabledLoc, 1)
-        } else {
-            GLES20.glUniform1i(uLutEnabledLoc, 0)
         }
+        if (bOn) {
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE2)
+            GLES20.glBindTexture(GLES30.GL_TEXTURE_3D, lutTextureB)
+            GLES20.glUniform1i(uLut2Loc, 2)
+        }
+        GLES20.glUniform1i(uLutEnabledLoc, if (aOn) 1 else 0)
+        GLES20.glUniform1i(uLut2EnabledLoc, if (bOn) 1 else 0)
+        GLES20.glUniform1f(uLutMixLoc, lutMix)
 
         // The copy pass owns the camera transform, crop, and front-camera
         // mirror. The effect pass reads a full, already-oriented 2D texture.
@@ -628,19 +688,55 @@ class LutPreviewRenderer(
         if (lutTexture != 0) {
             GLES20.glDeleteTextures(1, intArrayOf(lutTexture), 0)
         }
+        if (lutTextureB != 0) {
+            GLES20.glDeleteTextures(1, intArrayOf(lutTextureB), 0)
+        }
         if (copyProgram != 0) GLES20.glDeleteProgram(copyProgram)
         if (program != 0) GLES20.glDeleteProgram(program)
         inputTexture = 0
         lutTexture = 0
+        lutTextureB = 0
         lutWidth = 0
+        lutWidthB = 0
         lutEnabled = false
+        lutBEnabled = false
         copyProgram = 0
         program = 0
         has3dTextures = false
     }
 
-    private fun uploadLut(lut: CubeLut) {
-        if (!has3dTextures) return  // GPU doesn't support 3D textures
+    /** Applies both pending blend slots; consumes pendingLut/pendingLutB. */
+    private fun applyPendingLuts() {
+        val a = pendingLut
+        pendingLut = null
+        if (a != null) {
+            lutWidth = uploadLutToSlot(a, lutTexture)
+            lutEnabled = lutWidth > 0
+        } else {
+            lutWidth = 0
+            lutEnabled = false
+        }
+        val b = pendingLutB
+        pendingLutB = null
+        if (b != null) {
+            lutWidthB = uploadLutToSlot(b, lutTextureB)
+            lutBEnabled = lutWidthB > 0
+        } else {
+            lutWidthB = 0
+            lutBEnabled = false
+        }
+        lastAppliedRevision = lutRevision
+        lutDirty = false
+    }
+
+    /**
+     * Uploads [lut] into [textureId] as an 8-bit RGB 3D texture and returns
+     * the uploaded lattice size (0 when 3D textures are unsupported). Slots
+     * may hold different LUT sizes — each texture filters independently and
+     * the shader mixes the two graded colors, never the lattices.
+     */
+    private fun uploadLutToSlot(lut: CubeLut, textureId: Int): Int {
+        if (!has3dTextures) return 0  // GPU doesn't support 3D textures
         // Convert float RGB samples to 8-bit (the camera input is 8-bit anyway).
         val n = lut.size
         val buf = ByteBuffer.allocateDirect(n * n * n * 3).order(ByteOrder.nativeOrder())
@@ -649,7 +745,7 @@ class LutPreviewRenderer(
         }
         buf.position(0)
 
-        GLES20.glBindTexture(GLES30.GL_TEXTURE_3D, lutTexture)
+        GLES20.glBindTexture(GLES30.GL_TEXTURE_3D, textureId)
         GLES20.glTexParameteri(GLES30.GL_TEXTURE_3D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
         GLES20.glTexParameteri(GLES30.GL_TEXTURE_3D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
         GLES20.glTexParameteri(GLES30.GL_TEXTURE_3D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE)
@@ -663,8 +759,7 @@ class LutPreviewRenderer(
             GLES30.GL_TEXTURE_3D, 0, GLES20.GL_RGB,
             n, n, n, 0, GLES20.GL_RGB, GLES20.GL_UNSIGNED_BYTE, buf
         )
-        lutWidth = n
-        lutEnabled = true
+        return n
     }
 
     /**
@@ -848,10 +943,13 @@ class LutPreviewRenderer(
             precision mediump sampler3D;
             uniform sampler2D uTexture;
             uniform mediump sampler3D uLut;
+            uniform mediump sampler3D uLut2;
             uniform float uTemperature;
             uniform float uTint;
             uniform float uExposure;
             uniform int uLutEnabled;
+            uniform int uLut2Enabled;
+            uniform float uLutMix;
             uniform vec2 uViewSize;
 
             // ── New effect uniforms ──
@@ -1119,9 +1217,17 @@ class LutPreviewRenderer(
                     c = clamp(c, 0.0, 1.0);
                 }
 
-                // ── 9. 3D LUT ──
-                if (uLutEnabled == 1) {
-                    c = texture3D(uLut, c).rgb;
+                // ── 9. 3D LUT (dual-slot crossfade blend) ──
+                // Slot A holds the outgoing look, slot B the incoming one;
+                // uLutMix 0→1 morphs between the two graded colors. An absent
+                // side contributes the ungraded color, so fades to/from the
+                // pass-through look dissolve the grade instead of popping.
+                // mix = 0 with only slot A present is the legacy path, which
+                // is also what still captures use (they never bind slot B).
+                if (uLutEnabled == 1 || uLut2Enabled == 1) {
+                    vec3 gradedA = (uLutEnabled == 1) ? texture3D(uLut, c).rgb : c;
+                    vec3 gradedB = (uLut2Enabled == 1) ? texture3D(uLut2, c).rgb : c;
+                    c = mix(gradedA, gradedB, clamp(uLutMix, 0.0, 1.0));
                 }
                 // ── 10. Milky pastel haze overlay (dreamcore) ──
                 // Last stage: blend toward the milky tint, weighted toward

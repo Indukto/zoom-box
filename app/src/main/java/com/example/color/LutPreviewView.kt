@@ -150,6 +150,14 @@ class LutPreviewView(
         renderer.setLut(lut)
     }
 
+    /**
+     * Crossfade blend between two LUTs: [from] at mix = 0 morphing to [to]
+     * at mix = 1. Either side may be null (pass-through side grades nothing).
+     */
+    fun setLutBlend(from: CubeLut?, to: CubeLut?, mix: Float) {
+        renderer.setLutBlend(from, to, mix)
+    }
+
     fun setFlipH(flip: Boolean) {
         renderer.setFlipH(flip)
     }

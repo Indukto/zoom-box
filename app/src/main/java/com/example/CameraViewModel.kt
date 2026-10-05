@@ -385,6 +385,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                 // NORMAL defaults still allow the camera to start, and the
                 // preview is never created mid-route switch.
                 _settingsLoaded.value = true
+                JankMonitor.mark("settings-loaded")
             }
         }
 
@@ -400,17 +401,27 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         // can't poison the whole warm-up without us adding any extra guards.
         viewModelScope.launch(Dispatchers.IO) {
             val app = getApplication<Application>()
+            // Catalog first: the first composition reads the registry on the
+            // Main thread (previewRenderParams / isPassThroughLook), which
+            // would run this lazy's asset I/O on Main if it wins the race.
+            // Initializing here keeps that Main-thread hit to a short
+            // synchronized-lazy wait instead of full JSON parsing.
+            // Same warm-up for the catalog itself: `assets/cameras/` is read
+            // and parsed once here so the Film-Style picker never blocks on
+            // asset I/O the first time it is opened.
+            _lookCatalog.value = cameraProfileRegistry.catalog()
+            JankMonitor.mark("catalog-ready")
             // Order matters for cold start: the PERSISTED look parses first,
             // so the restored viewfinder is graded as soon as possible; the
             // remaining presets warm up behind it. (Parsing in enum order
             // first meant the user's look — often mid-list — waited behind
             // every earlier preset's parse on every cold start.)
             loadLut(app, _activeLookId.value)
-            for (preset in FilmPreset.entries) loadLut(app, preset)
-            // Same warm-up for the catalog itself: `assets/cameras/` is read
-            // and parsed once here so the Film-Style picker never blocks on
-            // asset I/O the first time it is opened.
-            _lookCatalog.value = cameraProfileRegistry.catalog()
+            JankMonitor.mark("lut-active-ready")
+            for (preset in FilmPreset.entries) {
+                loadLut(app, preset)
+            }
+            JankMonitor.mark("lut-warmup-done")
         }
 
         // ── ProcessCameraProvider warm-up (parallel with settings load) ──
@@ -426,6 +437,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
             try {
                 cameraProviderWarmupFuture =
                     androidx.camera.lifecycle.ProcessCameraProvider.getInstance(getApplication()).get()
+                JankMonitor.mark("provider-warm")
             } catch (e: Exception) {
                 // CameraX init failure must never block startup — the bind
                 // path has its own recovery/retry handling.

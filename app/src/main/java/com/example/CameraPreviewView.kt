@@ -35,6 +35,9 @@ import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculatePan
@@ -67,8 +70,10 @@ import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.milliseconds
 import com.example.color.CubeLut
 import com.example.color.CubeLutParser
+import com.example.color.LOOK_CROSSFADE_DURATION_MS
 import com.example.color.LutPreviewView
 import com.example.color.RetroRenderParams
+import com.example.color.lerp
 import com.example.zoom.CaptureExtension
 import com.example.zoom.LensCatalog
 import com.example.zoom.LensRole
@@ -239,6 +244,12 @@ fun CameraPreviewView(
     useFilteredPreview: Boolean = true,
     onZoomChanged: (Float) -> Unit,
     onZoomTick: () -> Unit = {},
+    // Visual rubber-band overshoot in zoom-ratio units (0 when settled).
+    // Written per gesture frame; the caller must sink it into a flow/state
+    // that only the zoom-box overlay leaf collects, so the ~60fps writes
+    // never recompose the wider screen. Capture always uses the clamped
+    // onZoomChanged value.
+    onZoomOvershoot: (Float) -> Unit = {},
     onAvailableFocalLengths: (List<Float>) -> Unit,
     imageCaptureProvider: (ImageCapture) -> Unit,
     onLensCatalogReady: ((LensCatalog.CatalogResult) -> Unit)? = null
@@ -446,7 +457,14 @@ fun CameraPreviewView(
         catalogHolder.value,
         resumeRebindTick
     ) {
-        val cp = try { cameraProviderFuture.get() } catch (e: Exception) { null } ?: return@LaunchedEffect
+        // Never block the main thread on the provider future: at cold start
+        // CameraX init (camera-service queries, disk I/O) can take hundreds
+        // of ms to seconds, and LaunchedEffect runs on Main — a bare get()
+        // here froze the whole UI (zoombox included) until init finished.
+        // bindToLifecycle below still runs on Main per the CameraX contract.
+        val cp = try {
+            withContext(Dispatchers.IO) { cameraProviderFuture.get() }
+        } catch (e: Exception) { null } ?: return@LaunchedEffect
         // Remember the provider for the non-blocking ON_STOP release (see
         // the standby observer above). Not part of the effect keys — it's
         // the process singleton, so this never triggers a restart loop.
@@ -518,6 +536,8 @@ fun CameraPreviewView(
                     activeImageCapture = bound.imageCapture
                 }
             }
+            // Temporary startup-jank marker (JankMonitor, debug only).
+            JankMonitor.mark("preview-bound")
         } catch (e: CancellationException) {
             // A route change cancels this effect while CameraX is still
             // releasing the previous surface. Never turn that cancellation
@@ -562,19 +582,67 @@ fun CameraPreviewView(
         }
     }
 
-    // Push one immutable render-parameter snapshot (preset look + user WB /
-    // exposure) into the GL renderer. The snapshot is built by the caller
-    // from the same CameraProfileRegistry the capture pipeline uses, so the
-    // live viewfinder and the saved JPEG always agree — including for JSON
-    // look profiles.
-    LaunchedEffect(renderParams) {
-        lutPreviewView.setRenderParams(renderParams)
-    }
-
-    // Push the active LUT into the GL renderer. Loads (and caches) the LUT
-    // from assets on first use.
-    LaunchedEffect(activeLut) {
-        lutPreviewView.setLut(activeLut)
+    // ── Look crossfade driver (~250 ms, interruptible) ──
+    // The target snapshot is built by the caller from the same
+    // CameraProfileRegistry the capture pipeline uses, so the live
+    // viewfinder and the saved JPEG always agree — including for JSON look
+    // profiles. Captures read the registry directly (final target values),
+    // never these mid-fade interpolations.
+    //
+    // A look change animates every grade knob (RetroRenderParams.lerp) plus
+    // a dual-LUT blend (outgoing → incoming) with a linear 250 ms tween,
+    // pushed imperatively per frame so no recomposition happens mid-fade.
+    // White-balance / exposure slider ticks skip the fade and snap through
+    // (they fire every drag frame — fading them would lag the sliders);
+    // a slider tick landing mid-fade simply retargets the fade base, which
+    // converges as soon as the finger lifts. Restarting from the last
+    // delivered frame (not the fade origin) is what keeps rapid
+    // next-next-next look switches gliding instead of jumping.
+    val lookCursor = remember { LookCrossfadeCursor() }
+    val lastLookTarget = remember { LookTarget() }
+    LaunchedEffect(renderParams, activeLut) {
+        val lookChanged = lastLookTarget.params?.withoutUserAdjustments() !=
+            renderParams.withoutUserAdjustments() ||
+            lastLookTarget.lut !== activeLut
+        lastLookTarget.params = renderParams
+        lastLookTarget.lut = activeLut
+        if (!lookChanged || lookCursor.params == null) {
+            // Slider tick (same look) or very first delivery: snap.
+            lookCursor.params = renderParams
+            lookCursor.lutA = activeLut
+            lookCursor.lutB = null
+            lookCursor.mix = 0f
+            lutPreviewView.setRenderParams(renderParams)
+            lutPreviewView.setLut(activeLut)
+            return@LaunchedEffect
+        }
+        val fromParams = lookCursor.params!!
+        // The in-flight blend can't be collapsed back into one LUT, so
+        // restart from its dominant side — at most half a blend step away
+        // from the displayed frame, far subtler than a snap.
+        val fromLut = if (lookCursor.mix >= 0.5f) lookCursor.lutB else lookCursor.lutA
+        val progress = Animatable(0f)
+        try {
+            progress.animateTo(
+                1f,
+                tween(LOOK_CROSSFADE_DURATION_MS, easing = LinearEasing)
+            ) {
+                val t = value
+                val p = fromParams.lerp(renderParams, t)
+                lookCursor.params = p
+                lookCursor.lutA = fromLut
+                lookCursor.lutB = activeLut
+                lookCursor.mix = t
+                lutPreviewView.setRenderParams(p)
+                lutPreviewView.setLutBlend(fromLut, activeLut, t)
+            }
+        } catch (e: CancellationException) {
+            // Superseded by a newer look (or a slider tick): the cursor
+            // already holds the last delivered frame, so the replacement
+            // effect restarts exactly from what is on screen. Never
+            // converts cancellation into a bind continuation.
+            throw e
+        }
     }
 
     // Mirror the front-camera preview horizontally to match the stock
@@ -591,6 +659,7 @@ fun CameraPreviewView(
     val currentDigitalZoom by rememberUpdatedState(digitalZoomRatio)
     val currentOnZoomChanged by rememberUpdatedState(onZoomChanged)
     val currentOnZoomTick by rememberUpdatedState(onZoomTick)
+    val currentOnZoomOvershoot by rememberUpdatedState(onZoomOvershoot)
     val currentZoomEnabled by rememberUpdatedState(zoomEnabled)
 
     // The native child must change together with the CameraX surface provider.
@@ -606,7 +675,7 @@ fun CameraPreviewView(
                 awaitFirstDown(requireUnconsumed = false)
                 // Seed from the current VM value so the gesture doesn't jump
                 var runningZoom = currentDigitalZoom
-                var lastTick = tickIndexOf(runningZoom)
+                var lastTick = tickIndexOf(ZoomBoxCalculator.clampZoom(runningZoom))
                 // Coalesce ViewModel writes: pointer events arrive faster than
                 // the overlay spring can settle, and retargeting the spring +
                 // rewriting StateFlow on every sub-pixel move keeps the UI at
@@ -615,7 +684,18 @@ fun CameraPreviewView(
                 // width ~= 0.8px), so holding them back is visually identical
                 // while roughly halving StateFlow churn. The exact final value
                 // is always flushed when the gesture ends below.
-                var lastSentZoom = runningZoom
+                //
+                // Rubber-band: runningZoom tracks the RAW finger value (capped
+                // far outside for float sanity). The committed value sent to
+                // the ViewModel is hard-clamped (capture truth, focal label);
+                // the visual overshoot (rubberBand − clamped) is reported
+                // separately so the overlay leaf can stretch the box with a
+                // spring and snap back on release — the box over-shrinks past
+                // 5x and resists past 1x instead of hitting a wall.
+                var lastSentZoom = ZoomBoxCalculator.clampZoom(runningZoom)
+                currentOnZoomOvershoot(
+                    ZoomBoxCalculator.rubberBand(runningZoom) - lastSentZoom
+                )
                 do {
                     val event = awaitPointerEvent(PointerEventPass.Main)
                     val pointers = event.changes.filter { it.pressed }
@@ -625,8 +705,8 @@ fun CameraPreviewView(
                         val pinchFactor = event.calculateZoom()
                         if (pinchFactor == 1.0f) null
                         else (runningZoom * pinchFactor).coerceIn(
-                            ZoomBoxCalculator.MIN_ZOOM_RATIO,
-                            ZoomBoxCalculator.MAX_ZOOM_RATIO
+                            ZoomBoxCalculator.MIN_ZOOM_RATIO - 1.5f,
+                            ZoomBoxCalculator.MAX_ZOOM_RATIO + 1.5f
                         )
                     } else {
                         val dragPx = -event.calculatePan().y
@@ -634,19 +714,23 @@ fun CameraPreviewView(
                         else {
                             val fractionalDrag = dragPx / heightPx
                             (runningZoom * kotlin.math.exp(fractionalDrag / 0.7f)).coerceIn(
-                                ZoomBoxCalculator.MIN_ZOOM_RATIO,
-                                ZoomBoxCalculator.MAX_ZOOM_RATIO
+                                ZoomBoxCalculator.MIN_ZOOM_RATIO - 1.5f,
+                                ZoomBoxCalculator.MAX_ZOOM_RATIO + 1.5f
                             )
                         }
                     }
 
                     if (newZoom != null) {
                         runningZoom = newZoom
-                        if (kotlin.math.abs(newZoom - lastSentZoom) > 0.002f) {
-                            lastSentZoom = newZoom
-                            currentOnZoomChanged(newZoom)
+                        val committed = ZoomBoxCalculator.clampZoom(newZoom)
+                        currentOnZoomOvershoot(
+                            ZoomBoxCalculator.rubberBand(newZoom) - committed
+                        )
+                        if (kotlin.math.abs(committed - lastSentZoom) > 0.002f) {
+                            lastSentZoom = committed
+                            currentOnZoomChanged(committed)
                         }
-                        val tick = tickIndexOf(newZoom)
+                        val tick = tickIndexOf(committed)
                         if (tick != lastTick) {
                             lastTick = tick
                             currentOnZoomTick()
@@ -654,10 +738,14 @@ fun CameraPreviewView(
                     }
                 } while (event.changes.any { it.pressed })
                 // Flush the exact resting value so the committed zoom always
-                // matches the gesture, even when the tail sat within EPS.
-                if (runningZoom != lastSentZoom) {
-                    currentOnZoomChanged(runningZoom)
+                // matches the gesture, even when the tail sat within EPS, and
+                // release the overshoot so the overlay springs back to the
+                // clamped box.
+                val restingCommitted = ZoomBoxCalculator.clampZoom(runningZoom)
+                if (restingCommitted != lastSentZoom) {
+                    currentOnZoomChanged(restingCommitted)
                 }
+                currentOnZoomOvershoot(0f)
             }
             }
         )
@@ -668,6 +756,33 @@ private fun tickIndexOf(zoom: Float): Int {
     if (zoom <= 0f) return 0
     return (kotlin.math.ln(zoom) / kotlin.math.ln(1.08f)).toInt()
 }
+
+/**
+ * Last frame the look-crossfade driver actually delivered to the GL
+ * renderer. Plain holder (not State) — updated imperatively per animation
+ * frame so mid-fade writes never schedule recompositions.
+ */
+private class LookCrossfadeCursor(
+    var params: RetroRenderParams? = null,
+    var lutA: CubeLut? = null,
+    var lutB: CubeLut? = null,
+    var mix: Float = 0f
+)
+
+/** Latest look target seen by the crossfade driver, for change detection. */
+private class LookTarget(
+    var params: RetroRenderParams? = null,
+    var lut: CubeLut? = null
+)
+
+/**
+ * The look-defining half of a render snapshot: everything except the user's
+ * live white-balance / exposure adjustments. The crossfade driver compares
+ * this (plus LUT identity) to tell a look switch — which fades — apart from
+ * a slider tick — which snaps through immediately.
+ */
+private fun RetroRenderParams.withoutUserAdjustments(): RetroRenderParams =
+    copy(temperature = 0f, tint = 0f, exposure = 0f)
 
 /**
  * Small Compose-aware holder for the cached LensCatalog result. The value must

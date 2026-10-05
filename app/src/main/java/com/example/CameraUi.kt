@@ -130,6 +130,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -184,8 +185,10 @@ import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 import java.util.Locale
 import com.example.zoom.AspectRatio
+import com.example.zoom.CaptureExtension
 import com.example.zoom.focalLabelAnchor
 import com.example.color.CubeLut
+import com.example.color.LOOK_CROSSFADE_DURATION_MS
 import com.example.color.LookSwatch
 import com.example.color.profileId
 import com.example.zoom.LensRole
@@ -393,11 +396,24 @@ private fun DrawScope.drawThirdsGrid(
  * colors, radii, alphas and thresholds are identical to the previous inline
  * implementation (same Figma spec: 20dp corner, 2px 0.9-alpha outline,
  * 0.65 dim, 0.55 inner grid, 0.40 full-VF grid, 14sp label 30dp above box,
- * `< 0.99f` mount threshold, `spring(200, 0.75)`).
+ * `< 0.99f` mount threshold).
+ *
+ * Spring physics: the box chases the committed zoom on a snappy,
+ * slightly under-damped spring (`spring(350, 0.68)` — settles with a hint
+ * of bounce instead of gliding). Past the 1x/5x limits the gesture feeds a
+ * rubber-band overshoot (zoom-ratio units, 0 when settled) that rides its
+ * own stiffer spring (`spring(550, 0.6)`) and is converted to a box-fraction
+ * delta off the *target* scale (box = 1/zoom on primary). Releasing past a
+ * limit snaps the overshoot target to 0, so the box visibly over-shrinks
+ * then bounces back. The overshoot never reaches the capture path: the
+ * reported crop fraction is the clamped base animation only. At 1x the box
+ * already fills the frame, so downward overshoot is absorbed there (felt
+ * as gesture resistance + settle rather than pixels).
  */
 @Composable
 private fun BoxScope.ZoomBoxOverlay(
     boxScaleFlow: StateFlow<Float>,
+    overshootZoomFlow: StateFlow<Float>,
     selectedLensRole: LensRole,
     effectiveFocalLength: Int,
     vfX: Dp,
@@ -414,12 +430,27 @@ private fun BoxScope.ZoomBoxOverlay(
     val boxScale by boxScaleFlow.collectAsState()
     val animatedBoxWidthFraction by animateFloatAsState(
         targetValue = boxScale,
-        animationSpec = spring(stiffness = 200f, dampingRatio = 0.75f),
+        animationSpec = spring(stiffness = 350f, dampingRatio = 0.68f),
         label = "box_width_fraction"
     )
-    // Report the animated value for the capture crop path. The root's
-    // `captureBoxFraction` ref has no composition readers, so this write
-    // never schedules a recomposition outside this leaf.
+    val overshootZoom by overshootZoomFlow.collectAsState()
+    val animatedOvershootZoom by animateFloatAsState(
+        targetValue = overshootZoom,
+        animationSpec = spring(stiffness = 550f, dampingRatio = 0.6f),
+        label = "zoom_overshoot"
+    )
+    // Box-domain stretch for the current overshoot. Derived from the target
+    // (unanimated) scale so it composes cleanly with the base spring above;
+    // exactly 0 when settled. Clamped to full-frame: at 1x there is nowhere
+    // for the box to grow, so that end's band is gesture resistance only.
+    val targetZoom = 1f / boxScale.coerceAtLeast(0.05f)
+    val renderedBoxWidthFraction = (animatedBoxWidthFraction +
+        (1f / (targetZoom + animatedOvershootZoom).coerceAtLeast(0.05f) -
+            1f / targetZoom)).coerceIn(0f, 1f)
+    // Report the clamped base animation (WITHOUT overshoot) for the capture
+    // crop path. The root's `captureBoxFraction` ref has no composition
+    // readers, so this write never schedules a recomposition outside this
+    // leaf.
     SideEffect { onAnimatedFraction(animatedBoxWidthFraction) }
 
     val showZoomBox = selectedLensRole == LensRole.PRIMARY && animatedBoxWidthFraction < 0.99f
@@ -460,7 +491,7 @@ private fun BoxScope.ZoomBoxOverlay(
         // portrait at full boxFraction), clamp height to vfHeight and re-derive
         // width so the selected ratio is preserved within the available space.
         val ratioFraction = aspectRatio.heightToWidth
-        val naturalBoxW = vfWidth * animatedBoxWidthFraction
+        val naturalBoxW = vfWidth * renderedBoxWidthFraction
         val naturalBoxH = naturalBoxW * ratioFraction
         val (boxWf, boxHf) = if (naturalBoxH > vfHeight) {
             (vfHeight / ratioFraction) to vfHeight
@@ -1038,6 +1069,104 @@ internal fun ExposurePanel(
  * anchored at the same bottom edge so the bubble doesn't get shoved
  * downward when the panel opens.
  */
+/**
+ * Leaf scopes for the high-frequency color/exposure state. `temperature`,
+ * `tint` and `exposure` change on every drag tick; collecting them in
+ * `CameraActiveScreen` recomposed the whole screen per tick (~20 ms
+ * whole-screen recomposes in the system trace). Each wrapper below collects
+ * only what its panel needs, so drag ticks recompose just the panel.
+ * Existing panel signatures are untouched (screenshot tests use them).
+ */
+@Composable
+private fun LiveBubbleRow(
+    viewModel: CameraViewModel,
+    hazeState: HazeState,
+    effectiveFocalLength: Int,
+    isFrontCamera: Boolean,
+    controlAngle: Float
+) {
+    val haptic = LocalHapticFeedback.current
+    val temperature by viewModel.temperature.collectAsState()
+    val tint by viewModel.tint.collectAsState()
+    val exposure by viewModel.exposure.collectAsState()
+    FloatingBubbleRow(
+        effectiveFocalLength = effectiveFocalLength,
+        temperature = temperature,
+        tint = tint,
+        exposure = exposure,
+        hazeState = hazeState,
+        isFrontCamera = isFrontCamera,
+        controlAngle = controlAngle,
+        onTemperatureClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            viewModel.toggleTemperatureSlider()
+        },
+        onLensClick = {
+            // Guarded here too (cycleLens no-ops internally): suppresses
+            // the "buzz-and-nothing" feel of the dead click on front camera.
+            if (!isFrontCamera) {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                viewModel.cycleLens()
+            }
+        },
+        onExposureClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            viewModel.toggleExposureSlider()
+        }
+    )
+}
+
+@Composable
+private fun LiveColorPanel(viewModel: CameraViewModel, hazeState: HazeState) {
+    val haptic = LocalHapticFeedback.current
+    val temperature by viewModel.temperature.collectAsState()
+    val tint by viewModel.tint.collectAsState()
+    MorphedPanelChrome(hazeState = hazeState) {
+        WhiteBalancePanel(
+            temperature = temperature,
+            tint = tint,
+            onValueChange = { tempVal, tintVal ->
+                viewModel.setTemperature(tempVal)
+                viewModel.setTint(tintVal)
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            },
+            headerActions = {
+                MorphedPanelHeaderButton(
+                    icon = Icons.Rounded.Close,
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        viewModel.closeSliders()
+                    }
+                )
+            }
+        )
+    }
+}
+
+@Composable
+private fun LiveExposurePanel(viewModel: CameraViewModel, hazeState: HazeState) {
+    val haptic = LocalHapticFeedback.current
+    val exposure by viewModel.exposure.collectAsState()
+    MorphedPanelChrome(hazeState = hazeState) {
+        ExposurePanel(
+            exposure = exposure,
+            onValueChange = { value ->
+                viewModel.setExposure(value)
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            },
+            headerActions = {
+                MorphedPanelHeaderButton(
+                    icon = Icons.Rounded.Close,
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        viewModel.closeSliders()
+                    }
+                )
+            }
+        )
+    }
+}
+
 private enum class MorphMode { BUBBLE, COLOR, EXPOSURE }
 
 /**
@@ -1263,12 +1392,12 @@ fun CameraUi(
         }
     }
 
-    // Current zoom ratio, read once per composition. Used to compute
-    // the new zoom after the user performs the tutorial's vertical
-    // drag: we apply a +20% bump (zoom-in-by-tactile, matching the
-    // bottom-to-top gesture direction the user requested) so the
-    // camera visibly reacts to the gesture instead of feeling frozen.
-    val currentZoomRatio by viewModel.digitalZoomRatio.collectAsState()
+    // Tutorial zoom bump, read on demand (NOT collected): subscribing the
+    // CameraUi root to digitalZoomRatio recomposed the ENTIRE screen on
+    // every pinch-zoom tick (~20 ms whole-screen recomposes in the system
+    // trace). The value is only needed at tutorial-gesture time, where a
+    // direct .value read is fresher anyway.
+    // (No `by collectAsState` here on purpose — see above.)
 
     // Aspect ratio drives the viewfinder box geometry (mirrored in
     // the tutorial section below) so the tutorial arrow's base can be
@@ -1404,10 +1533,8 @@ fun CameraUi(
                     // animation + SettingsScreen first composition, which read
                     // as a ~1s open stall, and the rebind on close (80ms+
                     // HAL bind) read as a black flash before the preview
-                    // resumed. The settings overlay is fully opaque so the
-                    // occluded preview costs almost nothing, and
-                    // SurfaceFlinger skips the hidden layer. Photo-viewer and
-                    // RAW still pause via CameraActiveScreen's internal
+                    // resumed. Photo-viewer and RAW still pause via
+                    // CameraActiveScreen's internal
                     // `selectedPhoto / isRawCapturing` handling.
                     previewPaused = false
                 )
@@ -1482,7 +1609,7 @@ fun CameraUi(
                         // `recalculateState()` (the chain that snaps
                         // the on-screen zoom-box rect) stays in sync.
                         onZoomAction = {
-                            viewModel.setZoom(currentZoomRatio * 1.20f)
+                            viewModel.setZoom(viewModel.digitalZoomRatio.value * 1.20f)
                         },
                         // Cycle the active look directly. Direction
                         // convention matches the camera's own
@@ -1791,6 +1918,172 @@ fun CameraPermissionOnboarding(
     }
 }
 
+/**
+ * Viewfinder leaf scope. Collects the high-frequency color/exposure state
+ * here (instead of `CameraActiveScreen`) so slider ticks recompose only
+ * this preview call: the GL params are pushed via `LaunchedEffect` and the
+ * bind keys don't include exposure, so no CameraX rebind happens per tick.
+ * Rare state (lens, flash, look, viewer open) arrives as plain params.
+ */
+@Composable
+private fun LiveViewfinderPreview(
+    viewModel: CameraViewModel,
+    activeLookId: String,
+    selectedLensRole: LensRole,
+    flashMode: Int,
+    isFrontCamera: Boolean,
+    activeExtension: CaptureExtension,
+    isRawCapturing: Boolean,
+    previewPausedBase: Boolean,
+    photoViewerOpen: Boolean,
+    flingEnabled: Boolean,
+    zoomEnabled: Boolean,
+    activeLut: CubeLut?,
+    onImageCapture: (ImageCapture) -> Unit,
+    onFlingFired: (direction: Int) -> Unit,
+    onZoomTick: () -> Unit,
+    onZoomOvershoot: (Float) -> Unit
+) {
+    val exposure by viewModel.exposure.collectAsState()
+    val temperature by viewModel.temperature.collectAsState()
+    val tint by viewModel.tint.collectAsState()
+
+    // One immutable render snapshot for the GL viewfinder, built from the
+    // same CameraProfileRegistry the capture pipeline uses. Computed with
+    // `remember` keyed on the same inputs the capture path reads, so a JSON
+    // profile tweak changes preview and JPEG together instead of letting
+    // them drift (preview used to flatten the FilmPreset enum directly).
+    // Look switches crossfade inside CameraPreviewView (~250 ms dual-LUT
+    // blend); slider ticks snap through — see the driver there.
+    val previewRenderParams = remember(activeLookId, temperature, tint, exposure) {
+        viewModel.previewRenderParams(activeLookId, temperature, tint, exposure)
+    }
+
+    // The preview binds immediately, without waiting for persisted
+    // settings (cold-start): the pass-through start route is a stable
+    // CameraX surface, so the viewfinder is live in <1 s. When a graded
+    // persisted look arrives, useFilteredPreview flips and
+    // CameraPreviewView rebinds in place to the GL surface — the same
+    // path a manual pass-through ↔ graded look switch already uses.
+    //
+    // Graded → pass-through keeps the GL surface mounted for one crossfade
+    // window first, so the LUT mix can dissolve to ungraded on the GPU
+    // instead of snapping; only then does the route drop to the stable
+    // CameraX path. A look change inside the window cancels the drop.
+    val settledFiltered = !viewModel.isPassThroughLook(activeLookId)
+    var routeFiltered by remember { mutableStateOf(settledFiltered) }
+    val currentSettled by rememberUpdatedState(settledFiltered)
+    LaunchedEffect(settledFiltered) {
+        if (settledFiltered) {
+            routeFiltered = true
+        } else {
+            delay(LOOK_CROSSFADE_DURATION_MS.toLong() + 50)
+            if (!currentSettled) routeFiltered = false
+        }
+    }
+    CameraPreviewView(
+        modifier = Modifier
+            .fillMaxSize()
+            // Horizontal-fling preset cycler, chained onto the SAME
+            // modifier path as `CameraPreviewView`'s internal zoom
+            // pointerInput. Hitting on a sibling Box layered over the
+            // viewfinder (the previous approach) made the top Box win
+            // hit-testing and starved both `CameraPreviewView`'s zoom
+            // `pointerInput` AND its underlying native `AndroidView`
+            // of touches for the entire viewfinder rect — the user's
+            // report was that vertical-swipe zoom stopped working once
+            // the cycler landed. Putting the detector on this modifier
+            // chain puts both gestures on the same hit path so neither
+            // shadows the other, and matches the
+            // `awaitFirstDown(requireUnconsumed = false) +
+            // awaitPointerEvent(PointerEventPass.Main)` pattern that
+            // `CameraPreviewView` uses for its pan/zoom handler — so
+            // neither consume-semantic nor pass-order conflicts arise.
+            // Keying on the gating flags tears down / restarts the
+            // gesture coroutine cleanly when sliders open/close or the
+            // photo viewer state flips, matching the prior guard set.
+            .pointerInput(
+                flingEnabled
+            ) {
+                // Compose's `detectHorizontalDragGestures` uses
+                // `awaitTouchSlopOrCancellation` internally with
+                // `Orientation.Horizontal`: it only activates when the
+                // user crosses the slop (~24 dp via
+                // `ViewConfiguration.touchSlop`) in a HORIZONTAL
+                // direction FIRST. If vertical motion reaches touch
+                // slop first (i.e. the user intends to zoom), the
+                // gesture cancels and `CameraPreviewView`'s
+                // `awaitFirstDown + calculatePan().y` loop owns the
+                // gesture. Conversely, a clear horizontal swipe
+                // claims here; `CameraPreviewView` then sees
+                // `change.isConsumed = true` on subsequent moves — even
+                // though it does not break on consume, its
+                // `calculatePan().y` returns the Y delta since the
+                // previous event which is near zero during a horizontal
+                // sweep, so the zoom branch short-circuits via
+                // `if (dragPx == 0f) null` and zoom stays put. Net
+                // effect: cleanly separated horizontal vs vertical
+                // swipe intent at the framework level, with no
+                // percentage-based drift or jitter sensitivity bugs.
+                var totalDrag = 0f
+                var firedThisGesture = false
+                detectHorizontalDragGestures(
+                    onDragStart = {
+                        totalDrag = 0f
+                        firedThisGesture = false
+                    },
+                    onDragEnd = { totalDrag = 0f },
+                    onDragCancel = { totalDrag = 0f },
+                    onHorizontalDrag = { change, dragAmount ->
+                        // Guard: once we fire one cycle on a given
+                        // gesture, do not fire another even if the
+                        // user keeps swiping. One gesture = one cycle.
+                        // Keeps a single finger-flick from jumping two
+                        // presets in a row.
+                        if (!firedThisGesture) {
+                            totalDrag += dragAmount
+                            val threshold = size.width.toFloat() * 0.22f
+                            // 0.22 instead of 0.18 + a real touch-slop
+                            // gate from Compose means the user has to
+                            // commit clearly to a horizontal sweep.
+                            // Slight bump from 0.18 because the slop
+                            // gate already filters short accidental
+                            // brushes; the wider threshold makes a
+                            // success feel more deliberate.
+                            if (kotlin.math.abs(totalDrag) > threshold) {
+                                firedThisGesture = true
+                                // Convention: swipe LEFT reveals the
+                                // next preset; swipe RIGHT returns to
+                                // the previous one.
+                                val direction = if (totalDrag < 0f) 1 else -1
+                                onFlingFired(direction)
+                                change.consume()
+                            }
+                        }
+                    }
+                )
+            },
+        selectedLensRole = selectedLensRole,
+        digitalZoomRatioFlow = viewModel.digitalZoomRatio,
+        exposure = exposure,
+        flashMode = flashMode,
+        isFrontCamera = isFrontCamera,
+        activeExtension = activeExtension,
+        isRawCapturing = isRawCapturing,
+        previewPaused = previewPausedBase || photoViewerOpen,
+        zoomEnabled = zoomEnabled,
+        renderParams = previewRenderParams,
+        activeLut = activeLut,
+        useFilteredPreview = routeFiltered,
+        onZoomChanged = { viewModel.setZoom(it) },
+        onZoomTick = onZoomTick,
+        onZoomOvershoot = onZoomOvershoot,
+        onAvailableFocalLengths = { viewModel.setAvailableFocalLengths(it) },
+        imageCaptureProvider = onImageCapture,
+        onLensCatalogReady = { result -> viewModel.setLensCatalogResult(result) }
+    )
+}
+
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 fun CameraActiveScreen(
@@ -1803,9 +2096,11 @@ fun CameraActiveScreen(
 
     val selectedLensRole by viewModel.selectedLensRole.collectAsState()
     val effectiveFocalLength by viewModel.effectiveFocalLength.collectAsState()
-    val exposure by viewModel.exposure.collectAsState()
-    val temperature by viewModel.temperature.collectAsState()
-    val tint by viewModel.tint.collectAsState()
+    // NOTE: exposure / temperature / tint are intentionally NOT collected
+    // here: they tick every drag frame, and subscribing this root scope
+    // recomposed the whole screen per tick. They are collected in the
+    // LiveViewfinderPreview + LiveBubbleRow/LiveColorPanel/LiveExposurePanel
+    // leaf scopes instead (gesture code reads live .value, no subscription).
     val flashMode by viewModel.flashMode.collectAsState()
     val isFrontCamera by viewModel.isFrontCamera.collectAsState()
     val capturedPhotos by viewModel.capturedPhotos.collectAsState()
@@ -1883,14 +2178,8 @@ fun CameraActiveScreen(
         }
     }
 
-    // One immutable render snapshot for the GL viewfinder, built from the
-    // same CameraProfileRegistry the capture pipeline uses. Computed with
-    // `remember` keyed on the same inputs the capture path reads, so a JSON
-    // profile tweak changes preview and JPEG together instead of letting
-    // them drift (preview used to flatten the FilmPreset enum directly).
-    val previewRenderParams = remember(activeLookId, temperature, tint, exposure) {
-        viewModel.previewRenderParams(activeLookId, temperature, tint, exposure)
-    }
+    // (previewRenderParams lives in LiveViewfinderPreview's leaf scope —
+    // see the NOTE on the removed exposure/temperature/tint collects above.)
 
     val mainExecutor = ContextCompat.getMainExecutor(context)
     var activeImageCapture by remember { mutableStateOf<ImageCapture?>(null) }
@@ -1912,11 +2201,14 @@ fun CameraActiveScreen(
         // Reuse the ViewModel's pre-warmed provider when it's ready (the
         // normal case — warm-up started in the ViewModel init, this probe
         // runs after first composition); fall back to fetching the future
-        // here otherwise. `get()` on the already-completed future returns
-        // instantly, so this never adds startup latency.
+        // on IO otherwise. A bare get() here would block the Main thread
+        // for the whole CameraX init at cold start (the exact case where
+        // the warm-up hasn't finished), freezing zoombox/UI scrolling.
         val provider = viewModel.cameraProviderForBind()
             ?: try {
-                androidx.camera.lifecycle.ProcessCameraProvider.getInstance(context).get()
+                withContext(Dispatchers.IO) {
+                    androidx.camera.lifecycle.ProcessCameraProvider.getInstance(context).get()
+                }
             } catch (e: Exception) { return@LaunchedEffect }
         viewModel.probeExtensions(context, provider, targetProfile.logicalCameraId, false, lifecycleOwner)
     }
@@ -2007,6 +2299,13 @@ fun CameraActiveScreen(
         // pixels are unchanged.
         val captureBoxFraction = remember { mutableFloatStateOf(1f) }
 
+        // Rubber-band overshoot channel (zoom-ratio units, 0 when settled).
+        // Written per gesture frame by the preview's pointerInput and
+        // collected ONLY by ZoomBoxOverlay, so the writes never recompose
+        // this scope — same isolation as boxScale. The capture crop reads
+        // the clamped base fraction above, never this overshoot.
+        val zoomOvershoot = remember { MutableStateFlow(0f) }
+
         // Haze blur source: everything the floating bubble floats over
         // (background + live preview + dim/grid chrome + toast). This must
         // stay a SIBLING of the bubble — never an ancestor of it — per the
@@ -2026,119 +2325,34 @@ fun CameraActiveScreen(
                 .height(vfHeight)
                 .clip(RoundedCornerShape(16.dp))
         ) {
-        // The preview binds immediately, without waiting for persisted
-        // settings (cold-start): the pass-through start route is a stable
-        // CameraX surface, so the viewfinder is live in <1 s. When a graded
-        // persisted look arrives, useFilteredPreview flips and
-        // CameraPreviewView rebinds in place to the GL surface — the same
-        // path a manual pass-through ↔ graded look switch already uses.
-        CameraPreviewView(
-            modifier = Modifier
-                .fillMaxSize()
-                // Horizontal-fling preset cycler, chained onto the SAME
-                // modifier path as `CameraPreviewView`'s internal zoom
-                // pointerInput. Hitting on a sibling Box layered over the
-                // viewfinder (the previous approach) made the top Box win
-                // hit-testing and starved both `CameraPreviewView`'s zoom
-                // `pointerInput` AND its underlying native `AndroidView`
-                // of touches for the entire viewfinder rect — the user's
-                // report was that vertical-swipe zoom stopped working once
-                // the cycler landed. Putting the detector on this modifier
-                // chain puts both gestures on the same hit path so neither
-                // shadows the other, and matches the
-                // `awaitFirstDown(requireUnconsumed = false) +
-                // awaitPointerEvent(PointerEventPass.Main)` pattern that
-                // `CameraPreviewView` uses for its pan/zoom handler — so
-                // neither consume-semantic nor pass-order conflicts arise.
-                // Keying on the gating flags tears down / restarts the
-                // gesture coroutine cleanly when sliders open/close or the
-                // photo viewer state flips, matching the prior guard set.
-                .pointerInput(
-                    selectedPhoto == null && !showExpSlider && !showTempSlider
-                ) {
-                    // Compose's `detectHorizontalDragGestures` uses
-                    // `awaitTouchSlopOrCancellation` internally with
-                    // `Orientation.Horizontal`: it only activates when the
-                    // user crosses the slop (~24 dp via
-                    // `ViewConfiguration.touchSlop`) in a HORIZONTAL
-                    // direction FIRST. If vertical motion reaches touch
-                    // slop first (i.e. the user intends to zoom), the
-                    // gesture cancels and `CameraPreviewView`'s
-                    // `awaitFirstDown + calculatePan().y` loop owns the
-                    // gesture. Conversely, a clear horizontal swipe
-                    // claims here; `CameraPreviewView` then sees
-                    // `change.isConsumed = true` on subsequent moves — even
-                    // though it does not break on consume, its
-                    // `calculatePan().y` returns the Y delta since the
-                    // previous event which is near zero during a horizontal
-                    // sweep, so the zoom branch short-circuits via
-                    // `if (dragPx == 0f) null` and zoom stays put. Net
-                    // effect: cleanly separated horizontal vs vertical
-                    // swipe intent at the framework level, with no
-                    // percentage-based drift or jitter sensitivity bugs.
-                    var totalDrag = 0f
-                    var firedThisGesture = false
-                    detectHorizontalDragGestures(
-                        onDragStart = {
-                            totalDrag = 0f
-                            firedThisGesture = false
-                        },
-                        onDragEnd = { totalDrag = 0f },
-                        onDragCancel = { totalDrag = 0f },
-                        onHorizontalDrag = { change, dragAmount ->
-                            // Guard: once we fire one cycle on a given
-                            // gesture, do not fire another even if the
-                            // user keeps swiping. One gesture = one cycle.
-                            // Keeps a single finger-flick from jumping two
-                            // presets in a row.
-                            if (!firedThisGesture) {
-                                totalDrag += dragAmount
-                                val threshold = size.width.toFloat() * 0.22f
-                                // 0.22 instead of 0.18 + a real touch-slop
-                                // gate from Compose means the user has to
-                                // commit clearly to a horizontal sweep.
-                                // Slight bump from 0.18 because the slop
-                                // gate already filters short accidental
-                                // brushes; the wider threshold makes a
-                                // success feel more deliberate.
-                                if (kotlin.math.abs(totalDrag) > threshold) {
-                                    firedThisGesture = true
-                                    // Convention: swipe LEFT reveals the
-                                    // next preset; swipe RIGHT returns to
-                                    // the previous one.
-                                    val direction = if (totalDrag < 0f) 1 else -1
-                                    viewModel.cycleLook(direction)
-                                    haptic.performHapticFeedback(
-                                        HapticFeedbackType.LongPress
-                                    )
-                                    toastLookIdSnapshot = viewModel.activeLookId.value
-                                    showToast = true
-                                    toastEpoch++
-                                    change.consume()
-                                }
-                            }
-                        }
-                    )
-                },
+        // Live preview leaf (collects exposure/temperature/tint in its own
+        // scope so slider ticks don't recompose this screen — see NOTE on the
+        // removed collects above).
+        LiveViewfinderPreview(
+            viewModel = viewModel,
+            activeLookId = activeLookId,
             selectedLensRole = selectedLensRole,
-            digitalZoomRatioFlow = viewModel.digitalZoomRatio,
-            exposure = exposure,
             flashMode = flashMode,
             isFrontCamera = isFrontCamera,
             activeExtension = activeExtension,
             isRawCapturing = isCapturing && rawModeEnabled,
-            previewPaused = previewPaused || selectedPhoto != null,
+            previewPausedBase = previewPaused,
+            photoViewerOpen = selectedPhoto != null,
+            flingEnabled = selectedPhoto == null && !showExpSlider && !showTempSlider,
             zoomEnabled = !(showExpSlider || showTempSlider),
-            renderParams = previewRenderParams,
             activeLut = previewLut,
-            useFilteredPreview = !viewModel.isPassThroughLook(activeLookId),
-            onZoomChanged = { viewModel.setZoom(it) },
+            onImageCapture = { activeImageCapture = it },
+            onFlingFired = { direction ->
+                viewModel.cycleLook(direction)
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                toastLookIdSnapshot = viewModel.activeLookId.value
+                showToast = true
+                toastEpoch++
+            },
             onZoomTick = {
                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
             },
-            onAvailableFocalLengths = { viewModel.setAvailableFocalLengths(it) },
-            imageCaptureProvider = { activeImageCapture = it },
-            onLensCatalogReady = { result -> viewModel.setLensCatalogResult(result) }
+            onZoomOvershoot = { zoomOvershoot.value = it }
         )
 
         // Countdown timer overlay
@@ -2217,6 +2431,7 @@ fun CameraActiveScreen(
         // recompose only that leaf — not this whole screen. Same spec pixels.
         ZoomBoxOverlay(
             boxScaleFlow = viewModel.boxScale,
+            overshootZoomFlow = zoomOvershoot,
             selectedLensRole = selectedLensRole,
             effectiveFocalLength = effectiveFocalLength,
             vfX = vfX,
@@ -2274,9 +2489,15 @@ fun CameraActiveScreen(
                                     ?: return@awaitEachGesture
                             val track = TrackedPointer(
                                 start = down.position,
-                                initialExposure = exposure,
-                                initialTemp = temperature,
-                                initialTint = tint
+                                // Read live (NOT the collected composition
+                                // snapshot): pointerInput doesn't restart per
+                                // tick, so the snapshot goes stale after the
+                                // first set and every later comparison
+                                // misfires. .value is always fresh and adds
+                                // no composition subscription.
+                                initialExposure = viewModel.exposure.value,
+                                initialTemp = viewModel.temperature.value,
+                                initialTint = viewModel.tint.value
                             )
                             var consumedByChild = false
                             do {
@@ -2291,7 +2512,7 @@ fun CameraActiveScreen(
                                         track.moved = true
                                         val raw = track.initialExposure + (dx / size.width.toFloat()) * 6f
                                         val s = (kotlin.math.round(raw / 0.1f) * 0.1f).coerceIn(-3f, 3f)
-                                        if (s != exposure) {
+                                        if (s != viewModel.exposure.value) {
                                             viewModel.setExposure(s)
                                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                         }
@@ -2304,7 +2525,7 @@ fun CameraActiveScreen(
                                         val rti = track.initialTint - (dy / size.height.toFloat()) * 4f
                                         val st = (kotlin.math.round(rt / 0.1f) * 0.1f).coerceIn(-2f, 2f)
                                         val sti = (kotlin.math.round(rti / 0.1f) * 0.1f).coerceIn(-2f, 2f)
-                                        if (st != temperature || sti != tint) {
+                                        if (st != viewModel.temperature.value || sti != viewModel.tint.value) {
                                             viewModel.setTemperature(st)
                                             viewModel.setTint(sti)
                                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -2316,9 +2537,9 @@ fun CameraActiveScreen(
 
                             // Close on tap (no value adjusted)
                             if (!consumedByChild &&
-                                track.initialExposure == exposure &&
-                                track.initialTemp == temperature &&
-                                track.initialTint == tint
+                                track.initialExposure == viewModel.exposure.value &&
+                                track.initialTemp == viewModel.temperature.value &&
+                                track.initialTint == viewModel.tint.value
                             ) {
                                 viewModel.closeSliders()
                             }
@@ -2410,72 +2631,15 @@ fun CameraActiveScreen(
                 label = "bubble_panel_morph"
             ) { mode ->
                 when (mode) {
-                    MorphMode.BUBBLE -> FloatingBubbleRow(
-                        effectiveFocalLength = effectiveFocalLength,
-                        temperature = temperature,
-                        tint = tint,
-                        exposure = exposure,
+                    MorphMode.BUBBLE -> LiveBubbleRow(
+                        viewModel = viewModel,
                         hazeState = hazeState,
+                        effectiveFocalLength = effectiveFocalLength,
                         isFrontCamera = isFrontCamera,
-                        controlAngle = animatedControlAngle,
-                        onTemperatureClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            viewModel.toggleTemperatureSlider()
-                        },
-                        onLensClick = {
-                            // Skip both the haptic and the cycle on front
-                            // camera. cycleLens() already no-ops internally
-                            // (defense-in-depth) but folding both intent and
-                            // feedback into the same guard suppresses the
-                            // "buzz-and-nothing" feel on the dead click.
-                            if (!isFrontCamera) {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                viewModel.cycleLens()
-                            }
-                        },
-                        onExposureClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            viewModel.toggleExposureSlider()
-                        }
+                        controlAngle = animatedControlAngle
                     )
-                    MorphMode.COLOR -> MorphedPanelChrome(hazeState = hazeState) {
-                        WhiteBalancePanel(
-                            temperature = temperature,
-                            tint = tint,
-                            onValueChange = { tempVal, tintVal ->
-                                viewModel.setTemperature(tempVal)
-                                viewModel.setTint(tintVal)
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            },
-                            headerActions = {
-                                MorphedPanelHeaderButton(
-                                    icon = Icons.Rounded.Close,
-                                    onClick = {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        viewModel.closeSliders()
-                                    }
-                                )
-                            }
-                        )
-                    }
-                    MorphMode.EXPOSURE -> MorphedPanelChrome(hazeState = hazeState) {
-                        ExposurePanel(
-                            exposure = exposure,
-                            onValueChange = { value ->
-                                viewModel.setExposure(value)
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            },
-                            headerActions = {
-                                MorphedPanelHeaderButton(
-                                    icon = Icons.Rounded.Close,
-                                    onClick = {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        viewModel.closeSliders()
-                                    }
-                                )
-                            }
-                        )
-                    }
+                    MorphMode.COLOR -> LiveColorPanel(viewModel = viewModel, hazeState = hazeState)
+                    MorphMode.EXPOSURE -> LiveExposurePanel(viewModel = viewModel, hazeState = hazeState)
                 }
             }
         }

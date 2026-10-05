@@ -55,6 +55,9 @@ class MainActivity : ComponentActivity() {
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
     voteHighRefreshRate()
+    // Temporary startup-jank profiler (debug builds only, no-op in release).
+    // See JankMonitor — delete once the cold-start lag is diagnosed.
+    JankMonitor.start()
     setContent {
       MyApplicationTheme {
         val haptic = LocalHapticFeedback.current
