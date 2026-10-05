@@ -910,8 +910,14 @@ class LutPreviewRenderer(
             }
 
             // ── Portable float hash + value noise (matches the CPU grain) ──
+            // Sin-free fract-multiply hash (hash12); must stay in lock-step
+            // with hashF() in RetroFilter.kt so CPU captures and the GPU
+            // preview/capture shaders key grain, dust and scratches off the
+            // same noise field.
             float hash(vec2 p) {
-                return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+                vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+                p3 += dot(p3, p3.yzx + 33.33);
+                return fract((p3.x + p3.y) * p3.z);
             }
             float smootherstepNoise(float t) {
                 return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
@@ -1220,8 +1226,14 @@ class LutPreviewRenderer(
             }
 
             // ── Portable float hash + value noise (matches the CPU grain) ──
+            // Sin-free fract-multiply hash (hash12); must stay in lock-step
+            // with hashF() in RetroFilter.kt so CPU captures and the GPU
+            // preview/capture shaders key grain, dust and scratches off the
+            // same noise field.
             float hash(vec2 p) {
-                return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+                vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+                p3 += dot(p3, p3.yzx + 33.33);
+                return fract((p3.x + p3.y) * p3.z);
             }
             float smootherstepNoise(float t) {
                 return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);

@@ -69,7 +69,6 @@ import com.example.color.CubeLut
 import com.example.color.CubeLutParser
 import com.example.color.LutPreviewView
 import com.example.color.RetroRenderParams
-import com.example.FilmPreset
 import com.example.zoom.CaptureExtension
 import com.example.zoom.LensCatalog
 import com.example.zoom.LensRole
@@ -237,7 +236,7 @@ fun CameraPreviewView(
     zoomEnabled: Boolean = true,
     renderParams: RetroRenderParams = RetroRenderParams(),
     activeLut: CubeLut? = null,
-    activePreset: FilmPreset = FilmPreset.WARM_PORTRAIT,
+    useFilteredPreview: Boolean = true,
     onZoomChanged: (Float) -> Unit,
     onZoomTick: () -> Unit = {},
     onAvailableFocalLengths: (List<Float>) -> Unit,
@@ -249,15 +248,21 @@ fun CameraPreviewView(
 
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
 
-    // Filtered styles use the OpenGL preview so their LUT/effects are rendered
-    // live. NORMAL deliberately uses CameraX's stock PreviewView instead of
-    // the custom GL view: the latter owns an extra EGL context whose buffer
-    // can be resized during the first edge-to-edge Compose layout pass (the
-    // Pixel logcat shows that as a BLASTBufferQueue size mismatch and an
-    // abandoned consumer). Normal has no GPU effects to justify that extra
-    // surface, so keeping it on the stable CameraX path avoids the startup
-    // race entirely. Both views are TextureView-based (in-window), which is
-    // also what lets the control bubble's backdrop blur sample the video.
+    // Filtered looks use the OpenGL preview so their LUT/effects are rendered
+    // live. A pass-through look (no LUT and no render stage — NORMAL, or any
+    // bundled profile that grades nothing) deliberately uses CameraX's stock
+    // PreviewView instead of the custom GL view: the latter owns an extra EGL
+    // context whose buffer can be resized during the first edge-to-edge
+    // Compose layout pass (the Pixel logcat shows that as a BLASTBufferQueue
+    // size mismatch and an abandoned consumer). A look with no GPU effects to
+    // justify that extra surface keeps it on the stable CameraX path, which
+    // avoids the startup race entirely. Both views are TextureView-based
+    // (in-window), which is also what lets the control bubble's backdrop blur
+    // sample the video.
+    //
+    // The caller decides this from the registry (`CameraProfileRegistry
+    // .isPassThrough`), so a JSON-only look routes the same way an enum one
+    // does.
     val lutPreviewView = remember { LutPreviewView(context) }
     val normalPreviewView = remember {
         PreviewView(context).apply {
@@ -269,7 +274,6 @@ fun CameraPreviewView(
             scaleType = PreviewView.ScaleType.FILL_CENTER
         }
     }
-    val useFilteredPreview = activePreset != FilmPreset.NORMAL
     val activePreviewView = if (useFilteredPreview) lutPreviewView else normalPreviewView
     val activeSurfaceProvider = if (useFilteredPreview) {
         lutPreviewView.surfaceProvider

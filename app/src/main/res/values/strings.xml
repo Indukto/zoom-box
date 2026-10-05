@@ -118,6 +118,11 @@
     <string name="flash_desc_on">Always fires.</string>
     <string name="flash_desc_off">Never fires.</string>
     <string name="gallery_section">GALLERY</string>
+    <!-- Double exposure: each shot is composited over the previous one -->
+    <string name="double_exposure_label">Double Exposure</string>
+    <string name="double_exposure_subtitle">Blend every shot with the one before it</string>
+    <string name="double_exposure_subtitle_warming">Next shot blends with the previous frame</string>
+
     <string name="photo_frame_label">Photo Frame</string>
     <string name="photo_frame_subtitle">Add the film-card frame in the gallery and bake it into saved photos</string>
     <string name="about_section">ABOUT</string>

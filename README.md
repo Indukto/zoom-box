@@ -22,10 +22,11 @@
 
 > 💡 **Have a feature request?** Open an [issue](https://github.com/Indukto/Bhig/issues) 
 
-##  Screenshots
+##  Screenshots  (Outdatet)
 
 <div align="center">
 
+  
 [![Screenshot-20260730-231458.png](https://i.postimg.cc/Kc38gxQY/Screenshot-20260730-231458.png)](https://postimg.cc/K4F26X6X) [![Screenshot-20260730-231920.png](https://i.postimg.cc/YSfMxCZz/Screenshot-20260730-231920.png)](https://postimg.cc/HJxqYdpr)
 
 </div>
@@ -42,8 +43,8 @@
 
 ### Film 
 
-- **14 film looks** — Warm Portrait, Monochrome 400, Instant Classic, Cross Process, Instant Vintage, Moody, Muted Meadow, Sunlit Spill, Golden 200, Street Mono 400, Vivid Cool 400, CCD Digicam, Pastel Instant, and Normal (pass-through). Each is defined by a 3D LUT plus per-look tonal parameters.
-- **JSON look profiles** — Every look is fully described by an editable `assets/cameras/*.json` file; the capture pipeline prefers the JSON and falls back to the built-in enum. Adding or tuning a look is an *asset change, not a code change*.
+- **13 film looks** — Warm Portrait, Monochrome 400, Instant Classic, Cross Process, Instant Vintage, Moody, Muted Meadow, Sunlit Spill, Golden 200, Street Mono 400, Vivid Cool 400, CCD Digicam, and Normal (pass-through). Each is defined by a 3D LUT plus per-look tonal parameters.
+- **JSON look profiles** — Every look is fully described by an editable `assets/cameras/*.json` file, and the Film-Style picker is built from the loaded catalog: a look with no `FilmPreset` entry still shows up in the grid and in the swipe cycle. The capture pipeline prefers the JSON and falls back to the built-in enum, so adding or tuning a look is an *asset change, not a code change*.
 - **Film processing pipeline** — One shared `RetroRenderParams` snapshot (LUT + film curve, contrast/saturation, split toning, bloom, fringing, soft focus, milky haze, grain, artifacts) drives all three render back-ends with a single signal chain:
   - **Live preview** — GLES fragment shader (grain + vignette shown in the viewfinder; dust/scratches/light-leak are capture-only).
   - **CPU capture** — Pixel filter applied to the saved JPEG.
@@ -52,6 +53,7 @@
 
 ###  Capture & manage
 
+- **Double exposure** — Screen-blends each shot with the previous one (the retained frame is downscaled to a 1080 px ghost, so the effect costs a few MB rather than a second 12 MP frame). Applied after the film grade, so both "exposures" carry the same look.
 - **RAW (DNG)** — Full-resolution RAW via the Camera2 API, captured in parallel to JPEG, with per-lens detection.
 - **In-app gallery** — A film-card layout with EXIF metadata, plus share and delete.
 
@@ -81,10 +83,9 @@ Each look combines a `.cube` 3D LUT (in `app/src/main/assets/luts/`) with per-lo
 | 🏙️ Street Mono 400 | Gritty monochrome for the city |
 | 💠 Vivid Cool 400 | Punchy, cool-toned saturation |
 | 📀 CCD Digicam | Early digital-sensor nostalgia |
-| 🍬 Pastel Instant | Soft, dreamy pastels |
 | ✨ Normal | Pure pass-through, no grade |
 
-The five newest looks (Golden 200, Street Mono 400, Vivid Cool 400, CCD Digicam, Pastel Instant) use LUTs adapted from the MIT-licensed DAZZ Retro Camera reference and renamed to avoid third-party trademarks — see `app/src/main/assets/luts/NOTICE.txt` for provenance.
+The four newest looks (Golden 200, Street Mono 400, Vivid Cool 400, CCD Digicam) use LUTs adapted from the MIT-licensed DAZZ Retro Camera reference and renamed to avoid third-party trademarks — see `app/src/main/assets/luts/NOTICE.txt` for provenance.
 
 ---
 
@@ -124,10 +125,16 @@ Compile the app:
 ./gradlew :app:compileDebugKotlin
 ```
 
-Run the JVM tests for the color pipeline (preset → params mapping, JSON profile parsing, JSON ↔ enum parity, artifact fields), which live in `app/src/test/java/com/example/color/`:
+Run the JVM tests for the color pipeline (preset → params mapping, JSON profile parsing, JSON ↔ enum parity, catalog/picker lookups, the CPU filter's behavior locks and the double-exposure blend), which live in `app/src/test/java/com/example/color/`:
 
 ```bash
 ./gradlew :app:testDebugUnitTest --tests "com.example.color.*"
+```
+
+The CPU filter also ships an opt-in benchmark (1 warm-up + 5 timed runs over a 4000x3000 frame, printing median/min ms plus an output checksum):
+
+```bash
+RETRO_BENCH=1 ./gradlew :app:testDebugUnitTest --tests "com.example.color.RetroFilterBenchmark"
 ```
 
 The full suite compiles and passes with `./gradlew :app:testDebugUnitTest`.

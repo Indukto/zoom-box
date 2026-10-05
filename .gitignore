@@ -30,3 +30,13 @@ debug.keystore
 
 # Local reference clone used for comparison; ignore the entire checkout.
 /third_party/dazz-retro-camera/
+
+# Build outputs — never commit.
+/app/debug/
+/app/release/
+/.build_tmp/*.class
+/.build_tmp/**/*.class
+__pycache__/
+*.pyc
+app/release/mapping.txt
+/.build_tmp/manual-test-classes/
