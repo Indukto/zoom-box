@@ -233,6 +233,7 @@ fun CameraPreviewView(
     isFrontCamera: Boolean,
     activeExtension: CaptureExtension = CaptureExtension.NONE,
     isRawCapturing: Boolean = false,
+    previewPaused: Boolean = false,
     zoomEnabled: Boolean = true,
     renderParams: RetroRenderParams = RetroRenderParams(),
     activeLut: CubeLut? = null,
@@ -370,10 +371,12 @@ fun CameraPreviewView(
         }
     }
 
-    // Defensive teardown: the CameraUi overlay fix keeps the camera session
-    // alive across the settings screen, but if anything ever re-introduces a
-    // sibling-swap (a Navigation compose graph, a quick-settings tab, a
-    // capture-review screen that swaps CameraActiveScreen out), make sure
+    // Defensive teardown: while CameraUi keeps CameraActiveScreen
+    // perpetually mounted, the preview session itself is released whenever
+    // a fullscreen opaque overlay covers it (previewPaused) or the activity
+    // stops. If anything ever re-introduces a sibling-swap (a Navigation
+    // compose graph, a quick-settings tab, a capture-review screen that
+    // swaps CameraActiveScreen out), make sure
     // PreviewSessionManager.release() runs synchronously with the
     // composable's leave-composition event so we don't leave an orphaned
     // ProcessCameraProvider binding on the HAL — which is exactly what
@@ -426,11 +429,15 @@ fun CameraPreviewView(
     // below would silently no-op the user's first lens tap. resumeRebindTick
     // is bumped by the standby lifecycle observer above so returning from
     // screen-off / background re-binds through this same path.
+    // previewPaused releases the session while a fullscreen opaque overlay
+    // (settings, photo viewer) covers the viewfinder and re-binds through
+    // this same path when the overlay closes.
     LaunchedEffect(
         selectedLensRole,
         isFrontCamera,
         activeExtension,
         isRawCapturing,
+        previewPaused,
         useFilteredPreview,
         catalogHolder.value,
         resumeRebindTick
@@ -441,12 +448,17 @@ fun CameraPreviewView(
         // the process singleton, so this never triggers a restart loop.
         if (boundProvider !== cp) boundProvider = cp
 
-        if (isRawCapturing) {
+        if (isRawCapturing || previewPaused) {
             // RELEASE the camera so RawCapture (Camera2) can take over
             // exclusively. Contention for the same camera device usually
             // leads to CAMERA_ERROR(3). Use PreviewSessionManager.release()
             // so it forgets its tracked use cases too — otherwise the
             // post-RAW recovery bind risks re-attaching stale use cases.
+            // previewPaused reuses the same release: the live preview is
+            // invisible behind a fullscreen opaque overlay, so keeping the
+            // HAL stream + GL thread + TextureView uploads running only
+            // burns GPU and stutters the overlay UI. Clearing the flag
+            // re-keys this effect and re-binds through the normal path.
             previewManager.release(cp)
             camera = null
             return@LaunchedEffect

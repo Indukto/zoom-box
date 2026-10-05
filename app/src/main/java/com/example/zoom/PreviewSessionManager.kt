@@ -18,6 +18,7 @@ import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
 import android.os.Build
 import android.util.Log
+import android.util.Range
 import android.view.WindowManager
 import android.annotation.SuppressLint
 import androidx.camera.camera2.interop.Camera2CameraInfo
@@ -490,6 +491,7 @@ class PreviewSessionManager(
         applyHotPixelMode(extender, characteristics)
         applyOisMode(extender, characteristics)
         applyDistortionCorrection(extender, characteristics)
+        applyTargetFrameRate(builder, characteristics)
     }
 
     /**
@@ -511,6 +513,45 @@ class PreviewSessionManager(
     // ---- Per-key helpers. Each is gated by the device's AVAILABLE_*_MODES ----
     // so we never request a mode the HAL can't deliver. `Extender<T : Builder<T>>`
     // is shared between Preview.Builder and ImageCapture.Builder.
+
+    /**
+     * Pushes a fixed 60fps target onto the Preview builder — but only on
+     * sensors whose CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES advertise ≥60fps.
+     * CameraX treats it as a target (it may trade resolution to get there),
+     * so gating keeps 30fps-only hardware on its optimal default instead of
+     * paying a resolution cut for frames it can never deliver. The stock
+     * preview otherwise runs at the HAL default (usually 30fps), which caps
+     * viewfinder smoothness no matter what the display does.
+     */
+    private fun applyTargetFrameRate(
+        builder: Preview.Builder,
+        characteristics: CameraCharacteristics?
+    ) {
+        val ranges = characteristics?.get(
+            CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES) ?: return
+        if (ranges.any { it.upper >= 60 }) {
+            builder.setTargetFrameRate(Range(60, 60))
+        }
+    }
+
+    /**
+     * Resolves the default (fallback-path) camera's characteristics by lens
+     * facing, for [bindDefaultCamera] which has no logical id to query.
+     */
+    private fun defaultCameraCharacteristics(isFrontCamera: Boolean): CameraCharacteristics? {
+        return try {
+            val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+            val wantFacing = if (isFrontCamera) CameraCharacteristics.LENS_FACING_FRONT
+                else CameraCharacteristics.LENS_FACING_BACK
+            val id = cameraManager.cameraIdList.firstOrNull { id ->
+                try {
+                    cameraManager.getCameraCharacteristics(id)
+                        .get(CameraCharacteristics.LENS_FACING) == wantFacing
+                } catch (_: Exception) { false }
+            } ?: return null
+            cameraManager.getCameraCharacteristics(id)
+        } catch (_: Exception) { null }
+    }
 
     private fun applyEdgeMode(
         extender: Camera2Interop.Extender<*>,
@@ -652,6 +693,7 @@ class PreviewSessionManager(
         val rotation = context.displayRotation
 
         val preview = Preview.Builder()
+            .apply { applyTargetFrameRate(this, defaultCameraCharacteristics(isFrontCamera)) }
             .build()
             .apply { setSurfaceProvider(surfaceProvider) }
 

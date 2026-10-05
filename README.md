@@ -55,6 +55,12 @@
 - **RAW (DNG)** — Full-resolution RAW via the Camera2 API, captured in parallel to JPEG, with per-lens detection.
 - **In-app gallery** — A film-card layout with EXIF metadata, plus share and delete.
 
+###  Privacy & legal
+
+- **Fully offline** — no `INTERNET` permission: Android blocks all network access. No ads, no analytics, no trackers, no crash reporting. Photos never leave the device (sharing is user-initiated), and no GPS/location data is written into photos.
+- **In-app legal pages** — Settings → Legal: Privacy (GDPR), Impressum (§ 5 DDG) and open-source licenses, fully bilingual (English + German).
+- **Play Store / EU compliance** — Submission docs (Data safety answers, hosted privacy policy, imprint, DSA/GPSR checklist, store listing texts) live in [`docs/play-store/`](docs/play-store/README.md).
+
 ---
 
 ##  Film Looks

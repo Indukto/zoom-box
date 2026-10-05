@@ -2,6 +2,7 @@ package com.example
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -17,9 +18,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.CameraAlt
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Crop
+import androidx.compose.material.icons.rounded.Gavel
+import androidx.compose.material.icons.rounded.PrivacyTip
 import androidx.compose.material.icons.rounded.FlashOn
 import androidx.compose.material.icons.rounded.GridOn
 import androidx.compose.material.icons.rounded.Hd
@@ -45,6 +50,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -54,6 +62,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.ui.theme.FilmDarkColorScheme
 import com.example.zoom.AspectRatio
@@ -115,6 +124,10 @@ private fun SettingsContent(viewModel: CameraViewModel, onClose: () -> Unit) {
     val availableExtensions by viewModel.availableExtensions.collectAsState()
     val extensionsProbeDone by viewModel.extensionsProbeDone.collectAsState()
 
+    // Legal overlays (Privacy / Licenses) are rendered on top of the
+    // settings page; null means none is open.
+    var legalPage by remember { mutableStateOf<LegalPage?>(null) }
+
     // RAW can be off for two distinct reasons — surface the right one so the
     // disabled row explains itself instead of just greying out.
     val rawEnabled = rawAvailableForCurrentLens && !isFrontCamera
@@ -130,11 +143,12 @@ private fun SettingsContent(viewModel: CameraViewModel, onClose: () -> Unit) {
         .filter { it == CaptureExtension.NONE || it in availableExtensions }
     val showExtensionSection = extensionsProbeDone && extensionOptions.size > 1
 
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = colorScheme.background
-    ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = colorScheme.background
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
             // ── Top bar ─────────────────────────────────────────────────────
             // Tonal surface layer (Material You elevation) instead of a flat
             // black strip. statusBarsPadding + displayCutoutPadding keep the
@@ -331,17 +345,25 @@ private fun SettingsContent(viewModel: CameraViewModel, onClose: () -> Unit) {
                                 modifier = Modifier.size(22.dp)
                             )
                             Spacer(modifier = Modifier.width(16.dp))
-                            Column(modifier = Modifier.weight(1f)) {
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(end = 8.dp)
+                            ) {
                                 Text(
                                     text = stringResource(R.string.reset_settings_label),
                                     style = MaterialTheme.typography.bodyLarge,
                                     fontWeight = FontWeight.Medium,
-                                    color = colorScheme.onSurface
+                                    color = colorScheme.onSurface,
+                                    softWrap = true,
+                                    overflow = TextOverflow.Visible
                                 )
                                 Text(
                                     text = stringResource(R.string.reset_settings_subtitle),
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = colorScheme.onSurfaceVariant
+                                    color = colorScheme.onSurfaceVariant,
+                                    softWrap = true,
+                                    overflow = TextOverflow.Visible
                                 )
                             }
                             TextButton(
@@ -349,11 +371,45 @@ private fun SettingsContent(viewModel: CameraViewModel, onClose: () -> Unit) {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     viewModel.resetSettingsToDefaults()
                                 },
-                                modifier = Modifier.testTag("reset_settings_button")
+                                modifier = Modifier.testTag("reset_settings_button"),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                             ) {
-                                Text(text = stringResource(R.string.reset_settings_label))
+                                Text(
+                                    text = stringResource(R.string.reset_settings_action),
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    overflow = TextOverflow.Ellipsis
+                                )
                             }
                         }
+                    }
+                }
+
+                // ── LEGAL (GDPR privacy + open-source disclosures) ─────
+                item {
+                    SectionHeader(text = stringResource(R.string.legal_section))
+                    SettingsCard {
+                        SettingsNavRow(
+                            icon = Icons.Rounded.PrivacyTip,
+                            label = stringResource(R.string.settings_privacy_label),
+                            subtitle = stringResource(R.string.settings_privacy_subtitle),
+                            testTag = "legal_privacy_row",
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                legalPage = LegalPage.Privacy
+                            }
+                        )
+                        CardDivider()
+                        SettingsNavRow(
+                            icon = Icons.Rounded.Gavel,
+                            label = stringResource(R.string.settings_licenses_label),
+                            subtitle = stringResource(R.string.settings_licenses_subtitle),
+                            testTag = "legal_licenses_row",
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                legalPage = LegalPage.Licenses
+                            }
+                        )
                     }
                 }
 
@@ -370,11 +426,76 @@ private fun SettingsContent(viewModel: CameraViewModel, onClose: () -> Unit) {
                     )
                 }
             }
+            }
+        }
+
+        // Legal pages render above the entire settings surface (opaque),
+        // mirroring how SettingsScreen itself overlays the camera.
+        legalPage?.let { page ->
+            LegalScreen(page = page, onClose = { legalPage = null })
         }
     }
 }
 
 // ── Building blocks ─────────────────────────────────────────────────────────
+
+/**
+ * Navigation row: same chrome as [SettingsSwitchRow] but with a trailing
+ * chevron instead of a Switch — used by the Legal section for Privacy /
+ * Licenses entries that open full-screen disclosures.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun SettingsNavRow(
+    icon: ImageVector,
+    label: String,
+    subtitle: String,
+    testTag: String,
+    onClick: () -> Unit
+) {
+    val haptic = LocalHapticFeedback.current
+    val colorScheme = MaterialTheme.colorScheme
+    ListItem(
+        onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            onClick()
+        },
+        enabled = true,
+        leadingContent = {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = colorScheme.primary,
+                modifier = Modifier.size(22.dp)
+            )
+        },
+        supportingContent = {
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = colorScheme.onSurfaceVariant
+            )
+        },
+        trailingContent = {
+            Icon(
+                imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                contentDescription = null,
+                tint = colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(22.dp)
+            )
+        },
+        colors = ListItemDefaults.colors(containerColor = colorScheme.surfaceContainerLow),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag(testTag)
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Medium
+        )
+    }
+}
 
 /**
  * Material You section header: small primary-colored label, the same pattern
@@ -581,10 +702,10 @@ private fun SegmentedBlockHeader(
 }
 
 /**
- * Photo-quality picker: fast 3 MP vs full sensor resolution. Segmented
- * (not the old Switch) so both options and their trade-off are visible at
- * a glance — the previous "Save at full resolution" toggle hid what "off"
- * meant.
+ * Photo-quality picker: soft 0.8 MP digicam vs fast 3 MP vs full sensor
+ * resolution. Segmented (not the old Switch) so all options and their
+ * trade-off are visible at a glance — the previous "Save at full resolution"
+ * toggle hid what "off" meant.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -592,10 +713,16 @@ private fun ResolutionBlock(
     selected: OutputResolution,
     onSelect: (OutputResolution) -> Unit
 ) {
-    val options = listOf(OutputResolution.THREE_MEGAPIXEL, OutputResolution.FULL)
+    val colorScheme = MaterialTheme.colorScheme
+    val options = listOf(
+        OutputResolution.VINTAGE_DIGICAM,
+        OutputResolution.THREE_MEGAPIXEL,
+        OutputResolution.FULL
+    )
     val helper = when (selected) {
         OutputResolution.FULL -> stringResource(R.string.resolution_full_desc)
         OutputResolution.THREE_MEGAPIXEL -> stringResource(R.string.resolution_fast_desc)
+        OutputResolution.VINTAGE_DIGICAM -> stringResource(R.string.resolution_vintage_desc)
     }
     Column(modifier = Modifier.fillMaxWidth()) {
         SegmentedBlockHeader(
@@ -610,20 +737,53 @@ private fun ResolutionBlock(
                 .padding(bottom = 8.dp)
         ) {
             options.forEachIndexed { index, res ->
-                val tag = if (res == OutputResolution.FULL) "resolution_chip_FULL" else "resolution_chip_FAST"
+                val tag = when (res) {
+                    OutputResolution.FULL -> "resolution_chip_FULL"
+                    OutputResolution.THREE_MEGAPIXEL -> "resolution_chip_FAST"
+                    OutputResolution.VINTAGE_DIGICAM -> "resolution_chip_VINTAGE"
+                }
                 SegmentedButton(
                     selected = res == selected,
                     onClick = { if (res != selected) onSelect(res) },
                     shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
                     label = {
-                        Text(
-                            text = if (res == OutputResolution.FULL)
-                                stringResource(R.string.resolution_full_label)
-                            else
-                                stringResource(R.string.resolution_fast_label),
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                        // Two-line chip: MP value on top, vibe below. Each half
+                        // is a short single-line string, so no chip ever wraps
+                        // mid-label on narrow screens / long German words —
+                        // the previous single "0.8 MP · Digicam" line broke
+                        // into two ragged lines while its neighbours stayed
+                        // on one, which read as a formatting bug.
+                        val titleRes = when (res) {
+                            OutputResolution.FULL -> R.string.resolution_full_title
+                            OutputResolution.THREE_MEGAPIXEL -> R.string.resolution_fast_title
+                            OutputResolution.VINTAGE_DIGICAM -> R.string.resolution_vintage_title
+                        }
+                        val subRes = when (res) {
+                            OutputResolution.FULL -> R.string.resolution_full_sub
+                            OutputResolution.THREE_MEGAPIXEL -> R.string.resolution_fast_sub
+                            OutputResolution.VINTAGE_DIGICAM -> R.string.resolution_vintage_sub
+                        }
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = stringResource(titleRes),
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = stringResource(subRes),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     },
                     modifier = Modifier.testTag(tag)
                 )
@@ -634,7 +794,7 @@ private fun ResolutionBlock(
 
 /**
  * Material You single-choice segmented row for the photo aspect ratio
- * (4:3 Standard, 3:2 Tall, 1:1 Square). The selected segment gets the
+ * (4:3 Standard, 3:2 Tall, 16:9 Wide, 1:1 Square). The selected segment gets the
  * secondary-container tint; a helper line below describes the chosen ratio.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -651,6 +811,7 @@ private fun AspectRatioBlock(
             helper = when (selected) {
                 AspectRatio.RATIO_4_3 -> stringResource(R.string.aspect_ratio_standard)
                 AspectRatio.RATIO_3_2 -> stringResource(R.string.aspect_ratio_tall)
+                AspectRatio.RATIO_16_9 -> stringResource(R.string.aspect_ratio_wide)
                 AspectRatio.RATIO_1_1 -> stringResource(R.string.aspect_ratio_square)
             }
         )
@@ -688,6 +849,7 @@ private fun AspectRatioBlock(
             text = when (selected) {
                 AspectRatio.RATIO_4_3 -> stringResource(R.string.aspect_ratio_standard)
                 AspectRatio.RATIO_3_2 -> stringResource(R.string.aspect_ratio_tall)
+                AspectRatio.RATIO_16_9 -> stringResource(R.string.aspect_ratio_wide)
                 AspectRatio.RATIO_1_1 -> stringResource(R.string.aspect_ratio_square)
             },
             style = MaterialTheme.typography.bodySmall,

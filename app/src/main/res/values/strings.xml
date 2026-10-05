@@ -77,11 +77,20 @@
     <string name="resolution_section">PHOTO QUALITY</string>
     <string name="resolution_fast_label">3 MP · Fast</string>
     <string name="resolution_full_label">Full · Max</string>
+    <string name="resolution_vintage_label">0.8 MP · Digicam</string>
+    <string name="resolution_vintage_title">0.8 MP</string>
+    <string name="resolution_vintage_sub">Digicam</string>
+    <string name="resolution_fast_title">3 MP</string>
+    <string name="resolution_fast_sub">Fast</string>
+    <string name="resolution_full_title">Full</string>
+    <string name="resolution_full_sub">Max</string>
     <string name="resolution_fast_desc">Halved each axis — under a second, plenty for the retro look.</string>
+    <string name="resolution_vintage_desc">Quarter each axis — soft old-digicam look, instant save.</string>
     <string name="resolution_full_desc">Full sensor resolution — archival quality, slower to save.</string>
     <string name="aspect_ratio_section">ASPECT RATIO</string>
     <string name="aspect_ratio_standard">Standard</string>
     <string name="aspect_ratio_tall">Tall</string>
+    <string name="aspect_ratio_wide">Wide</string>
     <string name="aspect_ratio_square">Square</string>
     <string name="enhance_section">ENHANCE</string>
     <string name="extension_label">Night &amp; HDR boost</string>
@@ -115,5 +124,42 @@
     <string name="app_version_label">ZoomBox Camera version</string>
     <string name="reset_settings_label">Reset to defaults</string>
     <string name="reset_settings_subtitle">Restore factory capture &amp; viewfinder settings</string>
+    <string name="reset_settings_action">Reset</string>
     <string name="zoom_camera_footer">Zoom • Camera</string>
+
+    <!-- Legal & compliance (GDPR) — surfaced from Settings → About. -->
+    <string name="legal_section">LEGAL</string>
+    <string name="legal_back_desc">Back to settings</string>
+    <string name="privacy_title">Privacy</string>
+    <string name="licenses_title">Licenses</string>
+
+    <string name="settings_privacy_label">Privacy (GDPR)</string>
+    <string name="settings_privacy_subtitle">What this app does and does not collect</string>
+    <string name="settings_licenses_label">Open-source licenses</string>
+    <string name="settings_licenses_subtitle">GPL-3.0 app · Apache-2.0 libraries</string>
+
+    <!-- Privacy summary (see docs/play-store/PRIVACY_POLICY.md for the full
+         store-listing version). -->
+    <string name="privacy_h_about">About this app</string>
+    <string name="privacy_p_about">ZoomBox Camera is an offline camera app. It declares no internet permission, so Android blocks all network access: the app cannot transmit data anywhere. There are no ads, no analytics, no trackers and no crash reporting.</string>
+    <string name="privacy_h_photos">Photos &amp; camera</string>
+    <string name="privacy_p_photos">Photos are captured, processed and stored only on your device (in Pictures/ZoomBoxCamera/ and the app\'s private storage). The app never writes your location or GPS coordinates into photos. A photo leaves your device only when you share it yourself.</string>
+    <string name="privacy_h_permissions">Permissions</string>
+    <string name="privacy_p_permissions">Camera: required to take photos, requested on first launch. Photos &amp; videos: lets the gallery show photos the app saved after a reinstall. There is no background access — every read or write is triggered by you in the app.</string>
+    <string name="privacy_h_backup">Backups</string>
+    <string name="privacy_p_backup">Your camera settings (film look, grid lines, etc.) may be included in Android\'s automatic device backup, which is stored in your Google account and visible only to you. Photos are excluded from backups. You can turn backups off in Android system settings.</string>
+    <string name="privacy_h_nodata">No data reaches the developer</string>
+    <string name="privacy_p_nodata">The developer receives no data from you: no account, no identifiers, no crash logs, no usage statistics. There is therefore no data the developer could access, correct, export or delete for you. To remove your data, delete photos in the gallery or uninstall the app, which removes all remaining app data.</string>
+    <string name="privacy_h_children">Children</string>
+    <string name="privacy_p_children">This app is not directed at children under 13 and does not collect personal data from any user of any age.</string>
+    <string name="privacy_h_rights">Your rights &amp; contact</string>
+    <string name="privacy_p_rights">Under the EU General Data Protection Regulation you have rights of access, rectification, erasure, restriction of processing, data portability and objection, plus the right to lodge a complaint with a supervisory authority (in Germany: the data protection authority of your federal state). Because the developer holds no personal data about you, there is nothing to exercise these rights against on the developer side.</string>
+
+    <!-- Open-source licenses -->
+    <string name="licenses_h_app">This app</string>
+    <string name="licenses_p_app">ZoomBox Camera — Copyright © 2026 Indukto.\n\nLicensed under the GNU General Public License v3.0 (GPL-3.0). Source code: https://github.com/Indukto/zoom-box.\n\nThis program comes with ABSOLUTELY NO WARRANTY. This is free software, and you are welcome to redistribute it under certain conditions; see the license text.</string>
+    <string name="licenses_h_libs">Open-source libraries</string>
+    <string name="licenses_p_libs">Built on Apache License 2.0 components of the Android/Jetpack ecosystem: Jetpack Compose, Material 3, CameraX, Lifecycle, DataStore, Core — plus Coil, Accompanist Permissions, Haze and kotlinx.coroutines, and org.json (JSON license).</string>
+    <string name="licenses_h_texts">License texts</string>
+    <string name="licenses_p_texts">Apache-2.0: apache.org/licenses/LICENSE-2.0\nMIT: opensource.org/licenses/MIT\nGPL-3.0: gnu.org/licenses/gpl-3.0.html</string>
 </resources>

@@ -123,6 +123,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -161,6 +162,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import com.example.ui.theme.Inter
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.sin
 import kotlin.time.Duration.Companion.milliseconds
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -321,8 +325,40 @@ private object ZoomBoxSpec {
     const val VIEWFINDER_TOP_FRACTION = 0.1322f
     const val VIEWFINDER_BOTTOM_RESERVE_FRACTION = 0.3013f
     const val BUBBLE_BOTTOM_OFFSET_DP = 10 // bubble sits ~10dp above viewfinder bottom
+    // Floor for the 16:9 upward growth (see viewfinderTop) — keeps the box
+    // + its corner settings button clear of the status bar.
+    const val VIEWFINDER_MIN_TOP_DP = 28
+    // Where the focal-length label sits when the phone is held sideways:
+    // this far inside the viewfinder's top edge (in the viewer's own frame,
+    // see ZoomBoxOverlay). Portrait keeps the `focal-length-label` spec —
+    // the number floats above the zoom box instead.
+    const val FOCAL_LABEL_VIEWFINDER_INSET_DP = 12
     const val ZOOM_GRID_ALPHA = 0.55f
     const val ZOOM_OUTLINE_ALPHA = 0.9f
+}
+
+/**
+ * Viewfinder top offset shared by [CameraActiveScreen] and the tutorial
+ * mirror computation in [CameraUi] so both stay in lock-step.
+ *
+ * Fitting ratios are centered in the available band. Overflowing ratios
+ * pin the top and grow downward — except 16:9, which overflows so far
+ * that growing downward would bury its bottom edge (and the control
+ * bubble anchored to it) under the opaque bottom deck. 16:9 therefore
+ * grows upward instead, clamped so its top never enters the status bar.
+ */
+private fun viewfinderTop(
+    topInset: Dp,
+    availableHeight: Dp,
+    vfHeight: Dp,
+    aspectRatio: AspectRatio
+): Dp {
+    if (vfHeight <= availableHeight) return topInset + (availableHeight - vfHeight) / 2f
+    if (aspectRatio == AspectRatio.RATIO_16_9) {
+        return (topInset + availableHeight - vfHeight)
+            .coerceAtLeast(ZoomBoxSpec.VIEWFINDER_MIN_TOP_DP.dp)
+    }
+    return topInset
 }
 
 /**
@@ -374,6 +410,9 @@ private fun BoxScope.ZoomBoxOverlay(
     vfHeight: Dp,
     aspectRatio: AspectRatio,
     gridAlpha: Float,
+    parentWidth: Dp,
+    parentHeight: Dp,
+    controlAngle: Float = 0f,
     onAnimatedFraction: (Float) -> Unit
 ) {
     val boxScale by boxScaleFlow.collectAsState()
@@ -463,8 +502,61 @@ private fun BoxScope.ZoomBoxOverlay(
             }
         }
 
-        // Focal length above zoom box (spec `focal-length-label`:
-        // Inter 700 14px white, centred ~32px above the zoom box).
+        // Focal-length label (spec `focal-length-label`: Inter 700 14px
+        // white, 30dp above the zoom box).
+        //
+        // The activity is portrait-locked, so a sideways-held phone shows
+        // the whole UI sideways. Every other piece of chrome (aux rail,
+        // three-point menu, bubble row) already rides `controlAngle`, but
+        // this number did not — it kept reading sideways and ended up over
+        // the SIDE of the screen while the rest of the chrome stayed put.
+        // It now rotates with the device as well, and its anchor slides
+        // from "above the zoom box" (portrait) to "just inside the top
+        // edge of the viewfinder" (landscape), so it always reads on top
+        // of the viewfinder for whoever is holding the phone.
+        //
+        // Three details keep that seamless:
+        //  - the blend is keyed on |sin θ|, so the label glides with the
+        //    rotation spring instead of snapping when the device settles;
+        //  - at θ = 0 the anchor reproduces the portrait spec exactly,
+        //    measured from the label's centre (hence the measured half
+        //    height) rather than shifting the text up by its own line box;
+        //  - the landscape anchor is computed in the VIEWER'S frame (see
+        //    below), not in screen coordinates.
+        var labelHeightPx by remember { mutableIntStateOf(0) }
+        val labelHalfHeight = with(density) { (labelHeightPx / 2).toDp() }
+        val radians = Math.toRadians(controlAngle.toDouble())
+        val sinA = sin(radians).toFloat()
+        val cosA = cos(radians).toFloat()
+        val sideways = abs(sinA)
+
+        // Portrait anchor: Figma spec — the label's centre ends up where
+        // its top edge used to sit 30dp above the zoom box.
+        val portraitAnchorX = vfX + vfWidth / 2f
+        val portraitAnchorY = zoomBoxTop - 30.dp + labelHalfHeight
+
+        // Landscape anchor: the top-centre of the viewfinder AS SEEN BY THE
+        // VIEWER. Rotating the text does not move the frame — the viewfinder
+        // is always drawn in portrait coordinates, so once the phone is
+        // sideways the edge the viewer reads as "top" is the portrait edge
+        // pointing along their up vector (sinθ, -cosθ): the portrait RIGHT
+        // edge at +90°, the portrait LEFT edge at -90°. (Anchoring to the
+        // portrait top edge instead parked the number halfway down the side
+        // of the viewfinder, which is what the user saw.)
+        //
+        // So: start at the viewfinder centre and push out along that up
+        // vector by the rect's projected half-extent
+        // (|cosθ|·halfHeight + |sinθ|·halfWidth) minus an inset. At ±90°
+        // the projection collapses to the half-width, landing the number
+        // centred on the viewer's top edge; at θ = 0 it degrades to the
+        // portrait top edge + inset, so the blend never jumps.
+        val inset = ZoomBoxSpec.FOCAL_LABEL_VIEWFINDER_INSET_DP.dp
+        val reach = (vfHeight / 2f) * abs(cosA) + (vfWidth / 2f) * abs(sinA) - inset
+        val landscapeAnchorX = vfX + vfWidth / 2f + reach * sinA
+        val landscapeAnchorY = vfTop + vfHeight / 2f - reach * cosA
+
+        val labelX = portraitAnchorX + (landscapeAnchorX - portraitAnchorX) * sideways
+        val labelY = portraitAnchorY + (landscapeAnchorY - portraitAnchorY) * sideways
         Text(
             text = stringResource(R.string.focal_length_mm, effectiveFocalLength),
             color = Color.White,
@@ -473,8 +565,16 @@ private fun BoxScope.ZoomBoxOverlay(
             fontFamily = Inter,
             textAlign = TextAlign.Center,
             modifier = Modifier
-                .align(Alignment.TopCenter)
-                .offset(y = zoomBoxTop - 30.dp)
+                // Centre-anchored (not TopCenter) so one offset can express
+                // both anchors; the offset is measured from the screen
+                // centre, which equals the viewfinder's centre line.
+                .align(Alignment.Center)
+                .offset(
+                    x = labelX - parentWidth / 2f,
+                    y = labelY - parentHeight / 2f
+                )
+                .rotate(controlAngle)
+                .onSizeChanged { labelHeightPx = it.height }
         )
 
         // Zoom box outline (spec `zoom-box-outline`:
@@ -1342,26 +1442,36 @@ fun CameraUi(
                 // Keep width fixed (no side black bars on 3:2); height grows
                 // with the ratio. When the tall box overflows the available
                 // band, pin the top so 3:2 starts where 4:3 starts and only
-                // the bottom edge extends downward.
+                // the bottom edge extends downward (16:9 grows upward instead
+                // — see viewfinderTop).
                 val vfWidth: Dp = vfWidthRaw
                 val vfHeight: Dp = vfHeightRaw
-                val vfTop = if (vfHeight > availableHeight) specTop
-                    else specTop + (availableHeight - vfHeight) / 2f
+                val vfTop = viewfinderTop(
+                    topInset = specTop,
+                    availableHeight = availableHeight,
+                    vfHeight = vfHeight,
+                    aspectRatio = aspectRatio
+                )
                 val viewfinderBottomFraction =
                     (vfTop + vfHeight).value / maxHeight.value
 
                 CameraActiveScreen(
                     viewModel = viewModel,
-                    onOpenSettings = { showSettingsPage = true }
+                    onOpenSettings = { showSettingsPage = true },
+                    previewPaused = showSettingsPage
                 )
 
                 // AnimatedVisibility REMOVES SettingsScreen from composition
                 // only after the exit animation completes; CameraActiveScreen
                 // sits in the Box OUTSIDE AnimatedVisibility so its lifecycle
-                // is never tied to `showSettingsPage`. Slide-from-right + a
-                // short fade matches the conventional Android "new screen
-                // entering" idiom; the camera underneath reads as a steady
-                // surface rather than a blink because the overlay is opaque.
+                // is never tied to `showSettingsPage`. While the overlay is
+                // open the preview session is released (previewPaused) so the
+                // camera pipeline can't stutter the settings UI, and it
+                // re-binds through the normal path as the overlay closes.
+                // Slide-from-right + a short fade matches the conventional
+                // Android "new screen entering" idiom; the camera underneath
+                // reads as a steady surface rather than a blink because the
+                // overlay is opaque.
                 AnimatedVisibility(
                     visible = showSettingsPage,
                     enter = fadeIn(tween(durationMillis = 220)) +
@@ -1735,7 +1845,8 @@ fun CameraPermissionOnboarding(
 @OptIn(ExperimentalMaterial3Api::class)
 fun CameraActiveScreen(
     viewModel: CameraViewModel,
-    onOpenSettings: () -> Unit
+    onOpenSettings: () -> Unit,
+    previewPaused: Boolean = false
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
@@ -1879,7 +1990,7 @@ fun CameraActiveScreen(
         // width 92.12% of screen (3.94% side margins) FIXED across ratios,
         // top 13.22%, bottom reserve 30.13% for the bubble + two-row bottom
         // deck. Height adapts to the selected aspect ratio
-        // (4:3 → 1.35× width, 3:2 → 1.5×, 1:1 → square): 3:2 keeps the
+        // (4:3 → 1.35× width, 3:2 → 1.5×, 16:9 → 1.78×, 1:1 → square): 3:2 keeps the
         // same width/side margins as 4:3 and just extends vertically.
         // The zoom-box clamp + Canvas overlay keep working unchanged because
         // they size themselves from vfWidth / aspectRatio.
@@ -1900,11 +2011,17 @@ fun CameraActiveScreen(
         val vfX = (totalWidth - vfWidth) / 2f
 
         // Vertically center the viewfinder between the top inset (settings /
-        // status area) and the bottom UI deck when it fits. When the tall
-        // ratio overflows (3:2), pin the top so 3:2 starts exactly where
+        // status area) and the bottom UI deck when it fits. When a tall
+        // ratio overflows, 3:2 pins the top so it starts exactly where
         // 4:3 starts and only grows downward — same width, longer bottom.
-        val vfTop = if (vfHeight > availableHeight) topInset
-            else topInset + (availableHeight - vfHeight) / 2f
+        // 16:9 grows upward instead so its bottom edge (and the anchored
+        // bubble) stays clear of the bottom deck — see viewfinderTop.
+        val vfTop = viewfinderTop(
+            topInset = topInset,
+            availableHeight = availableHeight,
+            vfHeight = vfHeight,
+            aspectRatio = aspectRatio
+        )
 
         // ─────────────────────────────────────────────────────────────────
         // Preset-change toast state (declared ahead of the viewfinder Box
@@ -2045,6 +2162,7 @@ fun CameraActiveScreen(
             isFrontCamera = isFrontCamera,
             activeExtension = activeExtension,
             isRawCapturing = isCapturing && rawModeEnabled,
+            previewPaused = previewPaused || selectedPhoto != null,
             zoomEnabled = !(showExpSlider || showTempSlider),
             renderParams = previewRenderParams,
             activeLut = previewLut,
@@ -2143,6 +2261,9 @@ fun CameraActiveScreen(
             vfHeight = vfHeight,
             aspectRatio = aspectRatio,
             gridAlpha = gridAlpha,
+            parentWidth = totalWidth,
+            parentHeight = totalHeight,
+            controlAngle = animatedControlAngle,
             onAnimatedFraction = { captureBoxFraction.floatValue = it }
         )
         } // end haze blur source (background + preview + chrome)
@@ -2395,11 +2516,20 @@ fun CameraActiveScreen(
             }
         }
 
-        // 5. White flash overlay
+        // 5. White flash overlay — scoped to the viewfinder rect so only the
+        // captured frame flashes, not the whole screen chrome. Same geometry
+        // (top-center, vfTop offset, vfWidth × vfHeight, 16dp corners) as the
+        // viewfinder box itself.
         AnimatedVisibility(
             visible = flashFlashActive,
             enter = fadeIn(animationSpec = tween(40)),
-            exit = fadeOut(animationSpec = tween(150))
+            exit = fadeOut(animationSpec = tween(150)),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .offset(y = vfTop)
+                .width(vfWidth)
+                .height(vfHeight)
+                .clip(RoundedCornerShape(16.dp))
         ) {
             Box(modifier = Modifier.fillMaxSize().background(Color.White))
         }

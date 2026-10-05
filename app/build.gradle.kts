@@ -13,8 +13,8 @@ android {
     applicationId = "com.indukto.zoomboxcamera"
     minSdk = 29
     targetSdk = 36
-    versionCode = 1
-    versionName = "1.3.0"
+    versionCode = 2
+    versionName = "1.3.1"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

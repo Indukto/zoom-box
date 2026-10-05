@@ -1,0 +1,15 @@
+LUT provenance note
+===================
+
+The following `.cube` files were adapted from the DAZZ Retro Camera reference
+repository (https://github.com/... / local clone at third_party/dazz-retro-camera,
+MIT licensed) and renamed to avoid third-party trademarks:
+
+  golden_200.cube       <- cpm35_kodak_gold_warm.cube   (warm color negative)
+  street_mono_400.cube  <- bw_trix400.cube              (B&W classic)
+  vivid_cool_400.cube   <- fqs_superia400_natural.cube  (daylight color negative)
+  ccd_digicam.cube      <- ccd_r.cube                   (early-2000s CCD compact)
+
+DAZZ's repository is MIT licensed; this notice is retained per that license.
+Note that film-emulation LUTs can themselves be derived from third-party color
+science. These files are used as-is at the product owner's request.

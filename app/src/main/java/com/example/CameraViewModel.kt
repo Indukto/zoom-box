@@ -94,7 +94,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     private val _selectedLensRole = MutableStateFlow(LensRole.PRIMARY)
     val selectedLensRole: StateFlow<LensRole> = _selectedLensRole.asStateFlow()
 
-    // User-facing JPEG resolution preference (3 MP / full sensor resolution).
+    // User-facing JPEG resolution preference (0.8 MP digicam / 3 MP / full).
     // Both branches inside processAndSavePhoto read
     // `_outputResolution.value.inSampleSize` and pass it through to the
     // decoder — the full-decode BitmapFactory branch via Options.inSampleSize,
@@ -401,17 +401,19 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         // to portrait, so the sensor-based OrientationEventListener is the
         // only reliable source of "which way is down" for the capture
         // pipeline. The degree → Surface-rotation mapping below matches what
-        // ImageCapture.setTargetRotation documents: 0° → ROTATION_0,
-        // 45–135° → ROTATION_270, 135–225° → ROTATION_180, 225–315° →
+        // ImageCapture.setTargetRotation documents, but with a widened
+        // portrait dead-zone (±60° instead of ±45°) so a slight tilt doesn't
+        // snap icons/capture straight into landscape: 0° → ROTATION_0,
+        // 60–120° → ROTATION_270, 120–240° → ROTATION_180, 240–300° →
         // ROTATION_90.
         try {
             orientationListener = object : OrientationEventListener(getApplication()) {
                 override fun onOrientationChanged(orientation: Int) {
                     if (orientation == OrientationEventListener.ORIENTATION_UNKNOWN) return
                     val rotation = when (orientation) {
-                        in 45 until 135 -> Surface.ROTATION_270
-                        in 135 until 225 -> Surface.ROTATION_180
-                        in 225 until 315 -> Surface.ROTATION_90
+                        in 60 until 120 -> Surface.ROTATION_270
+                        in 120 until 240 -> Surface.ROTATION_180
+                        in 240 until 300 -> Surface.ROTATION_90
                         else -> Surface.ROTATION_0
                     }
                     if (rotation != _physicalRotation.value) _physicalRotation.value = rotation
@@ -737,9 +739,9 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     /**
-     * Switch between 3 MP (fast) and full sensor resolution (archival) JPEG
-     * output. The new value is committed to DataStore immediately so it
-     * survives a relaunch.
+     * Switch between 0.8 MP digicam (softest/fastest), 3 MP (fast) and full
+     * sensor resolution (archival) JPEG output. The new value is committed
+     * to DataStore immediately so it survives a relaunch.
      */
     fun setOutputResolution(resolution: OutputResolution) {
         _outputResolution.value = resolution
@@ -1258,7 +1260,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                     val decoder = BitmapRegionDecoder.newInstance(rawFile.absolutePath, false)
                     // Pass the user's output-resolution preference into the
                     // region decoder so this crop-region branch honours the
-                    // 3 MP / full sensor resolution choice just like the
+                    // 0.8 MP / 3 MP / full choice just like the
                     // BitmapFactory path below does. The decoder scales the
                     // cropped rect on decode (no need to allocate and then
                     // downscale a full sensor resolution bitmap) so the saved
@@ -1288,9 +1290,10 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                     }
                 } else {
                     // Honour the user's output resolution preference so this
-                    // no-crop branch decodes at either full sensor resolution
-                    // (inSampleSize = 1) or at half resolution on each axis
-                    // (inSampleSize = 2 → ~3 MP). The retro
+                    // no-crop branch decodes at full sensor resolution
+                    // (inSampleSize = 1), half resolution on each axis
+                    // (inSampleSize = 2 → ~3 MP), or quarter resolution
+                    // (inSampleSize = 4 → ~0.8 MP, soft digicam). The retro
                     // film-style output forgives the small loss of fine
                     // detail (the filter character — grain, tonal
                     // compression, colour tint — already hides it) but this

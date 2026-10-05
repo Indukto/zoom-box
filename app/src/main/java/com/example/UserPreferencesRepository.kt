@@ -20,23 +20,26 @@ private val Context.settingsDataStore by preferencesDataStore("camera_settings")
 /**
  * Saved resolution of JPEG captures. Each value carries the matching
  * `inSampleSize` to feed into `BitmapFactory.Options` on the full-decode
- * path in `processAndSavePhoto`:
+ * path in `processAndSavePhoto` (and into `BitmapRegionDecoder.decodeRegion`
+ * on the crop path):
  *
  *  - [FULL] (inSampleSize = 1)            — full sensor resolution, ~3-4 s
  *                                            capture
  *  - [THREE_MEGAPIXEL] (inSampleSize = 2) — halved each axis (~3 MP),
  *                                            ~1 s capture, plenty for the
  *                                            retro filter aesthetic
+ *  - [VINTAGE_DIGICAM] (inSampleSize = 4) — quartered each axis (~0.8 MP),
+ *                                            soft old-digicam look,
+ *                                            instant save
  *
- * The crop-region path (BitmapRegionDecoder.decodeRegion) does NOT honor
- * inSampleSize, so this preference only affects the no-zoom / no-native-
- * focal-crop path. When the cropped area is below 90 % of full-frame,
- * the saved file uses the source pixel dimensions of the cropped rect
- * regardless of this setting.
+ * When the cropped area is below 90 % of full-frame, the region decoder
+ * scales the cropped rect by the same inSampleSize, so this preference
+ * affects both paths.
  */
 enum class OutputResolution(val inSampleSize: Int) {
     FULL(1),
-    THREE_MEGAPIXEL(2);
+    THREE_MEGAPIXEL(2),
+    VINTAGE_DIGICAM(4);
 
     companion object {
         /** Parse a stored enum name with a safe fallback to the default (3 MP). */
