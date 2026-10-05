@@ -139,6 +139,23 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     var lensCatalogResult: LensCatalog.CatalogResult? = null
         private set
 
+    // Warmed in init (see the ProcessCameraProvider warm-up block) and read
+    // in [cameraProviderForBind]. Nullable because init can lose the race on
+    // very slow devices — the bind path falls back to fetching the future
+    // itself in that case.
+    @Volatile
+    var cameraProviderWarmupFuture: androidx.camera.lifecycle.ProcessCameraProvider? = null
+        private set
+
+    /**
+     * The pre-warmed [ProcessCameraProvider] for the preview bind, or null
+     * when warm-up hasn't finished (or failed). The bind path treats null as
+     * "fetch the future yourself" — identical behavior to before, just
+     * without losing the warm-up's head start.
+     */
+    fun cameraProviderForBind(): androidx.camera.lifecycle.ProcessCameraProvider? =
+        cameraProviderWarmupFuture
+
     private val _exposure = MutableStateFlow(0f)
     val exposure: StateFlow<Float> = _exposure.asStateFlow()
 
@@ -149,8 +166,11 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     val tint: StateFlow<Float> = _tint.asStateFlow()
 
     // Start in the pass-through route while persisted settings are loading.
-    // CameraUi waits for settingsLoaded before creating any preview surface, so
-    // the startup route never flips from the LUT GL view to PreviewView.
+    // The preview binds immediately in this stable CameraX route (cold-start
+    // win: the viewfinder is live before DataStore answers); when a graded
+    // persisted look arrives, useFilteredPreview flips and the session
+    // rebinds to the GL surface — the same in-place rebind the app already
+    // performs whenever the user switches to/from a pass-through look.
     // Keyed by look id (not FilmPreset) so JSON-only looks are selectable
     // too; FilmPreset.NORMAL's id is the pass-through default.
     private val _activeLookId = MutableStateFlow(FilmPreset.NORMAL.profileId)
@@ -170,6 +190,9 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     fun lookDisplayName(lookId: String): String =
         cameraProfileRegistry.entryFor(lookId)?.displayName ?: FilmPreset.NORMAL.displayName
 
+    // Flips true once persisted settings have been applied. No longer gates
+    // the preview surface (the viewfinder binds immediately so cold start is
+    // sub-second); kept as a diagnostic + test seam.
     private val _settingsLoaded = MutableStateFlow(false)
     val settingsLoaded: StateFlow<Boolean> = _settingsLoaded.asStateFlow()
 
@@ -365,9 +388,8 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
             }
         }
 
-        // Preload every FilmPreset's LUT off the main thread so the first
-        // capture of any film preset doesn't pay the synchronous CubeLutParser
-        // cost inside the capture coroutine. Each `.cube` asset parse is
+        // Preload LUTs off the main thread so captures never pay the
+        // synchronous CubeLutParser cost. Each `.cube` asset parse is
         // ~50–150 ms of asset I/O + per-element normalisation; without this
         // warm-up the user-visible penalty lands on whichever preset they
         // capture first after opening the app. The coroutine runs in parallel
@@ -378,11 +400,37 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         // can't poison the whole warm-up without us adding any extra guards.
         viewModelScope.launch(Dispatchers.IO) {
             val app = getApplication<Application>()
+            // Order matters for cold start: the PERSISTED look parses first,
+            // so the restored viewfinder is graded as soon as possible; the
+            // remaining presets warm up behind it. (Parsing in enum order
+            // first meant the user's look — often mid-list — waited behind
+            // every earlier preset's parse on every cold start.)
+            loadLut(app, _activeLookId.value)
             for (preset in FilmPreset.entries) loadLut(app, preset)
             // Same warm-up for the catalog itself: `assets/cameras/` is read
             // and parsed once here so the Film-Style picker never blocks on
             // asset I/O the first time it is opened.
             _lookCatalog.value = cameraProfileRegistry.catalog()
+        }
+
+        // ── ProcessCameraProvider warm-up (parallel with settings load) ──
+        // getInstance() starts the CameraX init (which itself schedules the
+        // camera-availability streams) but does NOT bind anything and is
+        // safe to call off the main thread. The preview bind in
+        // CameraPreviewView pays this future anyway; fetching it here too
+        // overlaps that 50–200 ms with the DataStore settings load instead
+        // of running it strictly after, so the first frame lands sooner.
+        // Only the first future is kept (the future is a process-wide
+        // singleton — subsequent getInstance calls return the same one).
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                cameraProviderWarmupFuture =
+                    androidx.camera.lifecycle.ProcessCameraProvider.getInstance(getApplication()).get()
+            } catch (e: Exception) {
+                // CameraX init failure must never block startup — the bind
+                // path has its own recovery/retry handling.
+                Log.e("CameraViewModel", "ProcessCameraProvider warm-up failed", e)
+            }
         }
 
         // ── MediaStore sync ─────────────────────────────────────────────────

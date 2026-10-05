@@ -231,17 +231,34 @@ class GpuCaptureProcessor {
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE)
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
 
-        GLES20.glPixelStorei(GLES20.GL_UNPACK_ALIGNMENT, 1)
+        GLES20.glPixelStorei(GLES20.GL_UNPACK_ALIGNMENT, 4)
 
-        val srcPixels = IntArray(w * h)
+        // ── Input texture (bulk ARGB→RGBA swizzle) ──
+        // The upload path used to run a per-pixel Java loop with four
+        // ByteBuffer.put calls per pixel — measurable JIT work per shot at
+        // full sensor resolution, on top of the getPixels copy. The swizzle
+        // below does the same channel reordering with one bulk array pass
+        // and one bulk buffer put: getPixels (native), an unrolled ARGB→RGBA
+        // pass with sign-safe channel extraction, then ByteBuffer.put(byte[])
+        // (a single native bulk copy into the direct buffer). Row 0 of the
+        // upload is still row 0 of the bitmap, so the identity-texcoord draw
+        // and the top-down glReadPixels readback are unchanged.
+        val pixelCount = w * h
+        val srcPixels = IntArray(pixelCount)
         source.getPixels(srcPixels, 0, w, 0, 0, w, h)
-        val rgba = ByteBuffer.allocateDirect(w * h * 4).order(ByteOrder.nativeOrder())
-        for (p in srcPixels) {
-            rgba.put(((p ushr 16) and 0xFF).toByte())
-            rgba.put(((p ushr 8) and 0xFF).toByte())
-            rgba.put((p and 0xFF).toByte())
-            rgba.put(((p ushr 24) and 0xFF).toByte())
+        val rgba = ByteBuffer.allocateDirect(pixelCount * 4).order(ByteOrder.nativeOrder())
+        val rgbaArr = ByteArray(pixelCount * 4)
+        var q = 0
+        while (q < pixelCount) {
+            val p = srcPixels[q]
+            val o = q * 4
+            rgbaArr[o]     = ((p shr 16) and 0xFF).toByte() // R
+            rgbaArr[o + 1] = ((p shr 8) and 0xFF).toByte()  // G
+            rgbaArr[o + 2] = (p and 0xFF).toByte()          // B
+            rgbaArr[o + 3] = (p ushr 24).toByte()           // A (sign-safe)
+            q++
         }
+        rgba.put(rgbaArr)
         rgba.position(0)
         GLES20.glTexImage2D(
             GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA,
@@ -329,6 +346,10 @@ class GpuCaptureProcessor {
         drawQuad(aPosition, aTexCoord)
 
         // ── Readback ──
+        // (Deliberately per-pixel: Bitmap has no byte[]-backed creation API —
+        // the array-based overloads all take ARGB ints — so an in-place byte
+        // swizzle can't feed createBitmap. The upload path above is the bulk
+        // win; this loop stays as the correct, well-tested decode.)
         GLES20.glFinish()
         val readback = ByteBuffer.allocateDirect(w * h * 4).order(ByteOrder.nativeOrder())
         GLES20.glPixelStorei(GLES20.GL_PACK_ALIGNMENT, 1)
@@ -356,13 +377,21 @@ class GpuCaptureProcessor {
         return Bitmap.createBitmap(out, w, h, Bitmap.Config.ARGB_8888)
     }
 
-    /** Uploads a [CubeLut] as an 8-bit RGB 3D texture (mirrors the preview upload). */
+    /**
+     * Uploads a [CubeLut] as an 8-bit RGB 3D texture (mirrors the preview
+     * upload). Quantizes into a ByteArray with one bulk `put` instead of a
+     * per-element `ByteBuffer.put` (≈107k virtual calls for a 33³ LUT),
+     * then the GL driver memcpys the buffer into the texture.
+     */
     private fun uploadLut(lut: CubeLut): Int {
         val n = lut.size
-        val buf = ByteBuffer.allocateDirect(n * n * n * 3).order(ByteOrder.nativeOrder())
+        val lutBytes = ByteArray(n * n * n * 3)
+        var li = 0
         for (v in lut.data) {
-            buf.put((v.coerceIn(0f, 1f) * 255f + 0.5f).toInt().toByte())
+            lutBytes[li++] = (v.coerceIn(0f, 1f) * 255f + 0.5f).toInt().toByte()
         }
+        val buf = ByteBuffer.allocateDirect(n * n * n * 3).order(ByteOrder.nativeOrder())
+        buf.put(lutBytes)
         buf.position(0)
 
         val id = IntArray(1)

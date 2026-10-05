@@ -12,6 +12,11 @@ internal data class FocalLabelAnchor(val x: Dp, val y: Dp)
 /**
  * Centre point for the focal-length label floating just outside the zoom box.
  *
+ * [boxLeft]/[boxTop] are the zoom box's TOP-LEFT corner and [boxWidth] /
+ * [boxHeight] its size — the same `offset(x = boxLeft, y = boxTop)` origin the
+ * outline Box draws from, so the two can never disagree about where the box
+ * is.
+ *
  * The activity is portrait-locked, so a sideways-held phone shows the whole
  * UI sideways: the zoom box stays axis-aligned in portrait/screen coordinates
  * while the viewer's "up" points along `(sinθ, -cosθ)` (the portrait RIGHT
@@ -30,8 +35,8 @@ internal data class FocalLabelAnchor(val x: Dp, val y: Dp)
  * so the label's outer edge never leaves the screen.
  */
 internal fun focalLabelAnchor(
-    boxCenterX: Dp,
-    boxCenterY: Dp,
+    boxLeft: Dp,
+    boxTop: Dp,
     boxWidth: Dp,
     boxHeight: Dp,
     labelHalfHeight: Dp,
@@ -41,6 +46,9 @@ internal fun focalLabelAnchor(
     gap: Dp = 30.dp,
     screenPad: Dp = 4.dp
 ): FocalLabelAnchor {
+    val boxCenterX = boxLeft + boxWidth / 2f
+    val boxCenterY = boxTop + boxHeight / 2f
+
     val radians = Math.toRadians(controlAngle.toDouble())
     val upX = sin(radians).toFloat()
     val upY = -cos(radians).toFloat()

@@ -3,6 +3,7 @@ package com.example
 import android.hardware.display.DisplayManager
 import android.os.Bundle
 import android.view.Display
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -10,7 +11,46 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalHapticFeedback
 import com.example.ui.theme.MyApplicationTheme
 
+/**
+ * Installed by [MainActivity.installVolumeShutterDispatcher] while the camera
+ * screen is foregrounded. Receives key events BEFORE the Activity's own * dispatch (the view hierarchy may mark them consumed for focus/navigation),
+ * so the volume-shutter behavior cannot be starved by Compose focus churn.
+ */
+fun interface VolumeKeyInterceptor {
+  /** @return true when the event was consumed (never reaches the system volume handling). */
+  fun onKeyEvent(event: KeyEvent): Boolean
+}
+
 class MainActivity : ComponentActivity() {
+  @Volatile
+  private var volumeShutterInterceptor: VolumeKeyInterceptor? = null
+
+  /**
+   * Wires the volume hardware keys to the shutter while the camera screen is
+   * active. Called from [CameraUi]'s composition (a DisposableEffect keyed on   * composition lifetime) so the hook exists exactly while the camera is the   * foreground surface and is removed on dispose.
+   */
+  fun installVolumeShutterDispatcher(interceptor: VolumeKeyInterceptor) {
+    volumeShutterInterceptor = interceptor
+  }
+
+  fun uninstallVolumeShutterDispatcher() {
+    volumeShutterInterceptor = null
+  }
+
+  override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+    // Volume up/down fire the shutter when a camera-screen interceptor is
+    // installed AND the event is a fresh (non-repeat) press. All other keys,
+    // repeat events and released actions fall through to normal dispatch.    // Consuming here also suppresses the system volume HUD over the viewfinder.    val interceptor = volumeShutterInterceptor
+    if (interceptor != null &&
+      (event.keyCode == KeyEvent.KEYCODE_VOLUME_UP || event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) &&
+      event.action == KeyEvent.ACTION_DOWN &&
+      event.repeatCount == 0 &&
+      interceptor.onKeyEvent(event)    ) {
+      return true
+    }
+    return super.dispatchKeyEvent(event)
+  }
+
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()

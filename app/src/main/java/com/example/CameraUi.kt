@@ -118,6 +118,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
@@ -467,7 +468,9 @@ private fun BoxScope.ZoomBoxOverlay(
             naturalBoxW to naturalBoxH
         }
         val zoomBoxTop = vfTop + (vfHeight - boxHf) / 2f
-        val boxCenterX = vfX + (vfWidth - boxWf) / 2f
+        // Left edge of the zoom box; the outline Box below is a TopStart
+        // offset child, so this is NOT the centre.
+        val boxLeft = vfX + (vfWidth - boxWf) / 2f
 
         // Box rect in px, cached per size step instead of converted per frame.
         val boxW = remember(boxWf, density) { with(density) { boxWf.toPx() } }
@@ -504,8 +507,8 @@ private fun BoxScope.ZoomBoxOverlay(
         var labelHeightPx by remember { mutableIntStateOf(0) }
         val labelHalfHeight = with(density) { (labelHeightPx / 2).toDp() }
         val labelAnchor = focalLabelAnchor(
-            boxCenterX = boxCenterX,
-            boxCenterY = zoomBoxTop + boxHf / 2f,
+            boxLeft = boxLeft,
+            boxTop = zoomBoxTop,
             boxWidth = boxWf,
             boxHeight = boxHf,
             labelHalfHeight = labelHalfHeight,
@@ -540,8 +543,8 @@ private fun BoxScope.ZoomBoxOverlay(
         Box(
             modifier = Modifier
                 .offset(
-                    x = boxCenterX,
-                    y = vfTop + (vfHeight - boxHf) / 2f
+                    x = boxLeft,
+                    y = zoomBoxTop
                 )
                 .width(boxWf)
                 .height(boxHf)
@@ -1395,32 +1398,42 @@ fun CameraUi(
                 CameraActiveScreen(
                     viewModel = viewModel,
                     onOpenSettings = { showSettingsPage = true },
-                    previewPaused = showSettingsPage
+                    // Keep the camera bound while settings is open. Releasing
+                    // here (previewPaused = showSettingsPage) ran unbindAll()
+                    // on the main thread in the same frame as the enter
+                    // animation + SettingsScreen first composition, which read
+                    // as a ~1s open stall, and the rebind on close (80ms+
+                    // HAL bind) read as a black flash before the preview
+                    // resumed. The settings overlay is fully opaque so the
+                    // occluded preview costs almost nothing, and
+                    // SurfaceFlinger skips the hidden layer. Photo-viewer and
+                    // RAW still pause via CameraActiveScreen's internal
+                    // `selectedPhoto / isRawCapturing` handling.
+                    previewPaused = false
                 )
 
                 // AnimatedVisibility REMOVES SettingsScreen from composition
                 // only after the exit animation completes; CameraActiveScreen
                 // sits in the Box OUTSIDE AnimatedVisibility so its lifecycle
-                // is never tied to `showSettingsPage`. While the overlay is
-                // open the preview session is released (previewPaused) so the
-                // camera pipeline can't stutter the settings UI, and it
-                // re-binds through the normal path as the overlay closes.
+                // is never tied to `showSettingsPage`. The camera session
+                // stays bound under the opaque overlay so open/close is just
+                // a compose + animation cost with no HAL teardown/rebind.
                 // Slide-from-right + a short fade matches the conventional
                 // Android "new screen entering" idiom; the camera underneath
                 // reads as a steady surface rather than a blink because the
                 // overlay is opaque.
                 AnimatedVisibility(
                     visible = showSettingsPage,
-                    enter = fadeIn(tween(durationMillis = 220)) +
+                    enter = fadeIn(tween(durationMillis = 150)) +
                             slideInHorizontally(
-                                animationSpec = tween(durationMillis = 280),
+                                animationSpec = tween(durationMillis = 200),
                                 initialOffsetX = { it }
                             ),
-                    exit = fadeOut(tween(durationMillis = 200)) +
+                    exit = fadeOut(tween(durationMillis = 150)) +
                            slideOutHorizontally(
-                               animationSpec = tween(durationMillis = 240),
-                               targetOffsetX = { it }
-                           )
+                                animationSpec = tween(durationMillis = 180),
+                                targetOffsetX = { it }
+                            )
                 ) {
                     SettingsScreen(
                         viewModel = viewModel,
@@ -1850,7 +1863,9 @@ fun CameraActiveScreen(
     val rawModeEnabled by viewModel.rawModeEnabled.collectAsState()
     val activeExtension by viewModel.activeExtension.collectAsState()
     val activeLookId by viewModel.activeLookId.collectAsState()
-    val settingsLoaded by viewModel.settingsLoaded.collectAsState()
+    // (settingsLoaded no longer gates the preview — the viewfinder binds
+    // immediately for a sub-second cold start; the flag remains a VM-level
+    // diagnostic/test seam.)
     // NOTE: Film-Style picker scroll position is intentionally NOT
     // collected via `collectAsState`. Doing so would subscribe this whole
     // composable to a StateFlow that mutates on every scroll tick, which
@@ -1894,8 +1909,15 @@ fun CameraActiveScreen(
             LensRole.PRIMARY -> catalog.primary
             LensRole.TELE -> catalog.tele
         } ?: return@LaunchedEffect
-        val providerFuture = androidx.camera.lifecycle.ProcessCameraProvider.getInstance(context)
-        val provider = try { providerFuture.get() } catch (e: Exception) { return@LaunchedEffect }
+        // Reuse the ViewModel's pre-warmed provider when it's ready (the
+        // normal case — warm-up started in the ViewModel init, this probe
+        // runs after first composition); fall back to fetching the future
+        // here otherwise. `get()` on the already-completed future returns
+        // instantly, so this never adds startup latency.
+        val provider = viewModel.cameraProviderForBind()
+            ?: try {
+                androidx.camera.lifecycle.ProcessCameraProvider.getInstance(context).get()
+            } catch (e: Exception) { return@LaunchedEffect }
         viewModel.probeExtensions(context, provider, targetProfile.logicalCameraId, false, lifecycleOwner)
     }
 
@@ -2004,7 +2026,12 @@ fun CameraActiveScreen(
                 .height(vfHeight)
                 .clip(RoundedCornerShape(16.dp))
         ) {
-        if (settingsLoaded) {
+        // The preview binds immediately, without waiting for persisted
+        // settings (cold-start): the pass-through start route is a stable
+        // CameraX surface, so the viewfinder is live in <1 s. When a graded
+        // persisted look arrives, useFilteredPreview flips and
+        // CameraPreviewView rebinds in place to the GL surface — the same
+        // path a manual pass-through ↔ graded look switch already uses.
         CameraPreviewView(
             modifier = Modifier
                 .fillMaxSize()
@@ -2113,7 +2140,6 @@ fun CameraActiveScreen(
             imageCaptureProvider = { activeImageCapture = it },
             onLensCatalogReady = { result -> viewModel.setLensCatalogResult(result) }
         )
-        }
 
         // Countdown timer overlay
         if (timerCountdown > 0) {
@@ -2543,6 +2569,47 @@ fun CameraActiveScreen(
                     )
                 }
             }
+        }
+
+        // ── Volume-button shutter ───────────────────────────────────────
+        // The hardware volume keys fire the shutter while the camera is the
+        // active surface — the single most-requested camera-app affordance
+        // and pure muscle memory (same gesture as the system Camera app).
+        // Consuming the events also stops the play/pause-style volume HUD
+        // from popping over the viewfinder mid-shot.
+        //
+        // Only DOWN events trigger, matching the system camera so half-press
+        // semantics could later hook KEYCODE_VOLUME_DOWN without a double
+        // fire. Released/long-press repeats are ignored. Gated on the same
+        // conditions as the on-screen shutter button (capture in flight,
+        // countdown running, gallery open, settings open) so both entry
+        // points can never disagree about when a shot is allowed.
+        // `currentDoCapture` is a rememberUpdatedState-stable read of the
+        // latest capture lambda: the Interceptor's lambda is created once per
+        // composition of the `View` — WITHOUT the stable reference it would
+        // capture a stale `doCapture` closure (and stale flash/RAW state).
+        // ── Volume-button shutter wiring ────────────────────────────────
+        // The interceptor lambda is registered on the Activity (see
+        // MainActivity.installVolumeShutterDispatcher) and consults LIVE
+        // state at key-time via rememberUpdatedState: a stale closure would
+        // capture an old `doCapture` (and stale flash/RAW mode). Gated on the
+        // same conditions as the on-screen shutter button so both entry
+        // points can never disagree about when a shot is allowed.
+        val currentDoCapture by rememberUpdatedState(doCapture)
+        DisposableEffect(Unit) {
+            val activity = context as? MainActivity
+            if (activity != null) {
+                activity.installVolumeShutterDispatcher { _ ->
+                    val cameraInteractive = selectedPhoto == null &&
+                            !showExpSlider && !showTempSlider &&
+                            timerCountdown < 0
+                    if (cameraInteractive && !captureInFlight) {
+                        currentDoCapture()
+                    }
+                    true // Consume volume keys while the camera is foreground.
+                }
+            }
+            onDispose { activity?.uninstallVolumeShutterDispatcher() }
         }
 
         // Bottom-deck Column anchored to the bottom of the screen, full width,
