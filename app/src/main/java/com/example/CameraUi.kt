@@ -162,9 +162,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import com.example.ui.theme.Inter
-import kotlin.math.abs
-import kotlin.math.cos
-import kotlin.math.sin
 import kotlin.time.Duration.Companion.milliseconds
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -186,6 +183,7 @@ import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 import java.util.Locale
 import com.example.zoom.AspectRatio
+import com.example.zoom.focalLabelAnchor
 import com.example.color.CubeLut
 import com.example.color.LookSwatch
 import com.example.color.profileId
@@ -330,11 +328,6 @@ private object ZoomBoxSpec {
     // Floor for the 16:9 upward growth (see viewfinderTop) — keeps the box
     // + its corner settings button clear of the status bar.
     const val VIEWFINDER_MIN_TOP_DP = 28
-    // Where the focal-length label sits when the phone is held sideways:
-    // this far inside the viewfinder's top edge (in the viewer's own frame,
-    // see ZoomBoxOverlay). Portrait keeps the `focal-length-label` spec —
-    // the number floats above the zoom box instead.
-    const val FOCAL_LABEL_VIEWFINDER_INSET_DP = 12
     const val ZOOM_GRID_ALPHA = 0.55f
     const val ZOOM_OUTLINE_ALPHA = 0.9f
 }
@@ -505,60 +498,23 @@ private fun BoxScope.ZoomBoxOverlay(
         }
 
         // Focal-length label (spec `focal-length-label`: Inter 700 14px
-        // white, 30dp above the zoom box).
-        //
-        // The activity is portrait-locked, so a sideways-held phone shows
-        // the whole UI sideways. Every other piece of chrome (aux rail,
-        // three-point menu, bubble row) already rides `controlAngle`, but
-        // this number did not — it kept reading sideways and ended up over
-        // the SIDE of the screen while the rest of the chrome stayed put.
-        // It now rotates with the device as well, and its anchor slides
-        // from "above the zoom box" (portrait) to "just inside the top
-        // edge of the viewfinder" (landscape), so it always reads on top
-        // of the viewfinder for whoever is holding the phone.
-        //
-        // Three details keep that seamless:
-        //  - the blend is keyed on |sin θ|, so the label glides with the
-        //    rotation spring instead of snapping when the device settles;
-        //  - at θ = 0 the anchor reproduces the portrait spec exactly,
-        //    measured from the label's centre (hence the measured half
-        //    height) rather than shifting the text up by its own line box;
-        //  - the landscape anchor is computed in the VIEWER'S frame (see
-        //    below), not in screen coordinates.
+        // white, 30dp above the zoom box). The anchor keeps the number
+        // hugging the ZOOM BOX itself in the VIEWER'S frame at any device
+        // angle — see [focalLabelAnchor] for the geometry.
         var labelHeightPx by remember { mutableIntStateOf(0) }
         val labelHalfHeight = with(density) { (labelHeightPx / 2).toDp() }
-        val radians = Math.toRadians(controlAngle.toDouble())
-        val sinA = sin(radians).toFloat()
-        val cosA = cos(radians).toFloat()
-        val sideways = abs(sinA)
-
-        // Portrait anchor: Figma spec — the label's centre ends up where
-        // its top edge used to sit 30dp above the zoom box.
-        val portraitAnchorX = vfX + vfWidth / 2f
-        val portraitAnchorY = zoomBoxTop - 30.dp + labelHalfHeight
-
-        // Landscape anchor: the top-centre of the viewfinder AS SEEN BY THE
-        // VIEWER. Rotating the text does not move the frame — the viewfinder
-        // is always drawn in portrait coordinates, so once the phone is
-        // sideways the edge the viewer reads as "top" is the portrait edge
-        // pointing along their up vector (sinθ, -cosθ): the portrait RIGHT
-        // edge at +90°, the portrait LEFT edge at -90°. (Anchoring to the
-        // portrait top edge instead parked the number halfway down the side
-        // of the viewfinder, which is what the user saw.)
-        //
-        // So: start at the viewfinder centre and push out along that up
-        // vector by the rect's projected half-extent
-        // (|cosθ|·halfHeight + |sinθ|·halfWidth) minus an inset. At ±90°
-        // the projection collapses to the half-width, landing the number
-        // centred on the viewer's top edge; at θ = 0 it degrades to the
-        // portrait top edge + inset, so the blend never jumps.
-        val inset = ZoomBoxSpec.FOCAL_LABEL_VIEWFINDER_INSET_DP.dp
-        val reach = (vfHeight / 2f) * abs(cosA) + (vfWidth / 2f) * abs(sinA) - inset
-        val landscapeAnchorX = vfX + vfWidth / 2f + reach * sinA
-        val landscapeAnchorY = vfTop + vfHeight / 2f - reach * cosA
-
-        val labelX = portraitAnchorX + (landscapeAnchorX - portraitAnchorX) * sideways
-        val labelY = portraitAnchorY + (landscapeAnchorY - portraitAnchorY) * sideways
+        val labelAnchor = focalLabelAnchor(
+            boxCenterX = boxCenterX,
+            boxCenterY = zoomBoxTop + boxHf / 2f,
+            boxWidth = boxWf,
+            boxHeight = boxHf,
+            labelHalfHeight = labelHalfHeight,
+            controlAngle = controlAngle,
+            screenWidth = parentWidth,
+            screenHeight = parentHeight
+        )
+        val labelX = labelAnchor.x
+        val labelY = labelAnchor.y
         Text(
             text = stringResource(R.string.focal_length_mm, effectiveFocalLength),
             color = Color.White,

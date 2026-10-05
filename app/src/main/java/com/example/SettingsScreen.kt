@@ -27,7 +27,6 @@ import androidx.compose.material.icons.rounded.Gavel
 import androidx.compose.material.icons.rounded.PrivacyTip
 import androidx.compose.material.icons.rounded.FlashOn
 import androidx.compose.material.icons.rounded.GridOn
-import androidx.compose.material.icons.rounded.Hd
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.PhotoLibrary
@@ -742,17 +741,9 @@ private fun ResolutionBlock(
         OutputResolution.THREE_MEGAPIXEL,
         OutputResolution.FULL
     )
-    val helper = when (selected) {
-        OutputResolution.FULL -> stringResource(R.string.resolution_full_desc)
-        OutputResolution.THREE_MEGAPIXEL -> stringResource(R.string.resolution_fast_desc)
-        OutputResolution.VINTAGE_DIGICAM -> stringResource(R.string.resolution_vintage_desc)
-    }
+    // No header above the row: each chip already carries its title + vibe
+    // label, so the icon/label/helper block was redundant chrome.
     Column(modifier = Modifier.fillMaxWidth()) {
-        SegmentedBlockHeader(
-            icon = Icons.Rounded.Hd,
-            label = stringResource(R.string.resolution_section),
-            helper = helper
-        )
         SingleChoiceSegmentedButtonRow(
             modifier = Modifier
                 .fillMaxWidth()
@@ -786,9 +777,10 @@ private fun ResolutionBlock(
                             OutputResolution.THREE_MEGAPIXEL -> R.string.resolution_fast_sub
                             OutputResolution.VINTAGE_DIGICAM -> R.string.resolution_vintage_sub
                         }
+                        // Slim chips: no vertical label padding so this
+                        // selector row reads thinner than the others.
                         Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.padding(vertical = 2.dp)
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
                                 text = stringResource(titleRes),

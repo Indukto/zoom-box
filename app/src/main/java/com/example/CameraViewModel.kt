@@ -838,17 +838,21 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
 
     /**
      * Composites this (already graded) frame over the retained ghost and
-     * records the frame as the next ghost. Returns [this] when the effect is
-     * off, when no ghost exists yet, or when the ghost copy fails — the
-     * caller keeps its `!== ` recycle guard either way.
+     * records the frame as the next ghost. Returns null when no ghost exists
+     * yet — the first frame of a sequence is only retained as the ghost, so
+     * the gallery holds fused frames alone. Returns [this] when the blend
+     * fails, so a failed effect still saves the single frame instead of
+     * dropping the shot — the caller keeps its `!==` recycle guard either
+     * way.
      */
-    private fun Bitmap.applyDoubleExposure(): Bitmap {
+    private fun Bitmap.applyDoubleExposure(): Bitmap? {
         val previous = doubleExposureGhost
         if (previous == null || previous.isRecycled) {
             // First shot of a sequence: nothing to expose it over yet, so it
-            // becomes the ghost the *next* shot composites onto.
+            // becomes the ghost the *next* shot composites onto. Nothing is
+            // saved for this frame (the caller returns early on null).
             rememberAsDoubleExposureGhost()
-            return this
+            return null
         }
         val merged = try {
             DoubleExposure.blend(this, previous)
@@ -1262,7 +1266,17 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                 // No toast here: the JPEG path is silent on success, and the
                 // RAW popup was inconsistent with the rest of the app.
                 _captureInFlight.value = false
-                photoStore.saveDng(dngFile)
+                // Double exposure: the first frame of a sequence is only
+                // retained as the blend ghost, so its DNG is dropped just
+                // like its JPEG companion (skipped inside processAndSavePhoto)
+                // — only fused frames are ever saved.
+                val ghostOnlyFirstFrame =
+                    _doubleExposureActive.value && !_doubleExposureHasGhost.value
+                if (!ghostOnlyFirstFrame) {
+                    photoStore.saveDng(dngFile)
+                } else {
+                    try { dngFile.delete() } catch (_: Exception) {}
+                }
                 if (jpegFile != null) {
                     // processAndSavePhoto manages `_isCapturing` and the
                     // gallery refresh itself (mirrors the JPEG path).
@@ -1531,6 +1545,16 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                 // the frame is drawn once over the finished picture.
                 if (_doubleExposureActive.value) {
                     val exposed = finalBitmap.applyDoubleExposure()
+                    if (exposed == null) {
+                        // First frame of a double-exposure sequence: retained
+                        // as the blend ghost only, so neither it nor any
+                        // gallery entry is saved. Drop the working bitmap and
+                        // the temp capture file; the finally block below still
+                        // releases the shutter state.
+                        try { finalBitmap.recycle() } catch (_: Exception) {}
+                        try { rawFile.delete() } catch (_: Exception) {}
+                        return@launch
+                    }
                     if (exposed !== finalBitmap) {
                         finalBitmap.recycle()
                         finalBitmap = exposed

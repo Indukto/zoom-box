@@ -22,12 +22,17 @@
 
 > 💡 **Have a feature request?** Open an [issue](https://github.com/Indukto/Bhig/issues) 
 
-##  Screenshots  (Outdatet)
+##  Screenshots
 
 <div align="center">
 
-  
-[![Screenshot-20260730-231458.png](https://i.postimg.cc/Kc38gxQY/Screenshot-20260730-231458.png)](https://postimg.cc/K4F26X6X) [![Screenshot-20260730-231920.png](https://i.postimg.cc/YSfMxCZz/Screenshot-20260730-231920.png)](https://postimg.cc/HJxqYdpr)
+  <img src="assets/Screenshot_20261005-190238.png" alt="Zoom Box framing overlay at 36 mm" width="220"/>
+  <img src="assets/Screenshot_20261005-190306.png" alt="Sunset capture with temperature control" width="220"/>
+
+  <br/>
+
+  <img src="assets/Screenshot_20261005-190422.png" alt="White-balance picker panel" width="220"/>
+  <img src="assets/Screenshot_20261005-190326.png" alt="Settings with photo quality options" width="220"/>
 
 </div>
 
