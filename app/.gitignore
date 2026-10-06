@@ -1,2 +1,7 @@
 /build
+
+# Unit tests kept local-only — they are not part of the published sources, so
+# they must never be committed. `git add -f` if that ever changes.
 /src/test/java/com/example/zoom/FocalLabelAnchorTest.kt
+/src/test/java/com/example/zoom/ZoomRubberBandTest.kt
+/src/test/java/com/example/color/RetroRenderParamsLerpTest.kt

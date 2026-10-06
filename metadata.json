@@ -1,6 +1,0 @@
-{
-  "name": "ZoomBox Camera",
-  "description": "A camera with a focal zoom framing box, supporting multi-lens, exposure adjustments, and thermal filter effects.",
-  "requestFramePermissions": [],
-  "majorCapabilities": []
-}

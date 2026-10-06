@@ -536,8 +536,6 @@ fun CameraPreviewView(
                     activeImageCapture = bound.imageCapture
                 }
             }
-            // Temporary startup-jank marker (JankMonitor, debug only).
-            JankMonitor.mark("preview-bound")
         } catch (e: CancellationException) {
             // A route change cancels this effect while CameraX is still
             // releasing the previous surface. Never turn that cancellation

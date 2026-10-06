@@ -1,0 +1,26 @@
+# Commit LF to the repository regardless of the developer's OS.
+#
+# core.autocrlf=true on Windows was silently committing CRLF blobs: that is
+# what corrupted the fdroiddata metadata (`fdroid lint` rejects CRLF), and it
+# is why the generic rule alone is not enough — `text=auto` lets git apply its
+# binary sniff and it had cached a `-text` (binary) flag on an otherwise plain
+# Kotlin file. The explicit rules below force text treatment with LF for
+# source, resources and the metadata tooling reads, so those files can never
+# be committed with CRLF again.
+#
+# Binary assets (PNG, TTF, WebP, JKS) are unaffected: none of the patterns
+# below match them, and the generic rule still leaves them byte-exact.
+* text=auto eol=lf
+*.kt         text eol=lf
+*.kts        text eol=lf
+*.java       text eol=lf
+*.xml        text eol=lf
+*.md         text eol=lf
+*.txt        text eol=lf
+*.yml        text eol=lf
+*.yaml       text eol=lf
+*.json       text eol=lf
+*.properties text eol=lf
+*.pro        text eol=lf
+*.gitignore  text eol=lf
+.gitattributes text eol=lf

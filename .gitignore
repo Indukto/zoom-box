@@ -2,12 +2,12 @@
 .gradle
 .kotlin
 /local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
+# IDE — keep only shared run configs + inspection profiles, ignore the rest.
+/.idea/*
+!/.idea/.gitignore
+!/.idea/.name
+!/.idea/runConfigurations/
+!/.idea/inspectionProfiles/
 .DS_Store
 /build
 /captures
@@ -33,11 +33,12 @@ debug.keystore
 
 # Build outputs — never commit.
 /app/debug/
-/app/release/
+/app/release/*.apk
+/app/release/mapping.txt
+/app/release/output-metadata.json
 /.build_tmp/
 __pycache__/
 *.pyc
-app/release/mapping.txt
 
 # Agent scratch: implementation plans, task artifacts, walkthroughs and
 # session plans — never commit.
