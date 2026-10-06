@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ZoomBox Camera</string>
+    <string name="camerax_attribution_label">Cameraopname en -verwerking</string>
+
+    <string name="color_balance_title">Kleurbalans</string>
+    <string name="wb_readout">%1$dK %2$s</string>
+    <string name="wb_auto_label">A</string>
+    <string name="wb_preset_daylight">Daglicht</string>
+    <string name="wb_preset_incandescent">Gloeilamp</string>
+    <string name="wb_preset_shade">Schaduw</string>
+    <string name="exposure_title">BELICHTING</string>
+    <string name="ev_readout">%1$s EV</string>
+    <string name="temperature_label">Temperatuur</string>
+    <string name="exposure_label">Belichting</string>
+    <string name="close_label">Sluiten</string>
+    <string name="front_lens_label">VOOR</string>
+    <string name="focal_length_mm">%1$d mm</string>
+    <string name="self_timer_seconds">%1$d s</string>
+    <string name="timer_countdown">%1$d</string>
+
+    <string name="settings_label">Instellingen</string>
+    <string name="grid_label">Raster</string>
+    <string name="timer_off_label">Timer uit</string>
+    <string name="flash_label">Flits</string>
+    <string name="flip_camera_label">Camera omdraaien</string>
+    <string name="last_photo_label">Laatste foto</string>
+    <string name="no_photos_label">Geen foto’s</string>
+
+    <string name="retro_camera_icon_desc">Retro-camerapictogram</string>
+    <string name="splash_title">ZOOM CAMERA</string>
+    <string name="splash_tagline">RETRO FILMCAMERA</string>
+    <string name="splash_description">Maak vintagefoto’s met ons zoomkader en warme retrofilters. Geef cameratoegang om te beginnen.</string>
+    <string name="enable_camera">CAMERA INSCHAKELEN</string>
+    <string name="splash_footer">Zoom Cam · %1$s</string>
+
+    <string name="film_style">Filmstijl</string>
+    <string name="film_style_count">%1$d stijlen — tik om toe te passen</string>
+
+    <string name="delete_photo_title">Foto verwijderen?</string>
+    <string name="delete_photo_message">Deze foto wordt permanent van dit apparaat verwijderd. Dit kan niet ongedaan worden gemaakt.</string>
+    <string name="delete">Verwijderen</string>
+    <string name="cancel">Annuleren</string>
+
+    <string name="close_viewfinder_desc">Zoeker sluiten</string>
+    <string name="gallery_title">Galerij</string>
+    <string name="gallery_photos_suffix">foto’s</string>
+    <string name="gallery_selected_suffix">geselecteerd</string>
+    <string name="gallery_grid_desc">Rasterweergave</string>
+    <string name="gallery_favorite_desc">Favoriete foto</string>
+    <string name="gallery_show_more">Meer tonen</string>
+    <string name="gallery_photo_deleted">Foto verwijderd</string>
+    <string name="gallery_share_failed">Foto kon niet worden gedeeld</string>
+    <string name="gallery_empty_title">Nog geen opnamen</string>
+    <string name="gallery_empty_message">Je foto’s verschijnen hier met hun filmgegevens.</string>
+    <string name="gallery_empty_cta">Terug naar camera</string>
+    <string name="undo">Ongedaan maken</string>
+    <string name="share_chooser_title">Retrofoto delen</string>
+    <string name="share_retro_capture_desc">Retro-opname delen</string>
+    <string name="delete_captured_photo_desc">Opgenomen foto verwijderen</string>
+    <string name="enlarged_capture_desc">Vergrote opname</string>
+    <string name="filmstrip_photo_desc">Filmstripfoto</string>
+
+    <string name="close_settings_desc">Instellingen sluiten</string>
+    <string name="settings_subtitle">Filmlooks, kader en opname</string>
+    <string name="capture_section">OPNAME</string>
+    <string name="raw_format_label">RAW-indeling</string>
+    <string name="raw_format_subtitle">Leg onbewerkte sensorgegevens vast voor professionele bewerking (DNG)</string>
+    <string name="raw_unavailable_front">Niet beschikbaar op de frontcamera</string>
+    <string name="raw_unavailable_lens">Deze lens ondersteunt geen RAW</string>
+    <string name="resolution_vintage_title">0,8 MP</string>
+    <string name="resolution_vintage_sub">Digicam</string>
+    <string name="resolution_fast_title">3 MP</string>
+    <string name="resolution_fast_sub">Snel</string>
+    <string name="resolution_full_title">Volledig</string>
+    <string name="resolution_full_sub">Max</string>
+    <string name="aspect_ratio_section">BEELDVERHOUDING</string>
+    <string name="aspect_ratio_standard">Standaard</string>
+    <string name="aspect_ratio_tall">Hoog</string>
+    <string name="aspect_ratio_wide">Breed</string>
+    <string name="aspect_ratio_square">Vierkant</string>
+    <string name="enhance_section">VERBETEREN</string>
+    <string name="extension_label">Nacht- &amp; HDR-boost</string>
+    <string name="extension_subtitle_none">Standaardverwerking</string>
+    <string name="extension_subtitle_hdr">OEM-HDR — groter dynamisch bereik</string>
+    <string name="extension_subtitle_bokeh">OEM-portretvervaging</string>
+    <string name="extension_subtitle_auto">Laat het apparaat de beste modus kiezen</string>
+    <string name="extension_none">Uit</string>
+    <string name="extension_hdr">HDR</string>
+    <string name="extension_bokeh">Vervaging</string>
+    <string name="extension_auto">Auto</string>
+    <string name="viewfinder_section">ZOEKER</string>
+    <string name="grid_lines_label">Rasterlijnen</string>
+    <string name="grid_lines_subtitle">Derden-overlay tijdens het kaderen</string>
+    <string name="self_timer_label">Zelfontspanner</string>
+    <string name="self_timer_off">Uit</string>
+    <string name="self_timer_desc_off">Sluiter reageert direct.</string>
+    <string name="self_timer_desc_on">%1$d s aftellen voor elke opname.</string>
+    <string name="flash_section">FLITS</string>
+    <string name="flash_label_settings">Flitsmodus</string>
+    <string name="flash_auto">Auto</string>
+    <string name="flash_on">Aan</string>
+    <string name="flash_off">Uit</string>
+    <string name="flash_desc_auto">Flitst alleen bij weinig licht.</string>
+    <string name="flash_desc_on">Flitst altijd.</string>
+    <string name="flash_desc_off">Flitst nooit.</string>
+    <string name="gallery_section">GALERIJ</string>
+    <string name="double_exposure_label">Dubbele belichting</string>
+    <string name="double_exposure_subtitle">Voeg elke opname samen met de vorige</string>
+    <string name="double_exposure_subtitle_warming">Volgende opname wordt samengevoegd met het vorige frame</string>
+
+    <string name="photo_frame_label">Fotokader</string>
+    <string name="photo_frame_subtitle">Voeg het filmkaartkader toe in de galerij en in opgeslagen foto’s</string>
+    <string name="about_section">INFO</string>
+    <string name="app_version_label">ZoomBox Camera-versie</string>
+    <string name="reset_settings_label">Terugzetten naar standaard</string>
+    <string name="reset_settings_subtitle">Fabrieksinstellingen voor opname en zoeker herstellen</string>
+    <string name="reset_settings_action">Opnieuw instellen</string>
+    <string name="zoom_camera_footer">Zoom • Camera</string>
+
+    <string name="legal_section">JURIDISCH</string>
+    <string name="legal_back_desc">Terug naar instellingen</string>
+    <string name="privacy_title">Privacy</string>
+    <string name="licenses_title">Licenties</string>
+
+    <string name="settings_privacy_label">Privacy (AVG)</string>
+    <string name="settings_privacy_subtitle">Wat deze app verzamelt — en wat niet</string>
+    <string name="settings_licenses_label">Open-source-licenties</string>
+    <string name="settings_licenses_subtitle">GPL-3.0-app · Apache-2.0-bibliotheken</string>
+
+    <string name="privacy_h_about">Over deze app</string>
+    <string name="privacy_p_about">ZoomBox Camera is een offline camera-app. De app declareert geen internettoestemming, dus Android blokkeert alle netwerktoegang: de app kan geen gegevens verzenden. Geen advertenties, geen analyses, geen trackers en geen crashrapporten.</string>
+    <string name="privacy_h_photos">Foto’s en camera</string>
+    <string name="privacy_p_photos">Foto’s worden alleen op je apparaat vastgelegd, verwerkt en opgeslagen (in Pictures/ZoomBoxCamera/ en de privéopslag van de app). De app schrijft nooit je locatie of gps-coördinaten in foto’s. Een foto verlaat je apparaat alleen als je deze zelf deelt.</string>
+    <string name="privacy_h_permissions">Machtigingen</string>
+    <string name="privacy_p_permissions">Camera: vereist om foto’s te maken, gevraagd bij eerste start. Foto’s en video’s: zodat de galerij na een herinstallatie foto’s toont die de app heeft opgeslagen. Geen achtergrondtoegang — elke lees- of schrijfactie start je zelf in de app.</string>
+    <string name="privacy_h_backup">Back-ups</string>
+    <string name="privacy_p_backup">Je camera-instellingen (filmlook, rasterlijnen enz.) kunnen worden opgenomen in de automatische Android-back-up, opgeslagen in je Google-account en alleen voor jou zichtbaar. Foto’s zijn uitgesloten van back-ups. Je kunt back-ups uitschakelen in de Android-systeeminstellingen.</string>
+    <string name="privacy_h_nodata">Er bereiken geen gegevens de ontwikkelaar</string>
+    <string name="privacy_p_nodata">De ontwikkelaar ontvangt geen gegevens van je: geen account, geen identificatoren, geen crashlogboeken, geen gebruiksstatistieken. Er zijn dus geen gegevens waartoe de ontwikkelaar toegang heeft, die hij kan corrigeren, exporteren of voor je kan verwijderen. Verwijder foto’s in de galerij of verwijder de app om je gegevens te wissen; daarmee worden alle resterende app-gegevens verwijderd.</string>
+    <string name="privacy_h_children">Kinderen</string>
+    <string name="privacy_p_children">Deze app is niet gericht op kinderen jonger dan 13 jaar en verzamelt geen persoonsgegevens van gebruikers van welke leeftijd dan ook.</string>
+    <string name="privacy_h_rights">Je rechten en contact</string>
+    <string name="privacy_p_rights">Onder de EU-Algemene verordening gegevensbescherming (AVG) heb je rechten op inzage, rectificatie, wissing, beperking van de verwerking, overdraagbaarheid en bezwaar, plus het recht om een klacht in te dienen bij een toezichthoudende autoriteit. Omdat de ontwikkelaar geen persoonsgegevens over je bewaart, valt er aan ontwikkelaarszijde niets uit te oefenen.</string>
+
+    <string name="licenses_h_app">Deze app</string>
+    <string name="licenses_p_app">ZoomBox Camera — Copyright © 2026 Indukto.\n\nGelicentieerd onder de GNU General Public License v3.0 (GPL-3.0). Broncode: https://github.com/Indukto/Bhig.\n\nDit programma wordt geleverd ZONDER ENIGE GARANTIE. Dit is vrije software die je onder bepaalde voorwaarden mag verspreiden; zie de licentietekst.</string>
+    <string name="licenses_h_libs">Open-source-bibliotheken</string>
+    <string name="licenses_p_libs">Gebouwd op Apache License 2.0-componenten van het Android-/Jetpack-ecosysteem: Jetpack Compose, Material 3, CameraX, Lifecycle, DataStore, Core — plus Coil, Accompanist Permissions, Haze en kotlinx.coroutines (JSON-parsing via org.json van het Android-framework). Filmlook-LUT’s: MIT, zie de LUT-melding in de app.</string>
+    <string name="licenses_h_texts">Licentieteksten</string>
+    <string name="licenses_p_texts">Apache-2.0: apache.org/licenses/LICENSE-2.0\nMIT: opensource.org/licenses/MIT\nGPL-3.0: gnu.org/licenses/gpl-3.0.html</string>
+</resources>

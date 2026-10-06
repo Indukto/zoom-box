@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ZoomBox Camera</string>
+    <string name="camerax_attribution_label">कैमरा कैप्चर और प्रोसेसिंग</string>
+
+    <string name="color_balance_title">कलर बैलेंस</string>
+    <string name="wb_readout">%1$dK %2$s</string>
+    <string name="wb_auto_label">A</string>
+    <string name="wb_preset_daylight">दिन का प्रकाश</string>
+    <string name="wb_preset_incandescent">गरम बल्ब</string>
+    <string name="wb_preset_shade">छाया</string>
+    <string name="exposure_title">एक्सपोज़र</string>
+    <string name="ev_readout">%1$s EV</string>
+    <string name="temperature_label">तापमान</string>
+    <string name="exposure_label">एक्सपोज़र</string>
+    <string name="close_label">बंद करें</string>
+    <string name="front_lens_label">सामने</string>
+    <string name="focal_length_mm">%1$d मिमी</string>
+    <string name="self_timer_seconds">%1$d से</string>
+    <string name="timer_countdown">%1$d</string>
+
+    <string name="settings_label">सेटिंग्स</string>
+    <string name="grid_label">ग्रिड</string>
+    <string name="timer_off_label">टाइमर बंद</string>
+    <string name="flash_label">फ़्लैश</string>
+    <string name="flip_camera_label">कैमरा बदलें</string>
+    <string name="last_photo_label">पिछली फोटो</string>
+    <string name="no_photos_label">कोई फोटो नहीं</string>
+
+    <string name="retro_camera_icon_desc">रेट्रो कैमरा आइकन</string>
+    <string name="splash_title">ZOOM CAMERA</string>
+    <string name="splash_tagline">रेट्रो फिल्म कैमरा</string>
+    <string name="splash_description">हमारे ज़ूम बॉक्स और गर्म रेट्रो फिल्टर के साथ विंटेज तस्वीरें लें। शुरू करने के लिए कैमरा एक्सेस दें।</string>
+    <string name="enable_camera">कैमरा चालू करें</string>
+    <string name="splash_footer">Zoom Cam · %1$s</string>
+
+    <string name="film_style">फिल्म स्टाइल</string>
+    <string name="film_style_count">%1$d स्टाइल — लागू करने के लिए टैप करें</string>
+
+    <string name="delete_photo_title">फोटो हटाएं?</string>
+    <string name="delete_photo_message">यह फोटो इस डिवाइस से हमेशा के लिए हट जाएगी। इसे वापस नहीं लाया जा सकता।</string>
+    <string name="delete">हटाएं</string>
+    <string name="cancel">रद्द करें</string>
+
+    <string name="close_viewfinder_desc">व्यूफाइंडर बंद करें</string>
+    <string name="gallery_title">गैलरी</string>
+    <string name="gallery_photos_suffix">फोटो</string>
+    <string name="gallery_selected_suffix">चुने गए</string>
+    <string name="gallery_grid_desc">ग्रिड व्यू</string>
+    <string name="gallery_favorite_desc">पसंदीदा फोटो</string>
+    <string name="gallery_show_more">और दिखाएं</string>
+    <string name="gallery_photo_deleted">फोटो हट गई</string>
+    <string name="gallery_share_failed">फोटो शेयर नहीं हो सकी</string>
+    <string name="gallery_empty_title">अभी कोई कैप्चर नहीं</string>
+    <string name="gallery_empty_message">आपकी तस्वीरें फिल्म डेटा के साथ यहां दिखेंगी।</string>
+    <string name="gallery_empty_cta">कैमरे पर वापस जाएं</string>
+    <string name="undo">पूर्ववत करें</string>
+    <string name="share_chooser_title">रेट्रो फोटो शेयर करें</string>
+    <string name="share_retro_capture_desc">रेट्रो कैप्चर शेयर करें</string>
+    <string name="delete_captured_photo_desc">ली गई फोटो हटाएं</string>
+    <string name="enlarged_capture_desc">बड़ी कैप्चर</string>
+    <string name="filmstrip_photo_desc">फिल्मस्ट्रिप फोटो</string>
+
+    <string name="close_settings_desc">सेटिंग्स बंद करें</string>
+    <string name="settings_subtitle">फिल्म लुक, फ्रेमिंग और कैप्चर</string>
+    <string name="capture_section">कैप्चर</string>
+    <string name="raw_format_label">RAW फॉर्मेट</string>
+    <string name="raw_format_subtitle">प्रो एडिटिंग के लिए बिना प्रोसेस किया सेंसर डेटा लें (DNG)</string>
+    <string name="raw_unavailable_front">फ्रंट कैमरे पर उपलब्ध नहीं</string>
+    <string name="raw_unavailable_lens">यह लेंस RAW सपोर्ट नहीं करता</string>
+    <string name="resolution_vintage_title">0,8 MP</string>
+    <string name="resolution_vintage_sub">Digicam</string>
+    <string name="resolution_fast_title">3 MP</string>
+    <string name="resolution_fast_sub">तेज़</string>
+    <string name="resolution_full_title">पूर्ण</string>
+    <string name="resolution_full_sub">अधिकतम</string>
+    <string name="aspect_ratio_section">आस्पेक्ट रेशियो</string>
+    <string name="aspect_ratio_standard">स्टैंडर्ड</string>
+    <string name="aspect_ratio_tall">लंबा</string>
+    <string name="aspect_ratio_wide">चौड़ा</string>
+    <string name="aspect_ratio_square">वर्गाकार</string>
+    <string name="enhance_section">बेहतर बनाएं</string>
+    <string name="extension_label">नाइट और HDR बूस्ट</string>
+    <string name="extension_subtitle_none">स्टैंडर्ड प्रोसेसिंग</string>
+    <string name="extension_subtitle_hdr">OEM HDR — व्यापक डायनामिक रेंज</string>
+    <string name="extension_subtitle_bokeh">OEM पोर्ट्रेट ब्लर</string>
+    <string name="extension_subtitle_auto">डिवाइस को सबसे अच्छा मोड चुनने दें</string>
+    <string name="extension_none">बंद</string>
+    <string name="extension_hdr">HDR</string>
+    <string name="extension_bokeh">ब्लर</string>
+    <string name="extension_auto">ऑटो</string>
+    <string name="viewfinder_section">व्यूफाइंडर</string>
+    <string name="grid_lines_label">ग्रिड लाइनें</string>
+    <string name="grid_lines_subtitle">फ्रेमिंग के समय थर्ड-रूल ओवरले</string>
+    <string name="self_timer_label">सेल्फ टाइमर</string>
+    <string name="self_timer_off">बंद</string>
+    <string name="self_timer_desc_off">शटर तुरंत चलता है।</string>
+    <string name="self_timer_desc_on">हर शॉट से पहले %1$d से उल्टी गिनती।</string>
+    <string name="flash_section">फ़्लैश</string>
+    <string name="flash_label_settings">फ़्लैश मोड</string>
+    <string name="flash_auto">ऑटो</string>
+    <string name="flash_on">चालू</string>
+    <string name="flash_off">बंद</string>
+    <string name="flash_desc_auto">केवल कम रोशनी में चलता है।</string>
+    <string name="flash_desc_on">हमेशा चलता है।</string>
+    <string name="flash_desc_off">कभी नहीं चलता।</string>
+    <string name="gallery_section">गैलरी</string>
+    <string name="double_exposure_label">डबल एक्सपोज़र</string>
+    <string name="double_exposure_subtitle">हर शॉट को पिछले शॉट से मिलाएं</string>
+    <string name="double_exposure_subtitle_warming">अगला शॉट पिछले फ्रेम से मिलेगा</string>
+
+    <string name="photo_frame_label">फोटो फ्रेम</string>
+    <string name="photo_frame_subtitle">गैलरी में और सेव की गई फोटो में फिल्म-कार्ड फ्रेम जोड़ें</string>
+    <string name="about_section">बारे में</string>
+    <string name="app_version_label">ZoomBox Camera वर्शन</string>
+    <string name="reset_settings_label">डिफ़ॉल्ट पर रीसेट करें</string>
+    <string name="reset_settings_subtitle">कैप्चर और व्यूफाइंडर की फैक्ट्री सेटिंग बहाल करें</string>
+    <string name="reset_settings_action">रीसेट करें</string>
+    <string name="zoom_camera_footer">Zoom • कैमरा</string>
+
+    <string name="legal_section">कानूनी</string>
+    <string name="legal_back_desc">सेटिंग्स पर वापस जाएं</string>
+    <string name="privacy_title">प्राइवेसी</string>
+    <string name="licenses_title">लाइसेंस</string>
+
+    <string name="settings_privacy_label">प्राइवेसी (GDPR)</string>
+    <string name="settings_privacy_subtitle">यह ऐप क्या लेता है — और क्या नहीं</string>
+    <string name="settings_licenses_label">ओपन-सोर्स लाइसेंस</string>
+    <string name="settings_licenses_subtitle">GPL-3.0 ऐप · Apache-2.0 लाइब्रेरी</string>
+
+    <string name="privacy_h_about">इस ऐप के बारे में</string>
+    <string name="privacy_p_about">ZoomBox Camera एक ऑफलाइन कैमरा ऐप है। यह इंटरनेट परमिशन नहीं मांगता, इसलिए Android सारा नेटवर्क एक्सेस रोक देता है: ऐप कोई डेटा भेज नहीं सकता। कोई विज्ञापन, एनालिटिक्स, ट्रैकर या क्रैश रिपोर्ट नहीं।</string>
+    <string name="privacy_h_photos">फोटो और कैमरा</string>
+    <string name="privacy_p_photos">फोटो सिर्फ आपके डिवाइस पर कैप्चर, प्रोसेस और स्टोर होती हैं (Pictures/ZoomBoxCamera/ और ऐप के निजी स्टोरेज में)। ऐप फोटो में आपकी लोकेशन या GPS नहीं लिखता। फोटो डिवाइस से तभी जाती है जब आप खुद शेयर करें।</string>
+    <string name="privacy_h_permissions">परमिशन</string>
+    <string name="privacy_p_permissions">कैमरा: फोटो लेने के लिए जरूरी, पहली बार पूछा जाता है। फोटो और वीडियो: ताकि रीइंस्टॉल के बाद गैलरी ऐप की सेव की फोटो दिखा सके। कोई बैकग्राउंड एक्सेस नहीं — हर रीड/राइट आप ऐप में खुद शुरू करते हैं।</string>
+    <string name="privacy_h_backup">बैकअप</string>
+    <string name="privacy_p_backup">आपकी कैमरा सेटिंग (फिल्म लुक, ग्रिड लाइन आदि) Android के ऑटो बैकअप में शामिल हो सकती हैं, जो आपके Google खाते में रहता है और सिर्फ आपको दिखता है। फोटो बैकअप से बाहर हैं। Android सिस्टम सेटिंग में बैकअप बंद कर सकते हैं।</string>
+    <string name="privacy_h_nodata">डेवलपर तक कोई डेटा नहीं पहुंचता</string>
+    <string name="privacy_p_nodata">डेवलपर को आपसे कोई डेटा नहीं मिलता: कोई खाता, पहचान, क्रैश लॉग या उपयोग आंकड़े नहीं। इसलिए ऐसा कोई डेटा नहीं जिसे डेवलपर आपके लिए देख, सुधार, एक्सपोर्ट या डिलीट कर सके। डेटा हटाने के लिए गैलरी में फोटो हटाएं या ऐप अनइंस्टॉल करें, जिससे बचा सारा डेटा मिट जाता है।</string>
+    <string name="privacy_h_children">बच्चे</string>
+    <string name="privacy_p_children">यह ऐप 13 साल से कम बच्चों के लिए नहीं है और किसी भी उम्र के यूज़र से निजी डेटा नहीं लेता।</string>
+    <string name="privacy_h_rights">आपके अधिकार और संपर्क</string>
+    <string name="privacy_p_rights">EU GDPR के तहत आपको एक्सेस, सुधार, मिटाने, प्रोसेसिंग रोकने, पोर्टेबिलिटी और आपत्ति के अधिकार हैं, साथ ही निगरानी प्राधिकरण में शिकायत का अधिकार। चूंकि डेवलपर के पास आपका कोई निजी डेटा नहीं है, डेवलपर पक्ष में इन अधिकारों का कोई विषय नहीं है।</string>
+
+    <string name="licenses_h_app">यह ऐप</string>
+    <string name="licenses_p_app">ZoomBox Camera — Copyright © 2026 Indukto.\n\nGNU General Public License v3.0 (GPL-3.0) के तहत लाइसेंस प्राप्त। सोर्स कोड: https://github.com/Indukto/Bhig.\n\nयह प्रोग्राम बिना किसी वारंटी के दिया गया है। यह मुक्त सॉफ्टवेयर है जिसे कुछ शर्तों पर बांट सकते हैं; लाइसेंस टेक्स्ट देखें।</string>
+    <string name="licenses_h_libs">ओपन-सोर्स लाइब्रेरी</string>
+    <string name="licenses_p_libs">Android/Jetpack इकोसिस्टम के Apache License 2.0 घटकों पर बना: Jetpack Compose, Material 3, CameraX, Lifecycle, DataStore, Core — साथ में Coil, Accompanist Permissions, Haze और kotlinx.coroutines (Android फ्रेमवर्क के org.json से JSON पार्सिंग)। फिल्म LUT: MIT, ऐप में LUT नोटिस देखें।</string>
+    <string name="licenses_h_texts">लाइसेंस टेक्स्ट</string>
+    <string name="licenses_p_texts">Apache-2.0: apache.org/licenses/LICENSE-2.0\nMIT: opensource.org/licenses/MIT\nGPL-3.0: gnu.org/licenses/gpl-3.0.html</string>
+</resources>

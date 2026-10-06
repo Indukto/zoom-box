@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ZoomBox Camera</string>
+    <string name="camerax_attribution_label">Snímání a zpracování fotoaparátem</string>
+
+    <string name="color_balance_title">Vyvážení barev</string>
+    <string name="wb_readout">%1$dK %2$s</string>
+    <string name="wb_auto_label">A</string>
+    <string name="wb_preset_daylight">Denní světlo</string>
+    <string name="wb_preset_incandescent">Žárovka</string>
+    <string name="wb_preset_shade">Stín</string>
+    <string name="exposure_title">EXPOZICE</string>
+    <string name="ev_readout">%1$s EV</string>
+    <string name="temperature_label">Teplota</string>
+    <string name="exposure_label">Expozice</string>
+    <string name="close_label">Zavřít</string>
+    <string name="front_lens_label">PŘEDNÍ</string>
+    <string name="focal_length_mm">%1$d mm</string>
+    <string name="self_timer_seconds">%1$d s</string>
+    <string name="timer_countdown">%1$d</string>
+
+    <string name="settings_label">Nastavení</string>
+    <string name="grid_label">Mřížka</string>
+    <string name="timer_off_label">Samospoušť vypnuta</string>
+    <string name="flash_label">Blesk</string>
+    <string name="flip_camera_label">Přepnout fotoaparát</string>
+    <string name="last_photo_label">Poslední fotka</string>
+    <string name="no_photos_label">Žádné fotky</string>
+
+    <string name="retro_camera_icon_desc">Ikona retro fotoaparátu</string>
+    <string name="splash_title">ZOOM CAMERA</string>
+    <string name="splash_tagline">RETRO FOTOAPARÁT</string>
+    <string name="splash_description">Foťte vintage snímky s naším zoom rámečkem a teplými retro filtry. Povolte přístup k fotoaparátu a začněte.</string>
+    <string name="enable_camera">POVOLIT FOTOAPARÁT</string>
+    <string name="splash_footer">Zoom Cam · %1$s</string>
+
+    <string name="film_style">Filmový styl</string>
+    <string name="film_style_count">%1$d stylů — klepnutím použít</string>
+
+    <string name="delete_photo_title">Smazat fotku?</string>
+    <string name="delete_photo_message">Tato fotka bude trvale smazána z tohoto zařízení. Tuto akci nelze vrátit.</string>
+    <string name="delete">Smazat</string>
+    <string name="cancel">Zrušit</string>
+
+    <string name="close_viewfinder_desc">Zavřít hledáček</string>
+    <string name="gallery_title">Galerie</string>
+    <string name="gallery_photos_suffix">fotek</string>
+    <string name="gallery_selected_suffix">vybráno</string>
+    <string name="gallery_grid_desc">Mřížkové zobrazení</string>
+    <string name="gallery_favorite_desc">Oblíbená fotka</string>
+    <string name="gallery_show_more">Zobrazit více</string>
+    <string name="gallery_photo_deleted">Fotka smazána</string>
+    <string name="gallery_share_failed">Fotku se nepodařilo sdílet</string>
+    <string name="gallery_empty_title">Zatím žádné záběry</string>
+    <string name="gallery_empty_message">Vaše fotky se objeví zde i s filmovými daty.</string>
+    <string name="gallery_empty_cta">Zpět k fotoaparátu</string>
+    <string name="undo">Vrátit</string>
+    <string name="share_chooser_title">Sdílet retro fotku</string>
+    <string name="share_retro_capture_desc">Sdílet retro záběr</string>
+    <string name="delete_captured_photo_desc">Smazat pořízenou fotku</string>
+    <string name="enlarged_capture_desc">Zvětšený záběr</string>
+    <string name="filmstrip_photo_desc">Fotka z filmového pásu</string>
+
+    <string name="close_settings_desc">Zavřít nastavení</string>
+    <string name="settings_subtitle">Filmové vzhledy, kompozice a snímání</string>
+    <string name="capture_section">SNÍMÁNÍ</string>
+    <string name="raw_format_label">Formát RAW</string>
+    <string name="raw_format_subtitle">Snímejte nezpracovaná data senzoru pro profesionální úpravy (DNG)</string>
+    <string name="raw_unavailable_front">Není k dispozici na předním fotoaparátu</string>
+    <string name="raw_unavailable_lens">Tento objektiv nepodporuje RAW</string>
+    <string name="resolution_vintage_title">0,8 MP</string>
+    <string name="resolution_vintage_sub">Digicam</string>
+    <string name="resolution_fast_title">3 MP</string>
+    <string name="resolution_fast_sub">Rychlý</string>
+    <string name="resolution_full_title">Plný</string>
+    <string name="resolution_full_sub">Max</string>
+    <string name="aspect_ratio_section">POMĚR STRAN</string>
+    <string name="aspect_ratio_standard">Standardní</string>
+    <string name="aspect_ratio_tall">Vysoký</string>
+    <string name="aspect_ratio_wide">Široký</string>
+    <string name="aspect_ratio_square">Čtverec</string>
+    <string name="enhance_section">VYLEPŠENÍ</string>
+    <string name="extension_label">Noční a HDR boost</string>
+    <string name="extension_subtitle_none">Standardní zpracování</string>
+    <string name="extension_subtitle_hdr">OEM HDR — širší dynamický rozsah</string>
+    <string name="extension_subtitle_bokeh">OEM portrétní rozostření</string>
+    <string name="extension_subtitle_auto">Nechat zařízení vybrat nejlepší režim</string>
+    <string name="extension_none">Vypnuto</string>
+    <string name="extension_hdr">HDR</string>
+    <string name="extension_bokeh">Rozostření</string>
+    <string name="extension_auto">Auto</string>
+    <string name="viewfinder_section">HLEDÁČEK</string>
+    <string name="grid_lines_label">Čáry mřížky</string>
+    <string name="grid_lines_subtitle">Mřížka třetin při kompozici</string>
+    <string name="self_timer_label">Samospoušť</string>
+    <string name="self_timer_off">Vypnuto</string>
+    <string name="self_timer_desc_off">Závěrka spustí okamžitě.</string>
+    <string name="self_timer_desc_on">Odpočet %1$d s před každým snímkem.</string>
+    <string name="flash_section">BLESK</string>
+    <string name="flash_label_settings">Režim blesku</string>
+    <string name="flash_auto">Auto</string>
+    <string name="flash_on">Zapnuto</string>
+    <string name="flash_off">Vypnuto</string>
+    <string name="flash_desc_auto">Bliká jen při slabém světle.</string>
+    <string name="flash_desc_on">Bliká vždy.</string>
+    <string name="flash_desc_off">Nikdy nebliká.</string>
+    <string name="gallery_section">GALERIE</string>
+    <string name="double_exposure_label">Dvojitá expozice</string>
+    <string name="double_exposure_subtitle">Sloučit každý snímek s předchozím</string>
+    <string name="double_exposure_subtitle_warming">Příští snímek se sloučí s předchozím</string>
+
+    <string name="photo_frame_label">Rámeček fotky</string>
+    <string name="photo_frame_subtitle">Přidat rámeček filmové karty v galerii i do uložených fotek</string>
+    <string name="about_section">O APLIKACI</string>
+    <string name="app_version_label">Verze ZoomBox Camera</string>
+    <string name="reset_settings_label">Obnovit výchozí</string>
+    <string name="reset_settings_subtitle">Obnovit tovární nastavení snímání a hledáčku</string>
+    <string name="reset_settings_action">Obnovit</string>
+    <string name="zoom_camera_footer">Zoom • Fotoaparát</string>
+
+    <string name="legal_section">PRÁVNÍ INFORMACE</string>
+    <string name="legal_back_desc">Zpět do nastavení</string>
+    <string name="privacy_title">Soukromí</string>
+    <string name="licenses_title">Licence</string>
+
+    <string name="settings_privacy_label">Soukromí (GDPR)</string>
+    <string name="settings_privacy_subtitle">Co tato aplikace sbírá — a co ne</string>
+    <string name="settings_licenses_label">Open-source licence</string>
+    <string name="settings_licenses_subtitle">Aplikace GPL-3.0 · Knihovny Apache-2.0</string>
+
+    <string name="privacy_h_about">O této aplikaci</string>
+    <string name="privacy_p_about">ZoomBox Camera je offline fotoaparát. Nedeklaruje oprávnění k internetu, takže Android blokuje veškerý síťový přístup: aplikace nemůže přenášet žádná data. Žádné reklamy, analytika, trackery ani hlášení pádů.</string>
+    <string name="privacy_h_photos">Fotky a fotoaparát</string>
+    <string name="privacy_p_photos">Fotky se snímají, zpracovávají a ukládají pouze na vašem zařízení (ve složce Pictures/ZoomBoxCamera/ a v soukromém úložišti aplikace). Aplikace nikdy nezapisuje vaši polohu ani GPS souřadnice do fotek. Fotka opustí vaše zařízení, jen když ji sami nasdílíte.</string>
+    <string name="privacy_h_permissions">Oprávnění</string>
+    <string name="privacy_p_permissions">Fotoaparát: nutný k focení, žádá se při prvním spuštění. Fotky a videa: aby galerie po reinstalaci zobrazila fotky uložené aplikací. Žádný přístup na pozadí — každé čtení či zápis spouštíte vy v aplikaci.</string>
+    <string name="privacy_h_backup">Zálohy</string>
+    <string name="privacy_p_backup">Nastavení fotoaparátu (filmový vzhled, čáry mřížky apod.) mohou být součástí automatické zálohy Androidu uložené ve vašem účtu Google a viditelné jen pro vás. Fotky jsou ze záloh vyloučeny. Zálohy můžete vypnout v systémovém nastavení Androidu.</string>
+    <string name="privacy_h_nodata">K vývojáři se nedostanou žádná data</string>
+    <string name="privacy_p_nodata">Vývojář od vás nedostává žádná data: žádný účet, identifikátory, logy pádů ani statistiky používání. Neexistují tedy žádná data, ke kterým by vývojář mohl přistupovat, opravovat je, exportovat nebo mazat. Svá data odstraníte smazáním fotek v galerii nebo odinstalací aplikace, čímž se odstraní i zbývající data.</string>
+    <string name="privacy_h_children">Děti</string>
+    <string name="privacy_p_children">Tato aplikace není určena dětem mladším 13 let a neshromažďuje osobní údaje uživatelů žádného věku.</string>
+    <string name="privacy_h_rights">Vaše práva a kontakt</string>
+    <string name="privacy_p_rights">Podle obecného nařízení EU o ochraně osobních údajů (GDPR) máte práva na přístup, opravu, výmaz, omezení zpracování, přenositelnost a námitku, plus právo podat stížnost u dozorového úřadu. Protože vývojář neuchovává žádné vaše osobní údaje, není na straně vývojáře nic, vůči čemu by šla tato práva uplatnit.</string>
+
+    <string name="licenses_h_app">Tato aplikace</string>
+    <string name="licenses_p_app">ZoomBox Camera — Copyright © 2026 Indukto.\n\nLicencováno pod GNU General Public License v3.0 (GPL-3.0). Zdrojový kód: https://github.com/Indukto/Bhig.\n\nTento program je poskytován BEZ JAKÉKOLI ZÁRUKY. Je to svobodný software, který můžete šířit za určitých podmínek; viz text licence.</string>
+    <string name="licenses_h_libs">Open-source knihovny</string>
+    <string name="licenses_p_libs">Postaveno na komponentách Apache License 2.0 ekosystému Android/Jetpack: Jetpack Compose, Material 3, CameraX, Lifecycle, DataStore, Core — plus Coil, Accompanist Permissions, Haze a kotlinx.coroutines (parsování JSON přes org.json frameworku Android). LUT filmových vzhledů: MIT, viz poznámka LUT v aplikaci.</string>
+    <string name="licenses_h_texts">Texty licencí</string>
+    <string name="licenses_p_texts">Apache-2.0: apache.org/licenses/LICENSE-2.0\nMIT: opensource.org/licenses/MIT\nGPL-3.0: gnu.org/licenses/gpl-3.0.html</string>
+</resources>

@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ZoomBox Camera</string>
+    <string name="camerax_attribution_label">Capture et traitement photo</string>
+
+    <!-- Viewfinder overlays -->
+    <string name="color_balance_title">Balance des couleurs</string>
+    <string name="wb_readout">%1$dK %2$s</string>
+    <string name="wb_auto_label">A</string>
+    <string name="wb_preset_daylight">Lumière du jour</string>
+    <string name="wb_preset_incandescent">Incandescent</string>
+    <string name="wb_preset_shade">Ombre</string>
+    <string name="exposure_title">EXPOSITION</string>
+    <string name="ev_readout">%1$s EV</string>
+    <string name="temperature_label">Température</string>
+    <string name="exposure_label">Exposition</string>
+    <string name="close_label">Fermer</string>
+    <string name="front_lens_label">AVANT</string>
+    <string name="focal_length_mm">%1$d mm</string>
+    <string name="self_timer_seconds">%1$d s</string>
+    <string name="timer_countdown">%1$d</string>
+
+    <!-- Viewfinder action bar -->
+    <string name="settings_label">Paramètres</string>
+    <string name="grid_label">Grille</string>
+    <string name="timer_off_label">Retardateur désactivé</string>
+    <string name="flash_label">Flash</string>
+    <string name="flip_camera_label">Changer de caméra</string>
+    <string name="last_photo_label">Dernière photo</string>
+    <string name="no_photos_label">Aucune photo</string>
+
+    <!-- Splash / permission screen -->
+    <string name="retro_camera_icon_desc">Icône caméra rétro</string>
+    <string name="splash_title">ZOOM CAMERA</string>
+    <string name="splash_tagline">CAMÉRA RÉTRO</string>
+    <string name="splash_description">Capturez des photos vintage avec notre cadrage zoom et nos filtres rétro chaleureux. Autorisez l’accès à la caméra pour commencer.</string>
+    <string name="enable_camera">ACTIVER LA CAMÉRA</string>
+    <string name="splash_footer">Zoom Cam · %1$s</string>
+
+    <!-- Film style picker -->
+    <string name="film_style">Style de film</string>
+    <string name="film_style_count">%1$d styles — touchez pour appliquer</string>
+
+    <!-- Delete confirmation -->
+    <string name="delete_photo_title">Supprimer la photo ?</string>
+    <string name="delete_photo_message">Cette photo sera définitivement supprimée de cet appareil. Cette action est irréversible.</string>
+    <string name="delete">Supprimer</string>
+    <string name="cancel">Annuler</string>
+
+    <!-- Photo viewer / gallery -->
+    <string name="close_viewfinder_desc">Fermer le viseur</string>
+    <string name="gallery_title">Galerie</string>
+    <string name="gallery_photos_suffix">photos</string>
+    <string name="gallery_selected_suffix">sélectionnées</string>
+    <string name="gallery_grid_desc">Vue grille</string>
+    <string name="gallery_favorite_desc">Photo favorite</string>
+    <string name="gallery_show_more">Afficher plus</string>
+    <string name="gallery_photo_deleted">Photo supprimée</string>
+    <string name="gallery_share_failed">Impossible de partager la photo</string>
+    <string name="gallery_empty_title">Aucune photo pour l’instant</string>
+    <string name="gallery_empty_message">Vos photos apparaîtront ici avec leurs données de film.</string>
+    <string name="gallery_empty_cta">Retour à la caméra</string>
+    <string name="undo">Annuler</string>
+    <string name="share_chooser_title">Partager la photo rétro</string>
+    <string name="share_retro_capture_desc">Partager la capture rétro</string>
+    <string name="delete_captured_photo_desc">Supprimer la photo capturée</string>
+    <string name="enlarged_capture_desc">Capture agrandie</string>
+    <string name="filmstrip_photo_desc">Photo de pellicule</string>
+
+    <!-- Settings -->
+    <string name="close_settings_desc">Fermer les paramètres</string>
+    <string name="settings_subtitle">Looks, cadrage et capture</string>
+    <string name="capture_section">CAPTURE</string>
+    <string name="raw_format_label">Format RAW</string>
+    <string name="raw_format_subtitle">Capturez les données brutes du capteur pour la retouche pro (DNG)</string>
+    <string name="raw_unavailable_front">Non disponible sur la caméra avant</string>
+    <string name="raw_unavailable_lens">Cet objectif ne prend pas en charge le RAW</string>
+    <string name="resolution_vintage_title">0,8 MP</string>
+    <string name="resolution_vintage_sub">Digicam</string>
+    <string name="resolution_fast_title">3 MP</string>
+    <string name="resolution_fast_sub">Rapide</string>
+    <string name="resolution_full_title">Complet</string>
+    <string name="resolution_full_sub">Max</string>
+    <string name="aspect_ratio_section">FORMAT D’IMAGE</string>
+    <string name="aspect_ratio_standard">Standard</string>
+    <string name="aspect_ratio_tall">Vertical</string>
+    <string name="aspect_ratio_wide">Large</string>
+    <string name="aspect_ratio_square">Carré</string>
+    <string name="enhance_section">AMÉLIORER</string>
+    <string name="extension_label">Boost nuit et HDR</string>
+    <string name="extension_subtitle_none">Traitement standard</string>
+    <string name="extension_subtitle_hdr">HDR OEM — plage dynamique élargie</string>
+    <string name="extension_subtitle_bokeh">Flou de portrait OEM</string>
+    <string name="extension_subtitle_auto">Laisser l’appareil choisir le meilleur mode</string>
+    <string name="extension_none">Désactivé</string>
+    <string name="extension_hdr">HDR</string>
+    <string name="extension_bokeh">Flou</string>
+    <string name="extension_auto">Auto</string>
+    <string name="viewfinder_section">VISEUR</string>
+    <string name="grid_lines_label">Lignes de grille</string>
+    <string name="grid_lines_subtitle">Grille des tiers pendant le cadrage</string>
+    <string name="self_timer_label">Retardateur</string>
+    <string name="self_timer_off">Désactivé</string>
+    <string name="self_timer_desc_off">Déclenchement instantané.</string>
+    <string name="self_timer_desc_on">Compte à rebours de %1$d s avant chaque photo.</string>
+    <string name="flash_section">FLASH</string>
+    <string name="flash_label_settings">Mode flash</string>
+    <string name="flash_auto">Auto</string>
+    <string name="flash_on">Activé</string>
+    <string name="flash_off">Désactivé</string>
+    <string name="flash_desc_auto">Se déclenche uniquement en basse lumière.</string>
+    <string name="flash_desc_on">Se déclenche toujours.</string>
+    <string name="flash_desc_off">Ne se déclenche jamais.</string>
+    <string name="gallery_section">GALERIE</string>
+    <string name="double_exposure_label">Double exposition</string>
+    <string name="double_exposure_subtitle">Fusionner chaque photo avec la précédente</string>
+    <string name="double_exposure_subtitle_warming">La prochaine photo fusionnera avec la précédente</string>
+
+    <string name="photo_frame_label">Cadre photo</string>
+    <string name="photo_frame_subtitle">Ajouter le cadre carte-film dans la galerie et aux photos enregistrées</string>
+    <string name="about_section">À PROPOS</string>
+    <string name="app_version_label">Version de ZoomBox Camera</string>
+    <string name="reset_settings_label">Réinitialiser</string>
+    <string name="reset_settings_subtitle">Restaurer les réglages d’usine de capture et du viseur</string>
+    <string name="reset_settings_action">Réinitialiser</string>
+    <string name="zoom_camera_footer">Zoom • Caméra</string>
+
+    <!-- Legal & compliance (GDPR) -->
+    <string name="legal_section">MENTIONS LÉGALES</string>
+    <string name="legal_back_desc">Retour aux paramètres</string>
+    <string name="privacy_title">Confidentialité</string>
+    <string name="licenses_title">Licences</string>
+
+    <string name="settings_privacy_label">Confidentialité (RGPD)</string>
+    <string name="settings_privacy_subtitle">Ce que cette app collecte — et ne collecte pas</string>
+    <string name="settings_licenses_label">Licences open source</string>
+    <string name="settings_licenses_subtitle">App GPL-3.0 · Bibliothèques Apache-2.0</string>
+
+    <string name="privacy_h_about">À propos de cette app</string>
+    <string name="privacy_p_about">ZoomBox Camera est une app photo hors ligne. Elle ne déclare aucune permission Internet, donc Android bloque tout accès réseau : l’app ne peut transmettre aucune donnée. Pas de publicités, pas d’analyses, pas de traceurs ni de rapports de plantage.</string>
+    <string name="privacy_h_photos">Photos et caméra</string>
+    <string name="privacy_p_photos">Les photos sont capturées, traitées et stockées uniquement sur votre appareil (dans Pictures/ZoomBoxCamera/ et le stockage privé de l’app). L’app n’inscrit jamais votre position ni vos coordonnées GPS dans les photos. Une photo ne quitte votre appareil que si vous la partagez vous-même.</string>
+    <string name="privacy_h_permissions">Autorisations</string>
+    <string name="privacy_p_permissions">Caméra : requise pour prendre des photos, demandée au premier lancement. Photos et vidéos : permet à la galerie d’afficher les photos enregistrées par l’app après une réinstallation. Aucun accès en arrière-plan — chaque lecture ou écriture est déclenchée par vous dans l’app.</string>
+    <string name="privacy_h_backup">Sauvegardes</string>
+    <string name="privacy_p_backup">Vos réglages photo (style de film, lignes de grille, etc.) peuvent être inclus dans la sauvegarde automatique Android, stockée dans votre compte Google et visible uniquement par vous. Les photos sont exclues des sauvegardes. Vous pouvez désactiver les sauvegardes dans les paramètres système Android.</string>
+    <string name="privacy_h_nodata">Aucune donnée ne parvient au développeur</string>
+    <string name="privacy_p_nodata">Le développeur ne reçoit aucune donnée de votre part : aucun compte, aucun identifiant, aucun journal de plantage, aucune statistique d’usage. Il n’existe donc aucune donnée que le développeur pourrait consulter, corriger, exporter ou supprimer pour vous. Pour supprimer vos données, supprimez les photos dans la galerie ou désinstallez l’app, ce qui efface toutes les données restantes.</string>
+    <string name="privacy_h_children">Enfants</string>
+    <string name="privacy_p_children">Cette app ne s’adresse pas aux enfants de moins de 13 ans et ne collecte aucune donnée personnelle, quel que soit l’âge de l’utilisateur.</string>
+    <string name="privacy_h_rights">Vos droits et contact</string>
+    <string name="privacy_p_rights">En vertu du Règlement général sur la protection des données (RGPD) de l’UE, vous disposez des droits d’accès, de rectification, d’effacement, de limitation du traitement, de portabilité des données et d’opposition, ainsi que du droit d’introduire une réclamation auprès d’une autorité de contrôle. Le développeur ne détenant aucune donnée personnelle vous concernant, il n’y a rien sur quoi exercer ces droits côté développeur.</string>
+
+    <string name="licenses_h_app">Cette app</string>
+    <string name="licenses_p_app">ZoomBox Camera — Copyright © 2026 Indukto.\n\nLicenciée sous la GNU General Public License v3.0 (GPL-3.0). Code source : https://github.com/Indukto/Bhig.\n\nCe programme est fourni SANS AUCUNE GARANTIE. C’est un logiciel libre que vous pouvez redistribuer sous certaines conditions ; voir le texte de la licence.</string>
+    <string name="licenses_h_libs">Bibliothèques open source</string>
+    <string name="licenses_p_libs">Basée sur des composants Apache License 2.0 de l’écosystème Android/Jetpack : Jetpack Compose, Material 3, CameraX, Lifecycle, DataStore, Core — plus Coil, Accompanist Permissions, Haze et kotlinx.coroutines (analyse JSON via org.json du framework Android). LUTs des looks : MIT, voir la notice LUT fournie avec l’app.</string>
+    <string name="licenses_h_texts">Textes des licences</string>
+    <string name="licenses_p_texts">Apache-2.0 : apache.org/licenses/LICENSE-2.0\nMIT : opensource.org/licenses/MIT\nGPL-3.0 : gnu.org/licenses/gpl-3.0.html</string>
+</resources>

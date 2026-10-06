@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ZoomBox Camera</string>
+    <string name="camerax_attribution_label">Kamera çekimi ve işleme</string>
+
+    <string name="color_balance_title">Renk Dengesi</string>
+    <string name="wb_readout">%1$dK %2$s</string>
+    <string name="wb_auto_label">O</string>
+    <string name="wb_preset_daylight">Gün ışığı</string>
+    <string name="wb_preset_incandescent">Akkor</string>
+    <string name="wb_preset_shade">Gölge</string>
+    <string name="exposure_title">POZLANDIRMA</string>
+    <string name="ev_readout">%1$s EV</string>
+    <string name="temperature_label">Sıcaklık</string>
+    <string name="exposure_label">Pozlandırma</string>
+    <string name="close_label">Kapat</string>
+    <string name="front_lens_label">ÖN</string>
+    <string name="focal_length_mm">%1$d mm</string>
+    <string name="self_timer_seconds">%1$d sn</string>
+    <string name="timer_countdown">%1$d</string>
+
+    <string name="settings_label">Ayarlar</string>
+    <string name="grid_label">Izgara</string>
+    <string name="timer_off_label">Zamanlayıcı kapalı</string>
+    <string name="flash_label">Flaş</string>
+    <string name="flip_camera_label">Kamerayı çevir</string>
+    <string name="last_photo_label">Son fotoğraf</string>
+    <string name="no_photos_label">Fotoğraf yok</string>
+
+    <string name="retro_camera_icon_desc">Retro kamera simgesi</string>
+    <string name="splash_title">ZOOM CAMERA</string>
+    <string name="splash_tagline">RETRO FİLM KAMERASI</string>
+    <string name="splash_description">Zoom çerçevemiz ve sıcak retro filtrelerle vintage tarzda fotoğraflar çekin. Başlamak için kamera erişimine izin verin.</string>
+    <string name="enable_camera">KAMERAYI ETKİNLEŞTİR</string>
+    <string name="splash_footer">Zoom Cam · %1$s</string>
+
+    <string name="film_style">Film Stili</string>
+    <string name="film_style_count">%1$d stil — uygulamak için dokunun</string>
+
+    <string name="delete_photo_title">Fotoğraf silinsin mi?</string>
+    <string name="delete_photo_message">Bu fotoğraf bu cihazdan kalıcı olarak silinecek. Bu işlem geri alınamaz.</string>
+    <string name="delete">Sil</string>
+    <string name="cancel">İptal</string>
+
+    <string name="close_viewfinder_desc">Vizörü kapat</string>
+    <string name="gallery_title">Galeri</string>
+    <string name="gallery_photos_suffix">fotoğraf</string>
+    <string name="gallery_selected_suffix">seçildi</string>
+    <string name="gallery_grid_desc">Izgara görünümü</string>
+    <string name="gallery_favorite_desc">Favori fotoğraf</string>
+    <string name="gallery_show_more">Daha fazla göster</string>
+    <string name="gallery_photo_deleted">Fotoğraf silindi</string>
+    <string name="gallery_share_failed">Fotoğraf paylaşılamadı</string>
+    <string name="gallery_empty_title">Henüz çekim yok</string>
+    <string name="gallery_empty_message">Fotoğraflarınız film verileriyle burada görünecek.</string>
+    <string name="gallery_empty_cta">Kameraya dön</string>
+    <string name="undo">Geri al</string>
+    <string name="share_chooser_title">Retro fotoğrafı paylaş</string>
+    <string name="share_retro_capture_desc">Retro çekimi paylaş</string>
+    <string name="delete_captured_photo_desc">Çekilen fotoğrafı sil</string>
+    <string name="enlarged_capture_desc">Büyütülmüş çekim</string>
+    <string name="filmstrip_photo_desc">Film şeridi fotoğrafı</string>
+
+    <string name="close_settings_desc">Ayarları kapat</string>
+    <string name="settings_subtitle">Film görünümleri, kadraj ve çekim</string>
+    <string name="capture_section">ÇEKİM</string>
+    <string name="raw_format_label">RAW Biçimi</string>
+    <string name="raw_format_subtitle">Profesyonel düzenleme için işlenmemiş sensör verisi yakalayın (DNG)</string>
+    <string name="raw_unavailable_front">Ön kamerada kullanılamaz</string>
+    <string name="raw_unavailable_lens">Bu lens RAW desteklemiyor</string>
+    <string name="resolution_vintage_title">0,8 MP</string>
+    <string name="resolution_vintage_sub">Digicam</string>
+    <string name="resolution_fast_title">3 MP</string>
+    <string name="resolution_fast_sub">Hızlı</string>
+    <string name="resolution_full_title">Tam</string>
+    <string name="resolution_full_sub">Maks</string>
+    <string name="aspect_ratio_section">EN BOY ORANI</string>
+    <string name="aspect_ratio_standard">Standart</string>
+    <string name="aspect_ratio_tall">Dikey</string>
+    <string name="aspect_ratio_wide">Geniş</string>
+    <string name="aspect_ratio_square">Kare</string>
+    <string name="enhance_section">İYİLEŞTİR</string>
+    <string name="extension_label">Gece ve HDR desteği</string>
+    <string name="extension_subtitle_none">Standart işleme</string>
+    <string name="extension_subtitle_hdr">OEM HDR — daha geniş dinamik aralık</string>
+    <string name="extension_subtitle_bokeh">OEM portre bulanıklaştırma</string>
+    <string name="extension_subtitle_auto">En iyi modu cihaz seçsin</string>
+    <string name="extension_none">Kapalı</string>
+    <string name="extension_hdr">HDR</string>
+    <string name="extension_bokeh">Bulanık</string>
+    <string name="extension_auto">Otomatik</string>
+    <string name="viewfinder_section">VİZÖR</string>
+    <string name="grid_lines_label">Izgara çizgileri</string>
+    <string name="grid_lines_subtitle">Kadrajlarken üçte bir çizgileri</string>
+    <string name="self_timer_label">Özçekim zamanlayıcısı</string>
+    <string name="self_timer_off">Kapalı</string>
+    <string name="self_timer_desc_off">Deklanşör anında çalışır.</string>
+    <string name="self_timer_desc_on">Her çekimden önce %1$d sn geri sayım.</string>
+    <string name="flash_section">FLAŞ</string>
+    <string name="flash_label_settings">Flaş modu</string>
+    <string name="flash_auto">Otomatik</string>
+    <string name="flash_on">Açık</string>
+    <string name="flash_off">Kapalı</string>
+    <string name="flash_desc_auto">Yalnızca loş ışıkta çalışır.</string>
+    <string name="flash_desc_on">Her zaman çalışır.</string>
+    <string name="flash_desc_off">Asla çalışmaz.</string>
+    <string name="gallery_section">GALERİ</string>
+    <string name="double_exposure_label">Çift Pozlama</string>
+    <string name="double_exposure_subtitle">Her çekimi öncekiyle harmanla</string>
+    <string name="double_exposure_subtitle_warming">Sonraki çekim önceki kareyle harmanlanacak</string>
+
+    <string name="photo_frame_label">Fotoğraf Çerçevesi</string>
+    <string name="photo_frame_subtitle">Galeride ve kaydedilen fotoğraflara film kartı çerçevesi ekleyin</string>
+    <string name="about_section">HAKKINDA</string>
+    <string name="app_version_label">ZoomBox Camera sürümü</string>
+    <string name="reset_settings_label">Varsayılanlara sıfırla</string>
+    <string name="reset_settings_subtitle">Çekim ve vizör fabrika ayarlarını geri yükleyin</string>
+    <string name="reset_settings_action">Sıfırla</string>
+    <string name="zoom_camera_footer">Zoom • Kamera</string>
+
+    <string name="legal_section">YASAL</string>
+    <string name="legal_back_desc">Ayarlara dön</string>
+    <string name="privacy_title">Gizlilik</string>
+    <string name="licenses_title">Lisanslar</string>
+
+    <string name="settings_privacy_label">Gizlilik (KVKK/GDPR)</string>
+    <string name="settings_privacy_subtitle">Bu uygulamanın topladığı — ve toplamadığı veriler</string>
+    <string name="settings_licenses_label">Açık kaynak lisansları</string>
+    <string name="settings_licenses_subtitle">GPL-3.0 uygulama · Apache-2.0 kitaplıkları</string>
+
+    <string name="privacy_h_about">Bu uygulama hakkında</string>
+    <string name="privacy_p_about">ZoomBox Camera çevrimdışı bir kamera uygulamasıdır. İnternet izni bildirmez, bu yüzden Android tüm ağ erişimini engeller: uygulama hiçbir veri iletemez. Reklam, analiz, izleyici ve kilitlenme raporu yok.</string>
+    <string name="privacy_h_photos">Fotoğraflar ve kamera</string>
+    <string name="privacy_p_photos">Fotoğraflar yalnızca cihazınızda çekilir, işlenir ve saklanır (Pictures/ZoomBoxCamera/ ve uygulamanın özel deposu). Uygulama fotoğraflara konum veya GPS koordinatı yazmaz. Bir fotoğraf cihazınızdan yalnızca siz paylaşırsanız çıkar.</string>
+    <string name="privacy_h_permissions">İzinler</string>
+    <string name="privacy_p_permissions">Kamera: fotoğraf çekmek için gerekli, ilk açılışta istenir. Fotoğraflar ve videolar: yeniden kurulumdan sonra galerinin uygulamanın kaydettiği fotoğrafları göstermesini sağlar. Arka plan erişimi yok — her okuma/yazma işlemi uygulama içinde sizin tarafınızdan başlatılır.</string>
+    <string name="privacy_h_backup">Yedekler</string>
+    <string name="privacy_p_backup">Kamera ayarlarınız (film görünümü, ızgara çizgileri vb.) Google hesabınızda saklanan ve yalnızca sizin görebildiğiniz otomatik Android yedeklemesine dahil edilebilir. Fotoğraflar yedeklerin dışındadır. Yedekleri Android sistem ayarlarından kapatabilirsiniz.</string>
+    <string name="privacy_h_nodata">Geliştiriciye veri ulaşmaz</string>
+    <string name="privacy_p_nodata">Geliştirici sizden hiçbir veri almaz: hesap, tanımlayıcı, kilitlenme kaydı veya kullanım istatistiği yok. Bu nedenle geliştiricinin erişebileceği, düzeltebileceği, dışa aktarabileceği veya silebileceği bir veri yoktur. Verilerinizi silmek için galerideki fotoğrafları silin veya uygulamayı kaldırın; kalan tüm veriler silinir.</string>
+    <string name="privacy_h_children">Çocuklar</string>
+    <string name="privacy_p_children">Bu uygulama 13 yaşından küçük çocuklara yönelik değildir ve hiçbir yaştan kullanıcıdan kişisel veri toplamaz.</string>
+    <string name="privacy_h_rights">Haklarınız ve iletişim</string>
+    <string name="privacy_p_rights">AB Genel Veri Koruma Tüzüğü (GDPR) kapsamında erişim, düzeltme, silme, işlemeyi kısıtlama, veri taşınabilirliği ve itiraz haklarına, ayrıca denetim makamına şikayet hakkına sahipsiniz. Geliştirici sizinle ilgili kişisel veri tutmadığından, geliştirici tarafında bu hakların uygulanacağı bir veri yoktur.</string>
+
+    <string name="licenses_h_app">Bu uygulama</string>
+    <string name="licenses_p_app">ZoomBox Camera — Copyright © 2026 Indukto.\n\nGNU General Public License v3.0 (GPL-3.0) ile lisanslıdır. Kaynak kodu: https://github.com/Indukto/Bhig.\n\nBu program HİÇBİR GARANTİ VERİLMEDEN sunulur. Özgür yazılımdır; belirli koşullar altında yeniden dağıtabilirsiniz; lisans metnine bakın.</string>
+    <string name="licenses_h_libs">Açık kaynak kitaplıkları</string>
+    <string name="licenses_p_libs">Android/Jetpack ekosisteminin Apache License 2.0 bileşenleri üzerine kuruludur: Jetpack Compose, Material 3, CameraX, Lifecycle, DataStore, Core — ayrıca Coil, Accompanist Permissions, Haze ve kotlinx.coroutines (Android çerçevesinin org.json ile JSON ayrıştırma). Film LUT’ları: MIT, uygulamadaki LUT bildirimine bakın.</string>
+    <string name="licenses_h_texts">Lisans metinleri</string>
+    <string name="licenses_p_texts">Apache-2.0: apache.org/licenses/LICENSE-2.0\nMIT: opensource.org/licenses/MIT\nGPL-3.0: gnu.org/licenses/gpl-3.0.html</string>
+</resources>

@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ZoomBox Camera</string>
+    <string name="camerax_attribution_label">カメラ撮影と処理</string>
+
+    <string name="color_balance_title">カラーバランス</string>
+    <string name="wb_readout">%1$dK %2$s</string>
+    <string name="wb_auto_label">A</string>
+    <string name="wb_preset_daylight">昼光</string>
+    <string name="wb_preset_incandescent">白熱灯</string>
+    <string name="wb_preset_shade">日陰</string>
+    <string name="exposure_title">露出</string>
+    <string name="ev_readout">%1$s EV</string>
+    <string name="temperature_label">色温度</string>
+    <string name="exposure_label">露出</string>
+    <string name="close_label">閉じる</string>
+    <string name="front_lens_label">フロント</string>
+    <string name="focal_length_mm">%1$dmm</string>
+    <string name="self_timer_seconds">%1$d秒</string>
+    <string name="timer_countdown">%1$d</string>
+
+    <string name="settings_label">設定</string>
+    <string name="grid_label">グリッド</string>
+    <string name="timer_off_label">タイマーオフ</string>
+    <string name="flash_label">フラッシュ</string>
+    <string name="flip_camera_label">カメラ切替</string>
+    <string name="last_photo_label">最後の写真</string>
+    <string name="no_photos_label">写真なし</string>
+
+    <string name="retro_camera_icon_desc">レトロカメラアイコン</string>
+    <string name="splash_title">ZOOM CAMERA</string>
+    <string name="splash_tagline">レトロフィルムカメラ</string>
+    <string name="splash_description">ズームボックスと温かみのあるレトロフィルターでヴィンテージ写真を撮ろう。カメラへのアクセスを許可して開始。</string>
+    <string name="enable_camera">カメラを有効化</string>
+    <string name="splash_footer">Zoom Cam · %1$s</string>
+
+    <string name="film_style">フィルムスタイル</string>
+    <string name="film_style_count">%1$dスタイル — タップで適用</string>
+
+    <string name="delete_photo_title">写真を削除しますか？</string>
+    <string name="delete_photo_message">この写真はこのデバイスから完全に削除されます。この操作は元に戻せません。</string>
+    <string name="delete">削除</string>
+    <string name="cancel">キャンセル</string>
+
+    <string name="close_viewfinder_desc">ファインダーを閉じる</string>
+    <string name="gallery_title">ギャラリー</string>
+    <string name="gallery_photos_suffix">枚</string>
+    <string name="gallery_selected_suffix">選択中</string>
+    <string name="gallery_grid_desc">グリッド表示</string>
+    <string name="gallery_favorite_desc">お気に入り写真</string>
+    <string name="gallery_show_more">さらに表示</string>
+    <string name="gallery_photo_deleted">写真を削除しました</string>
+    <string name="gallery_share_failed">写真を共有できませんでした</string>
+    <string name="gallery_empty_title">まだ撮影がありません</string>
+    <string name="gallery_empty_message">撮影した写真がフィルムデータと共にここに表示されます。</string>
+    <string name="gallery_empty_cta">カメラに戻る</string>
+    <string name="undo">元に戻す</string>
+    <string name="share_chooser_title">レトロ写真を共有</string>
+    <string name="share_retro_capture_desc">レトロキャプチャを共有</string>
+    <string name="delete_captured_photo_desc">撮影した写真を削除</string>
+    <string name="enlarged_capture_desc">拡大キャプチャ</string>
+    <string name="filmstrip_photo_desc">フィルムストリップ写真</string>
+
+    <string name="close_settings_desc">設定を閉じる</string>
+    <string name="settings_subtitle">フィルムルック、構図と撮影</string>
+    <string name="capture_section">撮影</string>
+    <string name="raw_format_label">RAW形式</string>
+    <string name="raw_format_subtitle">プロ編集用に未処理センサーデータを記録 (DNG)</string>
+    <string name="raw_unavailable_front">フロントカメラでは利用不可</string>
+    <string name="raw_unavailable_lens">このレンズはRAW非対応</string>
+    <string name="resolution_vintage_title">0.8 MP</string>
+    <string name="resolution_vintage_sub">デジカメ</string>
+    <string name="resolution_fast_title">3 MP</string>
+    <string name="resolution_fast_sub">高速</string>
+    <string name="resolution_full_title">フル</string>
+    <string name="resolution_full_sub">最大</string>
+    <string name="aspect_ratio_section">アスペクト比</string>
+    <string name="aspect_ratio_standard">標準</string>
+    <string name="aspect_ratio_tall">縦長</string>
+    <string name="aspect_ratio_wide">ワイド</string>
+    <string name="aspect_ratio_square">スクエア</string>
+    <string name="enhance_section">補正</string>
+    <string name="extension_label">夜景＆HDRブースト</string>
+    <string name="extension_subtitle_none">標準処理</string>
+    <string name="extension_subtitle_hdr">OEM HDR — 広ダイナミックレンジ</string>
+    <string name="extension_subtitle_bokeh">OEMポートレートぼかし</string>
+    <string name="extension_subtitle_auto">最適モードをデバイスに任せる</string>
+    <string name="extension_none">オフ</string>
+    <string name="extension_hdr">HDR</string>
+    <string name="extension_bokeh">ぼかし</string>
+    <string name="extension_auto">自動</string>
+    <string name="viewfinder_section">ファインダー</string>
+    <string name="grid_lines_label">グリッド線</string>
+    <string name="grid_lines_subtitle">構図時の三分割オーバーレイ</string>
+    <string name="self_timer_label">セルフタイマー</string>
+    <string name="self_timer_off">オフ</string>
+    <string name="self_timer_desc_off">シャッターは即時に切れます。</string>
+    <string name="self_timer_desc_on">各撮影の前に%1$d秒カウントダウン。</string>
+    <string name="flash_section">フラッシュ</string>
+    <string name="flash_label_settings">フラッシュモード</string>
+    <string name="flash_auto">自動</string>
+    <string name="flash_on">オン</string>
+    <string name="flash_off">オフ</string>
+    <string name="flash_desc_auto">暗いときのみ発光。</string>
+    <string name="flash_desc_on">常に発光。</string>
+    <string name="flash_desc_off">発光しない。</string>
+    <string name="gallery_section">ギャラリー</string>
+    <string name="double_exposure_label">二重露光</string>
+    <string name="double_exposure_subtitle">毎回前回のショットと合成</string>
+    <string name="double_exposure_subtitle_warming">次回は前フレームと合成されます</string>
+
+    <string name="photo_frame_label">フォトフレーム</string>
+    <string name="photo_frame_subtitle">ギャラリーと保存写真にフィルムカード枠を追加</string>
+    <string name="about_section">情報</string>
+    <string name="app_version_label">ZoomBox Camera バージョン</string>
+    <string name="reset_settings_label">初期値に戻す</string>
+    <string name="reset_settings_subtitle">撮影とファインダーの工場出荷設定に戻す</string>
+    <string name="reset_settings_action">リセット</string>
+    <string name="zoom_camera_footer">Zoom • カメラ</string>
+
+    <string name="legal_section">法的情報</string>
+    <string name="legal_back_desc">設定に戻る</string>
+    <string name="privacy_title">プライバシー</string>
+    <string name="licenses_title">ライセンス</string>
+
+    <string name="settings_privacy_label">プライバシー (GDPR)</string>
+    <string name="settings_privacy_subtitle">このアプリが収集するもの — しないもの</string>
+    <string name="settings_licenses_label">オープンソースライセンス</string>
+    <string name="settings_licenses_subtitle">GPL-3.0アプリ · Apache-2.0ライブラリ</string>
+
+    <string name="privacy_h_about">このアプリについて</string>
+    <string name="privacy_p_about">ZoomBox Cameraはオフラインカメラアプリです。インターネット権限を宣言していないため、Androidがすべてのネットワークアクセスをブロックします。広告、分析、トラッカー、クラッシュレポートはありません。</string>
+    <string name="privacy_h_photos">写真とカメラ</string>
+    <string name="privacy_p_photos">写真はお使いのデバイス上でのみ撮影・処理・保存されます（Pictures/ZoomBoxCamera/およびアプリのプライベート領域）。写真に位置情報やGPS座標が書き込まれることはありません。写真がデバイス外に出るのは、ご自身で共有した場合のみです。</string>
+    <string name="privacy_h_permissions">権限</string>
+    <string name="privacy_p_permissions">カメラ：撮影に必須、初回起動時に要求。写真と動画：再インストール後にアプリが保存した写真をギャラリーに表示するため。バックグラウンドアクセスなし — 読み書きはすべてアプリ内でご自身が開始します。</string>
+    <string name="privacy_h_backup">バックアップ</string>
+    <string name="privacy_p_backup">カメラ設定（フィルムルック、グリッド線など）はAndroid自動バックアップに含まれる場合があり、Googleアカウントに保存されご本人のみ閲覧可能です。写真はバックアップ対象外です。バックアップはAndroidシステム設定で無効化できます。</string>
+    <string name="privacy_h_nodata">開発者にデータは届きません</string>
+    <string name="privacy_p_nodata">開発者はあなたからいかなるデータも受け取りません：アカウント、識別子、クラッシュログ、利用統計なし。そのため開発者がアクセス・訂正・エクスポート・削除できるデータは存在しません。データを削除するにはギャラリーで写真を削除するかアプリをアンインストールしてください。残りのデータはすべて削除されます。</string>
+    <string name="privacy_h_children">子ども</string>
+    <string name="privacy_p_children">このアプリは13歳未満の子どもを対象とせず、いかなる年齢のユーザーからも個人データを収集しません。</string>
+    <string name="privacy_h_rights">あなたの権利と連絡先</string>
+    <string name="privacy_p_rights">EU一般データ保護規則（GDPR）に基づき、アクセス、訂正、削除、処理制限、データポータビリティ、異議申立ての権利、および監督機関への苦情申立権があります。開発者はあなたの個人データを保持していないため、開発者側に行使対象となるものはありません。</string>
+
+    <string name="licenses_h_app">このアプリ</string>
+    <string name="licenses_p_app">ZoomBox Camera — Copyright © 2026 Indukto。\n\nGNU General Public License v3.0 (GPL-3.0)でライセンスされています。ソースコード: https://github.com/Indukto/Bhig。\n\nこのプログラムは無保証で提供されます。一定条件のもとで再配布可能なフリーソフトウェアです。ライセンス本文をご覧ください。</string>
+    <string name="licenses_h_libs">オープンソースライブラリ</string>
+    <string name="licenses_p_libs">Android/JetpackエコシステムのApache License 2.0コンポーネント上に構築：Jetpack Compose、Material 3、CameraX、Lifecycle、DataStore、Core — さらにCoil、Accompanist Permissions、Haze、kotlinx.coroutines（Androidフレームワークのorg.jsonでJSON解析）。フィルムLUT：MIT、アプリ内のLUT注意書き参照。</string>
+    <string name="licenses_h_texts">ライセンス文</string>
+    <string name="licenses_p_texts">Apache-2.0: apache.org/licenses/LICENSE-2.0\nMIT: opensource.org/licenses/MIT\nGPL-3.0: gnu.org/licenses/gpl-3.0.html</string>
+</resources>

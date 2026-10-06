@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ZoomBox Camera</string>
+    <string name="camerax_attribution_label">相机拍摄与处理</string>
+
+    <string name="color_balance_title">色彩平衡</string>
+    <string name="wb_readout">%1$dK %2$s</string>
+    <string name="wb_auto_label">自动</string>
+    <string name="wb_preset_daylight">日光</string>
+    <string name="wb_preset_incandescent">白炽灯</string>
+    <string name="wb_preset_shade">阴影</string>
+    <string name="exposure_title">曝光</string>
+    <string name="ev_readout">%1$s EV</string>
+    <string name="temperature_label">色温</string>
+    <string name="exposure_label">曝光</string>
+    <string name="close_label">关闭</string>
+    <string name="front_lens_label">前置</string>
+    <string name="focal_length_mm">%1$d毫米</string>
+    <string name="self_timer_seconds">%1$d秒</string>
+    <string name="timer_countdown">%1$d</string>
+
+    <string name="settings_label">设置</string>
+    <string name="grid_label">网格</string>
+    <string name="timer_off_label">定时器关闭</string>
+    <string name="flash_label">闪光灯</string>
+    <string name="flip_camera_label">切换相机</string>
+    <string name="last_photo_label">上一张照片</string>
+    <string name="no_photos_label">没有照片</string>
+
+    <string name="retro_camera_icon_desc">复古相机图标</string>
+    <string name="splash_title">ZOOM CAMERA</string>
+    <string name="splash_tagline">复古胶片相机</string>
+    <string name="splash_description">用我们的变焦框和暖色复古滤镜拍摄复古照片。授予相机权限即可开始。</string>
+    <string name="enable_camera">启用相机</string>
+    <string name="splash_footer">Zoom Cam · %1$s</string>
+
+    <string name="film_style">胶片风格</string>
+    <string name="film_style_count">共 %1$d 种风格 — 点击应用</string>
+
+    <string name="delete_photo_title">删除照片？</string>
+    <string name="delete_photo_message">此照片将从此设备永久删除。此操作无法撤销。</string>
+    <string name="delete">删除</string>
+    <string name="cancel">取消</string>
+
+    <string name="close_viewfinder_desc">关闭取景器</string>
+    <string name="gallery_title">相册</string>
+    <string name="gallery_photos_suffix">张照片</string>
+    <string name="gallery_selected_suffix">已选</string>
+    <string name="gallery_grid_desc">网格视图</string>
+    <string name="gallery_favorite_desc">收藏照片</string>
+    <string name="gallery_show_more">显示更多</string>
+    <string name="gallery_photo_deleted">照片已删除</string>
+    <string name="gallery_share_failed">无法分享照片</string>
+    <string name="gallery_empty_title">还没有拍摄</string>
+    <string name="gallery_empty_message">您拍摄的照片将连同胶片数据显示在这里。</string>
+    <string name="gallery_empty_cta">返回相机</string>
+    <string name="undo">撤销</string>
+    <string name="share_chooser_title">分享复古照片</string>
+    <string name="share_retro_capture_desc">分享复古成片</string>
+    <string name="delete_captured_photo_desc">删除拍摄的照片</string>
+    <string name="enlarged_capture_desc">放大的成片</string>
+    <string name="filmstrip_photo_desc">胶卷照片</string>
+
+    <string name="close_settings_desc">关闭设置</string>
+    <string name="settings_subtitle">胶片外观、构图与拍摄</string>
+    <string name="capture_section">拍摄</string>
+    <string name="raw_format_label">RAW 格式</string>
+    <string name="raw_format_subtitle">采集未处理的传感器数据以供专业编辑 (DNG)</string>
+    <string name="raw_unavailable_front">前置相机不可用</string>
+    <string name="raw_unavailable_lens">此镜头不支持 RAW</string>
+    <string name="resolution_vintage_title">0.8 MP</string>
+    <string name="resolution_vintage_sub">卡片机</string>
+    <string name="resolution_fast_title">3 MP</string>
+    <string name="resolution_fast_sub">快速</string>
+    <string name="resolution_full_title">全尺寸</string>
+    <string name="resolution_full_sub">最大</string>
+    <string name="aspect_ratio_section">宽高比</string>
+    <string name="aspect_ratio_standard">标准</string>
+    <string name="aspect_ratio_tall">竖长</string>
+    <string name="aspect_ratio_wide">宽幅</string>
+    <string name="aspect_ratio_square">方形</string>
+    <string name="enhance_section">增强</string>
+    <string name="extension_label">夜景 &amp; HDR 增强</string>
+    <string name="extension_subtitle_none">标准处理</string>
+    <string name="extension_subtitle_hdr">OEM HDR — 更宽动态范围</string>
+    <string name="extension_subtitle_bokeh">OEM 人像虚化</string>
+    <string name="extension_subtitle_auto">让设备选择最佳模式</string>
+    <string name="extension_none">关闭</string>
+    <string name="extension_hdr">HDR</string>
+    <string name="extension_bokeh">虚化</string>
+    <string name="extension_auto">自动</string>
+    <string name="viewfinder_section">取景器</string>
+    <string name="grid_lines_label">网格线</string>
+    <string name="grid_lines_subtitle">构图时显示三分法叠加</string>
+    <string name="self_timer_label">自拍定时</string>
+    <string name="self_timer_off">关闭</string>
+    <string name="self_timer_desc_off">快门立即触发。</string>
+    <string name="self_timer_desc_on">每次拍摄前倒计时 %1$d 秒。</string>
+    <string name="flash_section">闪光灯</string>
+    <string name="flash_label_settings">闪光灯模式</string>
+    <string name="flash_auto">自动</string>
+    <string name="flash_on">开启</string>
+    <string name="flash_off">关闭</string>
+    <string name="flash_desc_auto">仅在弱光下闪光。</string>
+    <string name="flash_desc_on">始终闪光。</string>
+    <string name="flash_desc_off">从不闪光。</string>
+    <string name="gallery_section">相册</string>
+    <string name="double_exposure_label">双重曝光</string>
+    <string name="double_exposure_subtitle">将每张照片与上一张叠加</string>
+    <string name="double_exposure_subtitle_warming">下一张将与上一帧叠加</string>
+
+    <string name="photo_frame_label">照片边框</string>
+    <string name="photo_frame_subtitle">在相册和保存的照片中添加胶片卡边框</string>
+    <string name="about_section">关于</string>
+    <string name="app_version_label">ZoomBox Camera 版本</string>
+    <string name="reset_settings_label">恢复默认</string>
+    <string name="reset_settings_subtitle">恢复拍摄和取景器的出厂设置</string>
+    <string name="reset_settings_action">重置</string>
+    <string name="zoom_camera_footer">变焦 • 相机</string>
+
+    <string name="legal_section">法律</string>
+    <string name="legal_back_desc">返回设置</string>
+    <string name="privacy_title">隐私</string>
+    <string name="licenses_title">许可</string>
+
+    <string name="settings_privacy_label">隐私 (GDPR)</string>
+    <string name="settings_privacy_subtitle">此应用收集什么 — 不收集什么</string>
+    <string name="settings_licenses_label">开源许可</string>
+    <string name="settings_licenses_subtitle">GPL-3.0 应用 · Apache-2.0 库</string>
+
+    <string name="privacy_h_about">关于此应用</string>
+    <string name="privacy_p_about">ZoomBox Camera 是离线相机应用。它不声明互联网权限，因此 Android 会阻止所有网络访问：应用无法传输任何数据。无广告、无统计、无跟踪、无崩溃上报。</string>
+    <string name="privacy_h_photos">照片与相机</string>
+    <string name="privacy_p_photos">照片仅在您的设备上拍摄、处理和存储（位于 Pictures/ZoomBoxCamera/ 及应用私有存储）。应用从不在照片中写入位置或 GPS 坐标。只有您主动分享时，照片才会离开设备。</string>
+    <string name="privacy_h_permissions">权限</string>
+    <string name="privacy_p_permissions">相机：拍照必需，首次启动时请求。照片和视频：以便重装后相册能显示应用保存的照片。无后台访问 — 每次读写都由您在应用内触发。</string>
+    <string name="privacy_h_backup">备份</string>
+    <string name="privacy_p_backup">您的相机设置（胶片风格、网格线等）可能包含在 Android 自动设备备份中，存储在您的 Google 账号中且仅您可见。照片不包含在备份中。您可在 Android 系统设置中关闭备份。</string>
+    <string name="privacy_h_nodata">开发者收不到任何数据</string>
+    <string name="privacy_p_nodata">开发者收不到您的任何数据：无账号、无标识符、无崩溃日志、无使用统计。因此开发者没有任何可供访问、更正、导出或删除的数据。要删除数据，请在相册中删除照片或卸载应用，这将清除所有剩余数据。</string>
+    <string name="privacy_h_children">儿童</string>
+    <string name="privacy_p_children">此应用不面向 13 岁以下儿童，也不会收集任何年龄用户的个人数据。</string>
+    <string name="privacy_h_rights">您的权利与联系</string>
+    <string name="privacy_p_rights">根据欧盟《通用数据保护条例》(GDPR)，您享有访问、更正、删除、限制处理、数据可携、反对等权利，以及向监管机构投诉的权利。由于开发者未保存您的个人数据，开发者侧没有任何可执行这些权利的对象。</string>
+
+    <string name="licenses_h_app">此应用</string>
+    <string name="licenses_p_app">ZoomBox Camera — 版权 © 2026 Indukto。\n\n基于 GNU General Public License v3.0 (GPL-3.0) 许可。源代码：https://github.com/Indukto/Bhig。\n\n本程序不提供任何保证。这是自由软件，您可在特定条件下重新分发；见许可文本。</string>
+    <string name="licenses_h_libs">开源库</string>
+    <string name="licenses_p_libs">基于 Android/Jetpack 生态的 Apache License 2.0 组件：Jetpack Compose、Material 3、CameraX、Lifecycle、DataStore、Core — 以及 Coil、Accompanist Permissions、Haze 和 kotlinx.coroutines（通过 Android 框架的 org.json 解析 JSON）。胶片 LUT：MIT，见应用内 LUT 说明。</string>
+    <string name="licenses_h_texts">许可文本</string>
+    <string name="licenses_p_texts">Apache-2.0：apache.org/licenses/LICENSE-2.0\nMIT：opensource.org/licenses/MIT\nGPL-3.0：gnu.org/licenses/gpl-3.0.html</string>
+</resources>

@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ZoomBox Camera</string>
+    <string name="camerax_attribution_label">التقاط الصور ومعالجتها</string>
+
+    <string name="color_balance_title">توازن الألوان</string>
+    <string name="wb_readout">%1$dK %2$s</string>
+    <string name="wb_auto_label">تلقائي</string>
+    <string name="wb_preset_daylight">ضوء النهار</string>
+    <string name="wb_preset_incandescent">متوهج</string>
+    <string name="wb_preset_shade">ظل</string>
+    <string name="exposure_title">التعريض</string>
+    <string name="ev_readout">%1$s EV</string>
+    <string name="temperature_label">درجة الحرارة</string>
+    <string name="exposure_label">التعريض</string>
+    <string name="close_label">إغلاق</string>
+    <string name="front_lens_label">أمامية</string>
+    <string name="focal_length_mm">%1$d مم</string>
+    <string name="self_timer_seconds">%1$d ث</string>
+    <string name="timer_countdown">%1$d</string>
+
+    <string name="settings_label">الإعدادات</string>
+    <string name="grid_label">شبكة</string>
+    <string name="timer_off_label">المؤقت متوقف</string>
+    <string name="flash_label">فلاش</string>
+    <string name="flip_camera_label">تبديل الكاميرا</string>
+    <string name="last_photo_label">آخر صورة</string>
+    <string name="no_photos_label">لا صور</string>
+
+    <string name="retro_camera_icon_desc">أيقونة كاميرا قديمة</string>
+    <string name="splash_title">ZOOM CAMERA</string>
+    <string name="splash_tagline">كاميرا أفلام قديمة</string>
+    <string name="splash_description">التقط صورًا بأسلوب عتيق مع إطار الزوم وفلاتر ريترو دافئة. اسمح بالوصول إلى الكاميرا للبدء.</string>
+    <string name="enable_camera">تفعيل الكاميرا</string>
+    <string name="splash_footer">Zoom Cam · %1$s</string>
+
+    <string name="film_style">نمط الفيلم</string>
+    <string name="film_style_count">%1$d نمطًا — انقر للتطبيق</string>
+
+    <string name="delete_photo_title">حذف الصورة؟</string>
+    <string name="delete_photo_message">سيتم حذف هذه الصورة نهائيًا من هذا الجهاز. لا يمكن التراجع عن هذا الإجراء.</string>
+    <string name="delete">حذف</string>
+    <string name="cancel">إلغاء</string>
+
+    <string name="close_viewfinder_desc">إغلاق محدد المنظر</string>
+    <string name="gallery_title">المعرض</string>
+    <string name="gallery_photos_suffix">صور</string>
+    <string name="gallery_selected_suffix">محددة</string>
+    <string name="gallery_grid_desc">عرض شبكي</string>
+    <string name="gallery_favorite_desc">صورة مفضلة</string>
+    <string name="gallery_show_more">عرض المزيد</string>
+    <string name="gallery_photo_deleted">تم حذف الصورة</string>
+    <string name="gallery_share_failed">تعذّر مشاركة الصورة</string>
+    <string name="gallery_empty_title">لا لقطات بعد</string>
+    <string name="gallery_empty_message">ستظهر صورك هنا مع بيانات الفيلم.</string>
+    <string name="gallery_empty_cta">عودة إلى الكاميرا</string>
+    <string name="undo">تراجع</string>
+    <string name="share_chooser_title">مشاركة صورة ريترو</string>
+    <string name="share_retro_capture_desc">مشاركة لقطة ريترو</string>
+    <string name="delete_captured_photo_desc">حذف الصورة الملتقطة</string>
+    <string name="enlarged_capture_desc">لقطة مكبرة</string>
+    <string name="filmstrip_photo_desc">صورة شريط فيلم</string>
+
+    <string name="close_settings_desc">إغلاق الإعدادات</string>
+    <string name="settings_subtitle">أنماط الفيلم والتأطير والالتقاط</string>
+    <string name="capture_section">الالتقاط</string>
+    <string name="raw_format_label">تنسيق RAW</string>
+    <string name="raw_format_subtitle">التقط بيانات المستشعر الخام للتحرير الاحترافي (DNG)</string>
+    <string name="raw_unavailable_front">غير متاح على الكاميرا الأمامية</string>
+    <string name="raw_unavailable_lens">هذه العدسة لا تدعم RAW</string>
+    <string name="resolution_vintage_title">0,8 م.ب</string>
+    <string name="resolution_vintage_sub">Digicam</string>
+    <string name="resolution_fast_title">3 م.ب</string>
+    <string name="resolution_fast_sub">سريع</string>
+    <string name="resolution_full_title">كامل</string>
+    <string name="resolution_full_sub">الأقصى</string>
+    <string name="aspect_ratio_section">نسبة العرض</string>
+    <string name="aspect_ratio_standard">قياسي</string>
+    <string name="aspect_ratio_tall">طولي</string>
+    <string name="aspect_ratio_wide">عريض</string>
+    <string name="aspect_ratio_square">مربع</string>
+    <string name="enhance_section">تحسين</string>
+    <string name="extension_label">تعزيز الليل و HDR</string>
+    <string name="extension_subtitle_none">معالجة قياسية</string>
+    <string name="extension_subtitle_hdr">HDR من الشركة — نطاق ديناميكي أوسع</string>
+    <string name="extension_subtitle_bokeh">تمويه بورتريه من الشركة</string>
+    <string name="extension_subtitle_auto">دع الجهاز يختار أفضل وضع</string>
+    <string name="extension_none">متوقف</string>
+    <string name="extension_hdr">HDR</string>
+    <string name="extension_bokeh">تمويه</string>
+    <string name="extension_auto">تلقائي</string>
+    <string name="viewfinder_section">محدد المنظر</string>
+    <string name="grid_lines_label">خطوط الشبكة</string>
+    <string name="grid_lines_subtitle">شبكة الأثلاث أثناء التأطير</string>
+    <string name="self_timer_label">مؤقت ذاتي</string>
+    <string name="self_timer_off">متوقف</string>
+    <string name="self_timer_desc_off">يعمل الغالق فورًا.</string>
+    <string name="self_timer_desc_on">عد تنازلي %1$d ث قبل كل لقطة.</string>
+    <string name="flash_section">فلاش</string>
+    <string name="flash_label_settings">وضع الفلاش</string>
+    <string name="flash_auto">تلقائي</string>
+    <string name="flash_on">تشغيل</string>
+    <string name="flash_off">إيقاف</string>
+    <string name="flash_desc_auto">يعمل فقط في الإضاءة المنخفضة.</string>
+    <string name="flash_desc_on">يعمل دائمًا.</string>
+    <string name="flash_desc_off">لا يعمل أبدًا.</string>
+    <string name="gallery_section">المعرض</string>
+    <string name="double_exposure_label">تعريض مزدوج</string>
+    <string name="double_exposure_subtitle">ادمج كل لقطة مع التي قبلها</string>
+    <string name="double_exposure_subtitle_warming">ستندمج اللقطة التالية مع الإطار السابق</string>
+
+    <string name="photo_frame_label">إطار الصورة</string>
+    <string name="photo_frame_subtitle">أضف إطار بطاقة الفيلم في المعرض وفي الصور المحفوظة</string>
+    <string name="about_section">حول</string>
+    <string name="app_version_label">إصدار ZoomBox Camera</string>
+    <string name="reset_settings_label">استعادة الافتراضي</string>
+    <string name="reset_settings_subtitle">استعادة إعدادات المصنع للالتقاط ومحدد المنظر</string>
+    <string name="reset_settings_action">استعادة</string>
+    <string name="zoom_camera_footer">زوم • كاميرا</string>
+
+    <string name="legal_section">قانوني</string>
+    <string name="legal_back_desc">عودة إلى الإعدادات</string>
+    <string name="privacy_title">الخصوصية</string>
+    <string name="licenses_title">التراخيص</string>
+
+    <string name="settings_privacy_label">الخصوصية (GDPR)</string>
+    <string name="settings_privacy_subtitle">ما يجمعه هذا التطبيق — وما لا يجمعه</string>
+    <string name="settings_licenses_label">تراخيص مفتوحة المصدر</string>
+    <string name="settings_licenses_subtitle">تطبيق GPL-3.0 · مكتبات Apache-2.0</string>
+
+    <string name="privacy_h_about">عن هذا التطبيق</string>
+    <string name="privacy_p_about">ZoomBox Camera تطبيق كاميرا يعمل دون اتصال. لا يعلن عن إذن إنترنت، لذا يحظر Android كل الوصول إلى الشبكة: لا يمكن للتطبيق نقل أي بيانات. بلا إعلانات ولا تحليلات ولا متتبعات ولا تقارير أعطال.</string>
+    <string name="privacy_h_photos">الصور والكاميرا</string>
+    <string name="privacy_p_photos">تُلتقط الصور وتُعالج وتُخزن على جهازك فقط (في Pictures/ZoomBoxCamera/ والتخزين الخاص للتطبيق). لا يكتب التطبيق موقعك أو إحداثيات GPS في الصور أبدًا. لا تغادر الصورة جهازك إلا إذا شاركتها بنفسك.</string>
+    <string name="privacy_h_permissions">الأذونات</string>
+    <string name="privacy_p_permissions">الكاميرا: مطلوبة لالتقاط الصور، تُطلب عند أول تشغيل. الصور والفيديو: ليعرض المعرض الصور التي حفظها التطبيق بعد إعادة التثبيت. لا يوجد وصول في الخلفية — كل قراءة أو كتابة تبدأها أنت في التطبيق.</string>
+    <string name="privacy_h_backup">النسخ الاحتياطي</string>
+    <string name="privacy_p_backup">قد تُشمل إعدادات الكاميرا (نمط الفيلم وخطوط الشبكة وغيرها) في النسخ الاحتياطي التلقائي لـ Android المخزن في حساب Google الخاص بك والمرئي لك فقط. الصور مستثناة. يمكنك إيقاف النسخ الاحتياطي في إعدادات نظام Android.</string>
+    <string name="privacy_h_nodata">لا تصل أي بيانات إلى المطور</string>
+    <string name="privacy_p_nodata">لا يتلقى المطور أي بيانات منك: لا حساب ولا معرفات ولا سجلات أعطال ولا إحصاءات استخدام. لذلك لا توجد بيانات يمكن للمطور الوصول إليها أو تصحيحها أو تصديرها أو حذفها لك. لإزالة بياناتك احذف الصور في المعرض أو ألغِ تثبيت التطبيق، مما يزيل كل البيانات المتبقية.</string>
+    <string name="privacy_h_children">الأطفال</string>
+    <string name="privacy_p_children">هذا التطبيق غير موجه للأطفال دون 13 عامًا ولا يجمع بيانات شخصية من أي مستخدم بأي عمر.</string>
+    <string name="privacy_h_rights">حقوقك والاتصال</string>
+    <string name="privacy_p_rights">بموجب اللائحة العامة لحماية البيانات في الاتحاد الأوروبي (GDPR) لك حقوق الوصول والتصحيح والمحو وتقييد المعالجة وقابلية النقل والاعتراض، إضافة إلى حق الشكوى لدى سلطة إشرافية. وبما أن المطور لا يحتفظ ببيانات شخصية عنك فلا يوجد ما تمارس عليه هذه الحقوق لدى المطور.</string>
+
+    <string name="licenses_h_app">هذا التطبيق</string>
+    <string name="licenses_p_app">ZoomBox Camera — حقوق النشر © 2026 Indukto.\n\nمرخص بموجب GNU General Public License v3.0 (GPL-3.0). الكود المصدري: https://github.com/Indukto/Bhig.\n\nيُقدم هذا البرنامج دون أي ضمان. هو برنامج حر يمكنك إعادة توزيعه بشروط معينة؛ انظر نص الترخيص.</string>
+    <string name="licenses_h_libs">مكتبات مفتوحة المصدر</string>
+    <string name="licenses_p_libs">مبني على مكونات Apache License 2.0 من منظومة Android/Jetpack: Jetpack Compose وMaterial 3 وCameraX وLifecycle وDataStore وCore — بالإضافة إلى Coil وAccompanist Permissions وHaze وkotlinx.coroutines (تحليل JSON عبر org.json في إطار Android). جداول LUT: MIT، انظر إشعار LUT في التطبيق.</string>
+    <string name="licenses_h_texts">نصوص التراخيص</string>
+    <string name="licenses_p_texts">Apache-2.0: apache.org/licenses/LICENSE-2.0\nMIT: opensource.org/licenses/MIT\nGPL-3.0: gnu.org/licenses/gpl-3.0.html</string>
+</resources>

@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ZoomBox Camera</string>
+    <string name="camerax_attribution_label">Съёмка и обработка камерой</string>
+
+    <string name="color_balance_title">Баланс цвета</string>
+    <string name="wb_readout">%1$dK %2$s</string>
+    <string name="wb_auto_label">A</string>
+    <string name="wb_preset_daylight">Дневной свет</string>
+    <string name="wb_preset_incandescent">Лампа накаливания</string>
+    <string name="wb_preset_shade">Тень</string>
+    <string name="exposure_title">ЭКСПОЗИЦИЯ</string>
+    <string name="ev_readout">%1$s EV</string>
+    <string name="temperature_label">Температура</string>
+    <string name="exposure_label">Экспозиция</string>
+    <string name="close_label">Закрыть</string>
+    <string name="front_lens_label">ФРОНТ</string>
+    <string name="focal_length_mm">%1$d мм</string>
+    <string name="self_timer_seconds">%1$d с</string>
+    <string name="timer_countdown">%1$d</string>
+
+    <string name="settings_label">Настройки</string>
+    <string name="grid_label">Сетка</string>
+    <string name="timer_off_label">Таймер выкл</string>
+    <string name="flash_label">Вспышка</string>
+    <string name="flip_camera_label">Переключить камеру</string>
+    <string name="last_photo_label">Последнее фото</string>
+    <string name="no_photos_label">Нет фото</string>
+
+    <string name="retro_camera_icon_desc">Значок ретро-камеры</string>
+    <string name="splash_title">ZOOM CAMERA</string>
+    <string name="splash_tagline">РЕТРО-КАМЕРА</string>
+    <string name="splash_description">Снимайте винтажные фото с нашей зум-рамкой и тёплыми ретро-фильтрами. Разрешите доступ к камере, чтобы начать.</string>
+    <string name="enable_camera">ВКЛЮЧИТЬ КАМЕРУ</string>
+    <string name="splash_footer">Zoom Cam · %1$s</string>
+
+    <string name="film_style">Стиль плёнки</string>
+    <string name="film_style_count">Стилей: %1$d — нажмите, чтобы применить</string>
+
+    <string name="delete_photo_title">Удалить фото?</string>
+    <string name="delete_photo_message">Это фото будет навсегда удалено с устройства. Действие нельзя отменить.</string>
+    <string name="delete">Удалить</string>
+    <string name="cancel">Отмена</string>
+
+    <string name="close_viewfinder_desc">Закрыть видоискатель</string>
+    <string name="gallery_title">Галерея</string>
+    <string name="gallery_photos_suffix">фото</string>
+    <string name="gallery_selected_suffix">выбрано</string>
+    <string name="gallery_grid_desc">Вид сеткой</string>
+    <string name="gallery_favorite_desc">Любимое фото</string>
+    <string name="gallery_show_more">Показать больше</string>
+    <string name="gallery_photo_deleted">Фото удалено</string>
+    <string name="gallery_share_failed">Не удалось поделиться фото</string>
+    <string name="gallery_empty_title">Пока нет снимков</string>
+    <string name="gallery_empty_message">Ваши фото появятся здесь вместе с данными плёнки.</string>
+    <string name="gallery_empty_cta">Назад к камере</string>
+    <string name="undo">Отменить</string>
+    <string name="share_chooser_title">Поделиться ретро-фото</string>
+    <string name="share_retro_capture_desc">Поделиться ретро-снимком</string>
+    <string name="delete_captured_photo_desc">Удалить снятое фото</string>
+    <string name="enlarged_capture_desc">Увеличенный снимок</string>
+    <string name="filmstrip_photo_desc">Фото с плёнки</string>
+
+    <string name="close_settings_desc">Закрыть настройки</string>
+    <string name="settings_subtitle">Образы, кадрирование и съёмка</string>
+    <string name="capture_section">СЪЁМКА</string>
+    <string name="raw_format_label">Формат RAW</string>
+    <string name="raw_format_subtitle">Снимайте необработанные данные сенсора для профи-редактирования (DNG)</string>
+    <string name="raw_unavailable_front">Недоступно на фронтальной камере</string>
+    <string name="raw_unavailable_lens">Этот объектив не поддерживает RAW</string>
+    <string name="resolution_vintage_title">0,8 МП</string>
+    <string name="resolution_vintage_sub">Digicam</string>
+    <string name="resolution_fast_title">3 МП</string>
+    <string name="resolution_fast_sub">Быстро</string>
+    <string name="resolution_full_title">Полное</string>
+    <string name="resolution_full_sub">Макс</string>
+    <string name="aspect_ratio_section">СООТНОШЕНИЕ СТОРОН</string>
+    <string name="aspect_ratio_standard">Стандартное</string>
+    <string name="aspect_ratio_tall">Вертикальное</string>
+    <string name="aspect_ratio_wide">Широкое</string>
+    <string name="aspect_ratio_square">Квадрат</string>
+    <string name="enhance_section">УЛУЧШЕНИЕ</string>
+    <string name="extension_label">Ночной и HDR-буст</string>
+    <string name="extension_subtitle_none">Стандартная обработка</string>
+    <string name="extension_subtitle_hdr">OEM HDR — шире динамический диапазон</string>
+    <string name="extension_subtitle_bokeh">OEM портретное размытие</string>
+    <string name="extension_subtitle_auto">Пусть устройство выберет лучший режим</string>
+    <string name="extension_none">Выкл</string>
+    <string name="extension_hdr">HDR</string>
+    <string name="extension_bokeh">Размытие</string>
+    <string name="extension_auto">Авто</string>
+    <string name="viewfinder_section">ВИДОИСКАТЕЛЬ</string>
+    <string name="grid_lines_label">Линии сетки</string>
+    <string name="grid_lines_subtitle">Сетка третей при кадрировании</string>
+    <string name="self_timer_label">Автоспуск</string>
+    <string name="self_timer_off">Выкл</string>
+    <string name="self_timer_desc_off">Спуск срабатывает мгновенно.</string>
+    <string name="self_timer_desc_on">Обратный отсчёт %1$d с перед каждым снимком.</string>
+    <string name="flash_section">ВСПЫШКА</string>
+    <string name="flash_label_settings">Режим вспышки</string>
+    <string name="flash_auto">Авто</string>
+    <string name="flash_on">Вкл</string>
+    <string name="flash_off">Выкл</string>
+    <string name="flash_desc_auto">Срабатывает только при слабом свете.</string>
+    <string name="flash_desc_on">Срабатывает всегда.</string>
+    <string name="flash_desc_off">Никогда не срабатывает.</string>
+    <string name="gallery_section">ГАЛЕРЕЯ</string>
+    <string name="double_exposure_label">Двойная экспозиция</string>
+    <string name="double_exposure_subtitle">Совмещать каждый снимок с предыдущим</string>
+    <string name="double_exposure_subtitle_warming">Следующий снимок совместится с предыдущим кадром</string>
+
+    <string name="photo_frame_label">Рамка фото</string>
+    <string name="photo_frame_subtitle">Добавить рамку плёночной карточки в галерее и в сохранённых фото</string>
+    <string name="about_section">О ПРИЛОЖЕНИИ</string>
+    <string name="app_version_label">Версия ZoomBox Camera</string>
+    <string name="reset_settings_label">Сбросить настройки</string>
+    <string name="reset_settings_subtitle">Восстановить заводские настройки съёмки и видоискателя</string>
+    <string name="reset_settings_action">Сбросить</string>
+    <string name="zoom_camera_footer">Zoom • Камера</string>
+
+    <string name="legal_section">ПРАВОВАЯ ИНФОРМАЦИЯ</string>
+    <string name="legal_back_desc">Назад в настройки</string>
+    <string name="privacy_title">Конфиденциальность</string>
+    <string name="licenses_title">Лицензии</string>
+
+    <string name="settings_privacy_label">Конфиденциальность (GDPR)</string>
+    <string name="settings_privacy_subtitle">Что приложение собирает — а что нет</string>
+    <string name="settings_licenses_label">Лицензии open source</string>
+    <string name="settings_licenses_subtitle">Приложение GPL-3.0 · Библиотеки Apache-2.0</string>
+
+    <string name="privacy_h_about">Об этом приложении</string>
+    <string name="privacy_p_about">ZoomBox Camera — офлайн-камера. Она не запрашивает разрешение на интернет, поэтому Android блокирует любой сетевой доступ: приложение не может передавать данные. Без рекламы, аналитики, трекеров и отчётов о сбоях.</string>
+    <string name="privacy_h_photos">Фото и камера</string>
+    <string name="privacy_p_photos">Фото снимаются, обрабатываются и хранятся только на вашем устройстве (в Pictures/ZoomBoxCamera/ и частном хранилище приложения). Приложение никогда не записывает ваше местоположение или GPS-координаты в фото. Фото покидает устройство, только если вы сами им поделитесь.</string>
+    <string name="privacy_h_permissions">Разрешения</string>
+    <string name="privacy_p_permissions">Камера: нужна для съёмки, запрашивается при первом запуске. Фото и видео: чтобы галерея показывала сохранённые приложением фото после переустановки. Фонового доступа нет — каждое чтение или запись инициируете вы в приложении.</string>
+    <string name="privacy_h_backup">Резервные копии</string>
+    <string name="privacy_p_backup">Ваши настройки камеры (стиль плёнки, линии сетки и т.д.) могут входить в автоматическую резервную копию Android, которая хранится в вашем аккаунте Google и видна только вам. Фото исключены из копий. Копии можно отключить в системных настройках Android.</string>
+    <string name="privacy_h_nodata">Данные не доходят до разработчика</string>
+    <string name="privacy_p_nodata">Разработчик не получает от вас никаких данных: ни аккаунта, ни идентификаторов, ни журналов сбоев, ни статистики использования. Поэтому нет данных, к которым разработчик мог бы получить доступ, исправить, экспортировать или удалить их для вас. Чтобы удалить данные, удалите фото в галерее или удалите приложение — это сотрёт все оставшиеся данные.</string>
+    <string name="privacy_h_children">Дети</string>
+    <string name="privacy_p_children">Приложение не предназначено для детей младше 13 лет и не собирает персональные данные пользователей любого возраста.</string>
+    <string name="privacy_h_rights">Ваши права и контакты</string>
+    <string name="privacy_p_rights">Согласно Общему регламенту ЕС о защите данных (GDPR) вы имеете права на доступ, исправление, удаление, ограничение обработки, переносимость данных и возражение, а также право подать жалобу в надзорный орган. Поскольку разработчик не хранит ваших персональных данных, со стороны разработчика нечего осуществлять в рамках этих прав.</string>
+
+    <string name="licenses_h_app">Это приложение</string>
+    <string name="licenses_p_app">ZoomBox Camera — Copyright © 2026 Indukto.\n\nЛицензировано под GNU General Public License v3.0 (GPL-3.0). Исходный код: https://github.com/Indukto/Bhig.\n\nПрограмма поставляется БЕЗ КАКИХ-ЛИБО ГАРАНТИЙ. Это свободное ПО, вы можете распространять его на определённых условиях; см. текст лицензии.</string>
+    <string name="licenses_h_libs">Библиотеки open source</string>
+    <string name="licenses_p_libs">Основано на компонентах Apache License 2.0 экосистемы Android/Jetpack: Jetpack Compose, Material 3, CameraX, Lifecycle, DataStore, Core — плюс Coil, Accompanist Permissions, Haze и kotlinx.coroutines (парсинг JSON через org.json фреймворка Android). LUT образов: MIT, см. уведомление LUT в приложении.</string>
+    <string name="licenses_h_texts">Тексты лицензий</string>
+    <string name="licenses_p_texts">Apache-2.0: apache.org/licenses/LICENSE-2.0\nMIT: opensource.org/licenses/MIT\nGPL-3.0: gnu.org/licenses/gpl-3.0.html</string>
+</resources>
