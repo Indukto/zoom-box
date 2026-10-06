@@ -1,0 +1,1 @@
+Film-Style picker driven by the look registry, double exposure blending, 0.8 MP digicam capture quality, faster cold start and volume-button shutter.

@@ -38,7 +38,10 @@ cameraExtensions = "1.5.0"
 datastorePreferences = "1.1.7"
 robolectric = "4.16.1"
 roborazzi = "1.59.0"
-secretsGradlePlugin = "2.0.1"
+# org.json is test-scoped only: plain JVM unit tests need a real JSONObject
+# implementation because the mocked android.jar stubs throw. It is never
+# packaged into the release APK (main source uses the Android framework's
+# org.json from android.jar). Kept as testImplementation only for F-Droid.
 orgJson = "20240303"
 
 
@@ -87,4 +90,3 @@ json = { group = "org.json", name = "json", version.ref = "orgJson" }
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 roborazzi = { id = "io.github.takahirom.roborazzi", version.ref = "roborazzi" }
-secrets = { id = "com.google.android.libraries.mapsplatform.secrets-gradle-plugin", version.ref = "secretsGradlePlugin" }

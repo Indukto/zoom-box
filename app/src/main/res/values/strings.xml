@@ -155,9 +155,9 @@
 
     <!-- Open-source licenses -->
     <string name="licenses_h_app">This app</string>
-    <string name="licenses_p_app">ZoomBox Camera — Copyright © 2026 Indukto.\n\nLicensed under the GNU General Public License v3.0 (GPL-3.0). Source code: https://github.com/Indukto/zoom-box.\n\nThis program comes with ABSOLUTELY NO WARRANTY. This is free software, and you are welcome to redistribute it under certain conditions; see the license text.</string>
+    <string name="licenses_p_app">ZoomBox Camera — Copyright © 2026 Indukto.\n\nLicensed under the GNU General Public License v3.0 (GPL-3.0). Source code: https://github.com/Indukto/Bhig.\n\nThis program comes with ABSOLUTELY NO WARRANTY. This is free software, and you are welcome to redistribute it under certain conditions; see the license text.</string>
     <string name="licenses_h_libs">Open-source libraries</string>
-    <string name="licenses_p_libs">Built on Apache License 2.0 components of the Android/Jetpack ecosystem: Jetpack Compose, Material 3, CameraX, Lifecycle, DataStore, Core — plus Coil, Accompanist Permissions, Haze and kotlinx.coroutines, and org.json (JSON license).</string>
+    <string name="licenses_p_libs">Built on Apache License 2.0 components of the Android/Jetpack ecosystem: Jetpack Compose, Material 3, CameraX, Lifecycle, DataStore, Core — plus Coil, Accompanist Permissions, Haze and kotlinx.coroutines (JSON parsing uses the Android framework\'s org.json). Film-look LUTs: MIT, see the LUT notice packaged with the app.</string>
     <string name="licenses_h_texts">License texts</string>
     <string name="licenses_p_texts">Apache-2.0: apache.org/licenses/LICENSE-2.0\nMIT: opensource.org/licenses/MIT\nGPL-3.0: gnu.org/licenses/gpl-3.0.html</string>
 </resources>

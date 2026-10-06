@@ -112,6 +112,10 @@
     <string name="flash_desc_on">Löst immer aus.</string>
     <string name="flash_desc_off">Löst nie aus.</string>
     <string name="gallery_section">GALERIE</string>
+    <string name="double_exposure_label">Doppelbelichtung</string>
+    <string name="double_exposure_subtitle">Jedes Foto mit dem vorherigen überblenden</string>
+    <string name="double_exposure_subtitle_warming">Nächste Aufnahme wird mit dem vorherigen Bild überblendet</string>
+
     <string name="photo_frame_label">Fotorahmen</string>
     <string name="photo_frame_subtitle">Filmkarten-Rahmen in der Galerie und in gespeicherten Fotos</string>
     <string name="about_section">INFO</string>
@@ -151,9 +155,9 @@
 
     <!-- Open-Source-Lizenzen -->
     <string name="licenses_h_app">Diese App</string>
-    <string name="licenses_p_app">ZoomBox Camera – Copyright © 2026 Indukto.\n\nLizenziert unter der GNU General Public License v3.0 (GPL-3.0). Quellcode: https://github.com/Indukto/zoom-box.\n\nDieses Programm wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Dies ist freie Software; Sie dürfen sie unter bestimmten Bedingungen weiterverbreiten – siehe Lizenztext.</string>
+    <string name="licenses_p_app">ZoomBox Camera – Copyright © 2026 Indukto.\n\nLizenziert unter der GNU General Public License v3.0 (GPL-3.0). Quellcode: https://github.com/Indukto/Bhig.\n\nDieses Programm wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Dies ist freie Software; Sie dürfen sie unter bestimmten Bedingungen weiterverbreiten – siehe Lizenztext.</string>
     <string name="licenses_h_libs">Open-Source-Bibliotheken</string>
-    <string name="licenses_p_libs">Basiert auf Apache-License-2.0-Komponenten des Android-/Jetpack-Ökosystems: Jetpack Compose, Material 3, CameraX, Lifecycle, DataStore, Core – außerdem Coil, Accompanist Permissions, Haze und kotlinx.coroutines sowie org.json (JSON-Lizenz).</string>
+    <string name="licenses_p_libs">Basiert auf Apache-License-2.0-Komponenten des Android-/Jetpack-Ökosystems: Jetpack Compose, Material 3, CameraX, Lifecycle, DataStore, Core – außerdem Coil, Accompanist Permissions, Haze und kotlinx.coroutines (JSON-Verarbeitung über org.json des Android-Frameworks). Film-Look-LUTs: MIT, siehe LUT-Hinweis in der App.</string>
     <string name="licenses_h_texts">Lizenztexte</string>
     <string name="licenses_p_texts">Apache-2.0: apache.org/licenses/LICENSE-2.0\nMIT: opensource.org/licenses/MIT\nGPL-3.0: gnu.org/licenses/gpl-3.0.html</string>
 </resources>

@@ -2,7 +2,6 @@ plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
   alias(libs.plugins.roborazzi)
-  alias(libs.plugins.secrets)
 }
 
 android {
@@ -19,12 +18,16 @@ android {
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
+  // Release keystore credentials come from environment variables so that
+  // F-Droid (and any CI without keys) can still `assembleRelease` unsigned:
+  // F-Droid signs the APK itself. Only wire the signing config when a
+  // keystore file plus both passwords are actually present.
   signingConfigs {
     create("release") {
       val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
       storeFile = file(keystorePath)
       storePassword = System.getenv("STORE_PASSWORD")
-      keyAlias = "upload"
+      keyAlias = System.getenv("KEY_ALIAS") ?: "upload"
       keyPassword = System.getenv("KEY_PASSWORD")
     }
   }
@@ -35,7 +38,13 @@ android {
       isMinifyEnabled = true
       isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      signingConfig = signingConfigs.getByName("release")
+      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
+      val hasReleaseKey = !System.getenv("STORE_PASSWORD").isNullOrEmpty()
+        && !System.getenv("KEY_PASSWORD").isNullOrEmpty()
+        && file(keystorePath).exists()
+      if (hasReleaseKey) {
+        signingConfig = signingConfigs.getByName("release")
+      }
     }
     debug { }
   }
@@ -48,14 +57,6 @@ android {
     buildConfig = true
   }
   testOptions { unitTests { isIncludeAndroidResources = true } }
-}
-
-// Configure the Secrets Gradle Plugin to use .env and .env.example files
-// to match the convention used in Web projects. Still used for the upload
-// keystore credentials (KEYSTORE_PATH, STORE_PASSWORD, KEY_PASSWORD).
-secrets {
-  propertiesFileName = ".env"
-  defaultPropertiesFileName = ".env.example"
 }
 
 dependencies {

@@ -1,0 +1,15 @@
+ZoomBox Camera is a retro-themed camera that shows the exact crop before you shoot: a live zoom box overlays the viewfinder so what you frame is what you save.
+
+FILM LOOKS
+13 hand-tuned film grades (Warm Portrait, Monochrome 400, Instant Classic, Cross Process, Golden 200, CCD Digicam and more) rendered live in the viewfinder and baked into your JPEGs.
+
+MANUAL CONTROL
+Exposure compensation in 1/10 stops, color-temperature plotting, flash modes, grid lines, self-timer, multi-lens switching (ultra-wide / primary / tele).
+
+RAW (DNG)
+Capture unprocessed sensor data alongside JPEG for professional editing — where your lens supports it.
+
+PRIVATE BY DESIGN
+No internet permission. No ads. No analytics. No trackers. Photos stay on your phone and are never uploaded anywhere. Location data is never written into your photos.
+
+Capture vintage film-styled photos with the signature zoom box and warm retro filters — the darkroom, back in your pocket.
