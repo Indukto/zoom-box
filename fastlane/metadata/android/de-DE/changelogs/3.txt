@@ -1,0 +1,3 @@
+- Die Galerie fragt nicht mehr nach Zugriff auf die gesamte Fotomediathek; sie zeigt nur noch die Fotos, die diese Installation gespeichert hat
+- Schlankerer Start nach Entfernen überflüssiger Debug-Ausgaben
+- Lizenz- und Quellcode-Links auf das aktuelle Repository aktualisiert

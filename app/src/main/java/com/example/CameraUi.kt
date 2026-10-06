@@ -12,6 +12,8 @@ package com.example
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import android.graphics.BitmapFactory
 import android.media.ExifInterface
 import androidx.compose.foundation.pager.HorizontalPager
@@ -68,12 +70,16 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.displayCutoutPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -95,8 +101,11 @@ import androidx.compose.material.icons.rounded.Thermostat
 import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Lightbulb
+import androidx.compose.material.icons.rounded.Crop
 import androidx.compose.material.icons.rounded.GridOn
 import androidx.compose.material.icons.rounded.GridOff
+import androidx.compose.material.icons.rounded.Layers
+import androidx.compose.material.icons.rounded.PrivacyTip
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -1406,44 +1415,11 @@ fun CameraUi(
 
     val cameraPermissionState = rememberPermissionState(android.Manifest.permission.CAMERA)
 
-    // Picking the right photo-read permission per platform:
-    //   - Android 13 (TIRAMISU, API 33) and up: READ_MEDIA_IMAGES
-    //   - Android 10..12 (Q..S_V2, API 29..32): READ_EXTERNAL_STORAGE
-    // The manifest declares both with the right sdk-version gates, so older
-    // devices install cleanly without seeing READ_MEDIA_IMAGES in the
-    // Play listing and newer devices don't see the deprecated
-    // READ_EXTERNAL_STORAGE. Without this permission granted, the gallery
-    // still works for photos inserted by THIS install of the app (we own
-    // those MediaStore rows via implicit app-uid ownership); granting it
-    // extends the gallery to foreign photos in Pictures/ZoomBoxCamera/
-    // and crucially to pre-reinstall rows (the OS disowns pre-reinstall rows
-    // when the UID changes, so they need explicit read access).
-    val mediaPermissionState = rememberPermissionState(
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU)
-            android.Manifest.permission.READ_MEDIA_IMAGES
-        else
-            android.Manifest.permission.READ_EXTERNAL_STORAGE
-    )
-
-    // Don't gate the camera UI on this permission — camera is the primary
-    // feature and works regardless. Key the effect on BOTH media and camera
-    // permission state so it re-runs when either changes (otherwise the
-    // "wait for camera before prompting media" early-return below would
-    // silently lock out the media dialog forever on a cold launch: camera
-    // isn't granted at first composition → early-return → camera flips to
-    // granted → the keyed status didn't change → effect never re-runs).
-    // Always re-scan at the end so granting mid-session takes effect immediately.
-    LaunchedEffect(mediaPermissionState.status, cameraPermissionState.status.isGranted) {
-        if (cameraPermissionState.status.isGranted &&
-            !mediaPermissionState.status.isGranted &&
-            !mediaPermissionState.status.shouldShowRationale
-        ) {
-            // Defer until camera is granted so we don't pre-empt it.
-            // The "don't auto-resurface rationale" branch is the same condition
-            // (shouldShowRationale == true means the user previously denied),
-            // so the user gets exactly one prompt per install — never again.
-            mediaPermissionState.launchPermissionRequest()
-        }
+    // The gallery reads only photos this installation created (app-owned
+    // MediaStore rows plus the private working copies), so no media-library
+    // permission is requested. Keyed on the camera grant so the first scan
+    // happens once the camera UI is actually up.
+    LaunchedEffect(cameraPermissionState.status.isGranted) {
         viewModel.loadPhotos(context)
     }
 
@@ -1627,9 +1603,23 @@ fun CameraUi(
             }
         } else {
             CameraPermissionOnboarding(
+                showRationale = cameraPermissionState.status.shouldShowRationale,
                 onRequestPermission = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     cameraPermissionState.launchPermissionRequest()
+                },
+                onOpenSettings = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    try {
+                        context.startActivity(
+                            Intent(
+                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                Uri.fromParts("package", context.packageName, null)
+                            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        )
+                    } catch (_: Exception) {
+                        cameraPermissionState.launchPermissionRequest()
+                    }
                 }
             )
         }
@@ -1638,8 +1628,13 @@ fun CameraUi(
 
 @Composable
 fun CameraPermissionOnboarding(
-    onRequestPermission: () -> Unit
+    showRationale: Boolean = false,
+    onRequestPermission: () -> Unit,
+    onOpenSettings: () -> Unit = {}
 ) {
+    val colorScheme = MaterialTheme.colorScheme
+    val typography = MaterialTheme.typography
+
     // ── Staggered entrance animation ──────────────────────────────────────
     val infiniteTransition = rememberInfiniteTransition(label = "splash_pulse")
     val iconPulse by infiniteTransition.animateFloat(
@@ -1651,21 +1646,13 @@ fun CameraPermissionOnboarding(
         ),
         label = "icon_pulse"
     )
-    val buttonPulse by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.03f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2200, delayMillis = 400, easing = EaseInOutCubic),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "button_pulse"
-    )
 
     // Track whether each element has entered for staggered reveal
     var revealIcon by remember { mutableStateOf(false) }
     var revealTitle by remember { mutableStateOf(false) }
     var revealTagline by remember { mutableStateOf(false) }
     var revealDesc by remember { mutableStateOf(false) }
+    var revealFeatures by remember { mutableStateOf(false) }
     var revealButton by remember { mutableStateOf(false) }
     var revealFooter by remember { mutableStateOf(false) }
 
@@ -1677,244 +1664,350 @@ fun CameraPermissionOnboarding(
         revealTagline = true
         kotlinx.coroutines.delay(160.milliseconds)
         revealDesc = true
+        kotlinx.coroutines.delay(160.milliseconds)
+        revealFeatures = true
         kotlinx.coroutines.delay(200.milliseconds)
         revealButton = true
         kotlinx.coroutines.delay(200.milliseconds)
         revealFooter = true
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF121212))
+    val enterSpec =
+        fadeIn(tween(500, easing = EaseInOutCubic)) +
+            slideInVertically(tween(500, easing = EaseInOutCubic)) { it / 2 }
+
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = colorScheme.background
     ) {
-        // ── Subtle radial gradient overlay ────────────────────────────────
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(
-                        Color(0xFFF59E0B).copy(alpha = 0.06f),
-                        Color.Transparent
-                    ),
-                    center = Offset(size.width / 2f, size.height * 0.42f),
-                    radius = size.maxDimension * 0.7f
+        Box(modifier = Modifier.fillMaxSize()) {
+            // ── Subtle radial gradient overlay ────────────────────────────
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            colorScheme.primary.copy(alpha = 0.08f),
+                            Color.Transparent
+                        ),
+                        center = Offset(size.width / 2f, size.height * 0.42f),
+                        radius = size.maxDimension * 0.7f
+                    )
                 )
+            }
+
+            OnboardingFilmEdge(
+                alignment = Alignment.TopCenter,
+                accent = colorScheme.primary
             )
-        }
+            OnboardingFilmEdge(
+                alignment = Alignment.BottomCenter,
+                accent = colorScheme.primary
+            )
 
-        // ── Decorative film-frame borders ─────────────────────────────────
-        // Top frame line
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .fillMaxWidth()
-                .height(3.dp)
-                .background(
-                    Brush.horizontalGradient(
-                        listOf(
-                            Color.Transparent,
-                            Color(0xFFF59E0B).copy(alpha = 0.3f),
-                            Color(0xFFF59E0B).copy(alpha = 0.5f),
-                            Color(0xFFF59E0B).copy(alpha = 0.3f),
-                            Color.Transparent
-                        )
-                    )
-                )
-        )
-        // Sprocket holes (top)
-        Row(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 10.dp)
-                .fillMaxWidth(0.85f),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            repeat(12) {
-                Box(
-                    modifier = Modifier
-                        .size(6.dp, 4.dp)
-                        .background(Color(0xFFF59E0B).copy(alpha = 0.15f), RoundedCornerShape(1.dp))
-                )
-            }
-        }
-
-        // Bottom frame line
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .height(3.dp)
-                .background(
-                    Brush.horizontalGradient(
-                        listOf(
-                            Color.Transparent,
-                            Color(0xFFF59E0B).copy(alpha = 0.3f),
-                            Color(0xFFF59E0B).copy(alpha = 0.5f),
-                            Color(0xFFF59E0B).copy(alpha = 0.3f),
-                            Color.Transparent
-                        )
-                    )
-                )
-        )
-        // Sprocket holes (bottom)
-        Row(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 10.dp)
-                .fillMaxWidth(0.85f),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            repeat(12) {
-                Box(
-                    modifier = Modifier
-                        .size(6.dp, 4.dp)
-                        .background(Color(0xFFF59E0B).copy(alpha = 0.15f), RoundedCornerShape(1.dp))
-                )
-            }
-        }
-
-        // ── Main content column ───────────────────────────────────────────
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 24.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // ── Icon ──────────────────────────────────────────────────────
-            AnimatedVisibility(
-                visible = revealIcon,
-                enter = fadeIn(tween(500, easing = EaseInOutCubic)) +
-                        slideInVertically(tween(500, easing = EaseInOutCubic)) { it / 2 }
+            // ── Main content column ───────────────────────────────────────
+            // Scrollable + inset-aware so small screens / landscape /
+            // large fonts never clip the CTA behind the film edges.
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .displayCutoutPadding()
+                    .navigationBarsPadding()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp, vertical = 28.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(100.dp)
-                        .scale(iconPulse)
-                        .background(Color(0xFF232323), CircleShape)
-                        .border(2.dp, Color(0xFFF59E0B), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.CameraAlt,
-                        contentDescription = stringResource(R.string.retro_camera_icon_desc),
-                        tint = Color(0xFFF59E0B),
-                        modifier = Modifier.size(48.dp)
+                // ── Icon ──────────────────────────────────────────────────
+                AnimatedVisibility(visible = revealIcon, enter = enterSpec) {
+                    Box(
+                        modifier = Modifier
+                            .size(88.dp)
+                            .scale(iconPulse)
+                            .background(colorScheme.surfaceContainerHigh, CircleShape)
+                            .border(2.dp, colorScheme.primary, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.CameraAlt,
+                            contentDescription = stringResource(R.string.retro_camera_icon_desc),
+                            tint = colorScheme.primary,
+                            modifier = Modifier.size(44.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(28.dp))
+
+                // ── Title ─────────────────────────────────────────────────
+                AnimatedVisibility(visible = revealTitle, enter = enterSpec) {
+                    Text(
+                        text = stringResource(R.string.splash_title),
+                        style = typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = colorScheme.onBackground,
+                        letterSpacing = 3.sp,
+                        fontFamily = Inter,
+                        textAlign = TextAlign.Center
                     )
                 }
-            }
 
-            Spacer(modifier = Modifier.height(36.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-            // ── Title ─────────────────────────────────────────────────────
-            AnimatedVisibility(
-                visible = revealTitle,
-                enter = fadeIn(tween(500, easing = EaseInOutCubic)) +
-                        slideInVertically(tween(500, easing = EaseInOutCubic)) { it / 2 }
-            ) {
-                Text(
-                    text = stringResource(R.string.splash_title),
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    letterSpacing = 3.sp,
-                    fontFamily = Inter
-                )
-            }
+                // ── Tagline ───────────────────────────────────────────────
+                AnimatedVisibility(visible = revealTagline, enter = enterSpec) {
+                    Text(
+                        text = stringResource(R.string.splash_tagline),
+                        style = typography.labelMedium,
+                        color = colorScheme.primary.copy(alpha = 0.8f),
+                        letterSpacing = 4.sp,
+                        fontFamily = Inter,
+                        textAlign = TextAlign.Center
+                    )
+                }
 
-            Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-            // ── Tagline ───────────────────────────────────────────────────
-            AnimatedVisibility(
-                visible = revealTagline,
-                enter = fadeIn(tween(500, easing = EaseInOutCubic)) +
-                        slideInVertically(tween(500, easing = EaseInOutCubic)) { it / 2 }
-            ) {
-                Text(
-                    text = stringResource(R.string.splash_tagline),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Normal,
-                    color = Color(0xFFF59E0B).copy(alpha = 0.7f),
-                    letterSpacing = 4.sp,
-                    fontFamily = Inter
-                )
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // ── Description ───────────────────────────────────────────────
-            AnimatedVisibility(
-                visible = revealDesc,
-                enter = fadeIn(tween(600, easing = EaseInOutCubic)) +
+                // ── Description ───────────────────────────────────────────
+                AnimatedVisibility(
+                    visible = revealDesc,
+                    enter = fadeIn(tween(600, easing = EaseInOutCubic)) +
                         slideInVertically(tween(600, easing = EaseInOutCubic)) { it / 2 }
-            ) {
-                Text(
-                    text = stringResource(R.string.splash_description),
-                    fontSize = 15.sp,
-                    color = Color(0xFF9CA3AF),
-                    textAlign = TextAlign.Center,
-                    lineHeight = 24.sp,
-                    modifier = Modifier.padding(horizontal = 12.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(48.dp))
-
-            // ── Button ────────────────────────────────────────────────────
-            AnimatedVisibility(
-                visible = revealButton,
-                enter = fadeIn(tween(600, easing = EaseInOutCubic)) +
-                        slideInVertically(tween(600, easing = EaseInOutCubic)) { it / 2 }
-            ) {
-                Box(
-                    modifier = Modifier
-                        .scale(buttonPulse)
-                        .fillMaxWidth(0.7f)
-                        .height(56.dp)
-                        .clip(RoundedCornerShape(30.dp))
-                        .background(
-                            brush = Brush.horizontalGradient(
-                                listOf(
-                                    Color(0xFFF59E0B),
-                                    Color(0xFFD97706)
-                                )
-                            )
-                        )
-                        .clickable { onRequestPermission() }
-                        .testTag("enable_camera_button"),
-                    contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = stringResource(R.string.enable_camera),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp,
-                        letterSpacing = 1.5.sp,
-                        color = Color.Black
+                        text = stringResource(
+                            if (showRationale) R.string.splash_rationale_description
+                            else R.string.splash_description
+                        ),
+                        style = typography.bodyMedium,
+                        color = colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 24.sp,
+                        modifier = Modifier.padding(horizontal = 12.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // ── Feature trio + privacy pill ───────────────────────────
+                AnimatedVisibility(
+                    visible = revealFeatures,
+                    enter = fadeIn(tween(600, easing = EaseInOutCubic)) +
+                        slideInVertically(tween(600, easing = EaseInOutCubic)) { it / 2 }
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            OnboardingFeature(
+                                icon = Icons.Rounded.Crop,
+                                label = stringResource(R.string.splash_feature_zoom)
+                            )
+                            OnboardingFeature(
+                                icon = Icons.Rounded.Layers,
+                                label = stringResource(R.string.splash_feature_film)
+                            )
+                            OnboardingFeature(
+                                icon = Icons.Rounded.PrivacyTip,
+                                label = stringResource(R.string.splash_feature_offline)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Surface(
+                            color = colorScheme.secondaryContainer,
+                            shape = RoundedCornerShape(999.dp)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.splash_privacy_note),
+                                style = typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = colorScheme.onSecondaryContainer,
+                                modifier = Modifier.padding(
+                                    horizontal = 12.dp,
+                                    vertical = 6.dp
+                                ),
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // ── Button ────────────────────────────────────────────────
+                AnimatedVisibility(
+                    visible = revealButton,
+                    enter = fadeIn(tween(600, easing = EaseInOutCubic)) +
+                        slideInVertically(tween(600, easing = EaseInOutCubic)) { it / 2 }
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Button(
+                            onClick = onRequestPermission,
+                            modifier = Modifier
+                                .fillMaxWidth(0.75f)
+                                .height(56.dp)
+                                .testTag("enable_camera_button"),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = colorScheme.primary,
+                                contentColor = colorScheme.onPrimary
+                            )
+                        ) {
+                            Text(
+                                text = stringResource(R.string.enable_camera),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                                letterSpacing = 1.5.sp
+                            )
+                        }
+                        if (showRationale) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            TextButton(
+                                onClick = onOpenSettings,
+                                modifier = Modifier.testTag("open_settings_button")
+                            ) {
+                                Text(text = stringResource(R.string.splash_open_settings))
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // ── Version footer ────────────────────────────────────────
+                AnimatedVisibility(
+                    visible = revealFooter,
+                    enter = fadeIn(tween(800))
+                ) {
+                    Text(
+                        // Sourced from `versionName` in app/build.gradle.kts via
+                        // BuildConfig.VERSION_NAME. Bump the gradle line and the
+                        // splash footer reacts — see AppVersion.kt for the single
+                        // source-of-truth story.
+                        text = stringResource(R.string.splash_footer, AppVersion.display),
+                        color = colorScheme.primary.copy(alpha = 0.4f),
+                        fontSize = 10.sp,
+                        letterSpacing = 2.sp,
+                        fontFamily = Inter,
+                        textAlign = TextAlign.Center
                     )
                 }
             }
         }
+    }
+}
 
-        // ── Version footer ────────────────────────────────────────────────
-        AnimatedVisibility(
-            visible = revealFooter,
-            enter = fadeIn(tween(800))
-        ) {
-            Text(
-                // Sourced from `versionName` in app/build.gradle.kts via
-                // BuildConfig.VERSION_NAME. Bump the gradle line and the
-                // splash footer reacts — see AppVersion.kt for the single
-                // source-of-truth story.
-                text = stringResource(R.string.splash_footer, AppVersion.display),
-                color = Color(0xFFF59E0B).copy(alpha = 0.25f),
-                fontSize = 10.sp,
-                letterSpacing = 2.sp,
-                fontFamily = Inter,
+/**
+ * Decorative film-strip edge (frame line + sprocket holes) pinned to the
+ * top or bottom of the onboarding surface. Extracted so top/bottom stay
+ * in lock-step and the main column reads without duplicated chrome.
+ */
+@Composable
+private fun BoxScope.OnboardingFilmEdge(
+    alignment: Alignment,
+    accent: Color
+) {
+    val isTop = alignment == Alignment.TopCenter
+    Column(
+        modifier = Modifier
+            .align(alignment)
+            .fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        if (!isTop) {
+            Row(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 36.dp)
+                    .padding(bottom = 10.dp)
+                    .fillMaxWidth(0.85f),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                repeat(12) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp, 4.dp)
+                            .background(accent.copy(alpha = 0.15f), RoundedCornerShape(1.dp))
+                    )
+                }
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(3.dp)
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(
+                                Color.Transparent,
+                                accent.copy(alpha = 0.3f),
+                                accent.copy(alpha = 0.5f),
+                                accent.copy(alpha = 0.3f),
+                                Color.Transparent
+                            )
+                        )
+                    )
             )
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(3.dp)
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(
+                                Color.Transparent,
+                                accent.copy(alpha = 0.3f),
+                                accent.copy(alpha = 0.5f),
+                                accent.copy(alpha = 0.3f),
+                                Color.Transparent
+                            )
+                        )
+                    )
+            )
+            Row(
+                modifier = Modifier
+                    .padding(top = 10.dp)
+                    .fillMaxWidth(0.85f),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                repeat(12) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp, 4.dp)
+                            .background(accent.copy(alpha = 0.15f), RoundedCornerShape(1.dp))
+                    )
+                }
+            }
         }
+    }
+}
+
+/**
+ * Single onboarding feature cell: small icon over a two-line-safe label.
+ * Fixed width keeps the trio evenly spaced on narrow screens.
+ */
+@Composable
+private fun OnboardingFeature(
+    icon: ImageVector,
+    label: String
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    Column(
+        modifier = Modifier.width(96.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = colorScheme.primary,
+            modifier = Modifier.size(22.dp)
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            maxLines = 2
+        )
     }
 }
 

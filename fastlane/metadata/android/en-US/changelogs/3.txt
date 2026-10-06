@@ -1,0 +1,3 @@
+- Gallery no longer asks for access to your whole photo library; it reads only the photos this installation saved
+- Leaner startup after removing leftover debug tracing
+- Updated licence and source-code links to the current repository

@@ -141,7 +141,6 @@
     <string name="privacy_h_photos">Photos et caméra</string>
     <string name="privacy_p_photos">Les photos sont capturées, traitées et stockées uniquement sur votre appareil (dans Pictures/ZoomBoxCamera/ et le stockage privé de l’app). L’app n’inscrit jamais votre position ni vos coordonnées GPS dans les photos. Une photo ne quitte votre appareil que si vous la partagez vous-même.</string>
     <string name="privacy_h_permissions">Autorisations</string>
-    <string name="privacy_p_permissions">Caméra : requise pour prendre des photos, demandée au premier lancement. Photos et vidéos : permet à la galerie d’afficher les photos enregistrées par l’app après une réinstallation. Aucun accès en arrière-plan — chaque lecture ou écriture est déclenchée par vous dans l’app.</string>
     <string name="privacy_h_backup">Sauvegardes</string>
     <string name="privacy_p_backup">Vos réglages photo (style de film, lignes de grille, etc.) peuvent être inclus dans la sauvegarde automatique Android, stockée dans votre compte Google et visible uniquement par vous. Les photos sont exclues des sauvegardes. Vous pouvez désactiver les sauvegardes dans les paramètres système Android.</string>
     <string name="privacy_h_nodata">Aucune donnée ne parvient au développeur</string>
@@ -152,7 +151,7 @@
     <string name="privacy_p_rights">En vertu du Règlement général sur la protection des données (RGPD) de l’UE, vous disposez des droits d’accès, de rectification, d’effacement, de limitation du traitement, de portabilité des données et d’opposition, ainsi que du droit d’introduire une réclamation auprès d’une autorité de contrôle. Le développeur ne détenant aucune donnée personnelle vous concernant, il n’y a rien sur quoi exercer ces droits côté développeur.</string>
 
     <string name="licenses_h_app">Cette app</string>
-    <string name="licenses_p_app">ZoomBox Camera — Copyright © 2026 Indukto.\n\nLicenciée sous la GNU General Public License v3.0 (GPL-3.0). Code source : https://github.com/Indukto/Bhig.\n\nCe programme est fourni SANS AUCUNE GARANTIE. C’est un logiciel libre que vous pouvez redistribuer sous certaines conditions ; voir le texte de la licence.</string>
+    <string name="licenses_p_app">ZoomBox Camera — Copyright © 2026 Indukto.\n\nLicenciée sous la GNU General Public License v3.0 (GPL-3.0). Code source : https://github.com/Indukto/zoom-box.\n\nCe programme est fourni SANS AUCUNE GARANTIE. C’est un logiciel libre que vous pouvez redistribuer sous certaines conditions ; voir le texte de la licence.</string>
     <string name="licenses_h_libs">Bibliothèques open source</string>
     <string name="licenses_p_libs">Basée sur des composants Apache License 2.0 de l’écosystème Android/Jetpack : Jetpack Compose, Material 3, CameraX, Lifecycle, DataStore, Core — plus Coil, Accompanist Permissions, Haze et kotlinx.coroutines (analyse JSON via org.json du framework Android). LUTs des looks : MIT, voir la notice LUT fournie avec l’app.</string>
     <string name="licenses_h_texts">Textes des licences</string>

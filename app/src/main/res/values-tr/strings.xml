@@ -133,7 +133,6 @@
     <string name="privacy_h_photos">Fotoğraflar ve kamera</string>
     <string name="privacy_p_photos">Fotoğraflar yalnızca cihazınızda çekilir, işlenir ve saklanır (Pictures/ZoomBoxCamera/ ve uygulamanın özel deposu). Uygulama fotoğraflara konum veya GPS koordinatı yazmaz. Bir fotoğraf cihazınızdan yalnızca siz paylaşırsanız çıkar.</string>
     <string name="privacy_h_permissions">İzinler</string>
-    <string name="privacy_p_permissions">Kamera: fotoğraf çekmek için gerekli, ilk açılışta istenir. Fotoğraflar ve videolar: yeniden kurulumdan sonra galerinin uygulamanın kaydettiği fotoğrafları göstermesini sağlar. Arka plan erişimi yok — her okuma/yazma işlemi uygulama içinde sizin tarafınızdan başlatılır.</string>
     <string name="privacy_h_backup">Yedekler</string>
     <string name="privacy_p_backup">Kamera ayarlarınız (film görünümü, ızgara çizgileri vb.) Google hesabınızda saklanan ve yalnızca sizin görebildiğiniz otomatik Android yedeklemesine dahil edilebilir. Fotoğraflar yedeklerin dışındadır. Yedekleri Android sistem ayarlarından kapatabilirsiniz.</string>
     <string name="privacy_h_nodata">Geliştiriciye veri ulaşmaz</string>
@@ -144,7 +143,7 @@
     <string name="privacy_p_rights">AB Genel Veri Koruma Tüzüğü (GDPR) kapsamında erişim, düzeltme, silme, işlemeyi kısıtlama, veri taşınabilirliği ve itiraz haklarına, ayrıca denetim makamına şikayet hakkına sahipsiniz. Geliştirici sizinle ilgili kişisel veri tutmadığından, geliştirici tarafında bu hakların uygulanacağı bir veri yoktur.</string>
 
     <string name="licenses_h_app">Bu uygulama</string>
-    <string name="licenses_p_app">ZoomBox Camera — Copyright © 2026 Indukto.\n\nGNU General Public License v3.0 (GPL-3.0) ile lisanslıdır. Kaynak kodu: https://github.com/Indukto/Bhig.\n\nBu program HİÇBİR GARANTİ VERİLMEDEN sunulur. Özgür yazılımdır; belirli koşullar altında yeniden dağıtabilirsiniz; lisans metnine bakın.</string>
+    <string name="licenses_p_app">ZoomBox Camera — Copyright © 2026 Indukto.\n\nGNU General Public License v3.0 (GPL-3.0) ile lisanslıdır. Kaynak kodu: https://github.com/Indukto/zoom-box.\n\nBu program HİÇBİR GARANTİ VERİLMEDEN sunulur. Özgür yazılımdır; belirli koşullar altında yeniden dağıtabilirsiniz; lisans metnine bakın.</string>
     <string name="licenses_h_libs">Açık kaynak kitaplıkları</string>
     <string name="licenses_p_libs">Android/Jetpack ekosisteminin Apache License 2.0 bileşenleri üzerine kuruludur: Jetpack Compose, Material 3, CameraX, Lifecycle, DataStore, Core — ayrıca Coil, Accompanist Permissions, Haze ve kotlinx.coroutines (Android çerçevesinin org.json ile JSON ayrıştırma). Film LUT’ları: MIT, uygulamadaki LUT bildirimine bakın.</string>
     <string name="licenses_h_texts">Lisans metinleri</string>

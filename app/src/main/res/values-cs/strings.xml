@@ -133,7 +133,6 @@
     <string name="privacy_h_photos">Fotky a fotoaparát</string>
     <string name="privacy_p_photos">Fotky se snímají, zpracovávají a ukládají pouze na vašem zařízení (ve složce Pictures/ZoomBoxCamera/ a v soukromém úložišti aplikace). Aplikace nikdy nezapisuje vaši polohu ani GPS souřadnice do fotek. Fotka opustí vaše zařízení, jen když ji sami nasdílíte.</string>
     <string name="privacy_h_permissions">Oprávnění</string>
-    <string name="privacy_p_permissions">Fotoaparát: nutný k focení, žádá se při prvním spuštění. Fotky a videa: aby galerie po reinstalaci zobrazila fotky uložené aplikací. Žádný přístup na pozadí — každé čtení či zápis spouštíte vy v aplikaci.</string>
     <string name="privacy_h_backup">Zálohy</string>
     <string name="privacy_p_backup">Nastavení fotoaparátu (filmový vzhled, čáry mřížky apod.) mohou být součástí automatické zálohy Androidu uložené ve vašem účtu Google a viditelné jen pro vás. Fotky jsou ze záloh vyloučeny. Zálohy můžete vypnout v systémovém nastavení Androidu.</string>
     <string name="privacy_h_nodata">K vývojáři se nedostanou žádná data</string>
@@ -144,7 +143,7 @@
     <string name="privacy_p_rights">Podle obecného nařízení EU o ochraně osobních údajů (GDPR) máte práva na přístup, opravu, výmaz, omezení zpracování, přenositelnost a námitku, plus právo podat stížnost u dozorového úřadu. Protože vývojář neuchovává žádné vaše osobní údaje, není na straně vývojáře nic, vůči čemu by šla tato práva uplatnit.</string>
 
     <string name="licenses_h_app">Tato aplikace</string>
-    <string name="licenses_p_app">ZoomBox Camera — Copyright © 2026 Indukto.\n\nLicencováno pod GNU General Public License v3.0 (GPL-3.0). Zdrojový kód: https://github.com/Indukto/Bhig.\n\nTento program je poskytován BEZ JAKÉKOLI ZÁRUKY. Je to svobodný software, který můžete šířit za určitých podmínek; viz text licence.</string>
+    <string name="licenses_p_app">ZoomBox Camera — Copyright © 2026 Indukto.\n\nLicencováno pod GNU General Public License v3.0 (GPL-3.0). Zdrojový kód: https://github.com/Indukto/zoom-box.\n\nTento program je poskytován BEZ JAKÉKOLI ZÁRUKY. Je to svobodný software, který můžete šířit za určitých podmínek; viz text licence.</string>
     <string name="licenses_h_libs">Open-source knihovny</string>
     <string name="licenses_p_libs">Postaveno na komponentách Apache License 2.0 ekosystému Android/Jetpack: Jetpack Compose, Material 3, CameraX, Lifecycle, DataStore, Core — plus Coil, Accompanist Permissions, Haze a kotlinx.coroutines (parsování JSON přes org.json frameworku Android). LUT filmových vzhledů: MIT, viz poznámka LUT v aplikaci.</string>
     <string name="licenses_h_texts">Texty licencí</string>

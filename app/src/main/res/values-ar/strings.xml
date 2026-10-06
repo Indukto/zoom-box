@@ -133,7 +133,6 @@
     <string name="privacy_h_photos">الصور والكاميرا</string>
     <string name="privacy_p_photos">تُلتقط الصور وتُعالج وتُخزن على جهازك فقط (في Pictures/ZoomBoxCamera/ والتخزين الخاص للتطبيق). لا يكتب التطبيق موقعك أو إحداثيات GPS في الصور أبدًا. لا تغادر الصورة جهازك إلا إذا شاركتها بنفسك.</string>
     <string name="privacy_h_permissions">الأذونات</string>
-    <string name="privacy_p_permissions">الكاميرا: مطلوبة لالتقاط الصور، تُطلب عند أول تشغيل. الصور والفيديو: ليعرض المعرض الصور التي حفظها التطبيق بعد إعادة التثبيت. لا يوجد وصول في الخلفية — كل قراءة أو كتابة تبدأها أنت في التطبيق.</string>
     <string name="privacy_h_backup">النسخ الاحتياطي</string>
     <string name="privacy_p_backup">قد تُشمل إعدادات الكاميرا (نمط الفيلم وخطوط الشبكة وغيرها) في النسخ الاحتياطي التلقائي لـ Android المخزن في حساب Google الخاص بك والمرئي لك فقط. الصور مستثناة. يمكنك إيقاف النسخ الاحتياطي في إعدادات نظام Android.</string>
     <string name="privacy_h_nodata">لا تصل أي بيانات إلى المطور</string>
@@ -144,7 +143,7 @@
     <string name="privacy_p_rights">بموجب اللائحة العامة لحماية البيانات في الاتحاد الأوروبي (GDPR) لك حقوق الوصول والتصحيح والمحو وتقييد المعالجة وقابلية النقل والاعتراض، إضافة إلى حق الشكوى لدى سلطة إشرافية. وبما أن المطور لا يحتفظ ببيانات شخصية عنك فلا يوجد ما تمارس عليه هذه الحقوق لدى المطور.</string>
 
     <string name="licenses_h_app">هذا التطبيق</string>
-    <string name="licenses_p_app">ZoomBox Camera — حقوق النشر © 2026 Indukto.\n\nمرخص بموجب GNU General Public License v3.0 (GPL-3.0). الكود المصدري: https://github.com/Indukto/Bhig.\n\nيُقدم هذا البرنامج دون أي ضمان. هو برنامج حر يمكنك إعادة توزيعه بشروط معينة؛ انظر نص الترخيص.</string>
+    <string name="licenses_p_app">ZoomBox Camera — حقوق النشر © 2026 Indukto.\n\nمرخص بموجب GNU General Public License v3.0 (GPL-3.0). الكود المصدري: https://github.com/Indukto/zoom-box.\n\nيُقدم هذا البرنامج دون أي ضمان. هو برنامج حر يمكنك إعادة توزيعه بشروط معينة؛ انظر نص الترخيص.</string>
     <string name="licenses_h_libs">مكتبات مفتوحة المصدر</string>
     <string name="licenses_p_libs">مبني على مكونات Apache License 2.0 من منظومة Android/Jetpack: Jetpack Compose وMaterial 3 وCameraX وLifecycle وDataStore وCore — بالإضافة إلى Coil وAccompanist Permissions وHaze وkotlinx.coroutines (تحليل JSON عبر org.json في إطار Android). جداول LUT: MIT، انظر إشعار LUT في التطبيق.</string>
     <string name="licenses_h_texts">نصوص التراخيص</string>

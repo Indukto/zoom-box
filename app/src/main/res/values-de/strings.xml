@@ -142,8 +142,8 @@
     <string name="privacy_p_about">ZoomBox Camera ist eine Offline-Kamera-App. Sie deklariert keine Internet-Berechtigung – Android blockiert damit jeglichen Netzwerkzugriff: Die App kann keine Daten übertragen. Es gibt keine Werbung, keine Analyse-Tools, keine Tracker und keine Absturzberichte.</string>
     <string name="privacy_h_photos">Fotos &amp; Kamera</string>
     <string name="privacy_p_photos">Fotos werden ausschließlich auf Ihrem Gerät aufgenommen, verarbeitet und gespeichert (unter Pictures/ZoomBoxCamera/ sowie im privaten App-Speicher). Die App schreibt niemals Standort- oder GPS-Daten in Fotos. Ein Foto verlässt Ihr Gerät nur, wenn Sie es selbst teilen.</string>
+    <string name="privacy_p_permissions">Kamera: erforderlich für Fotos, wird beim ersten Start abgefragt. Die App fordert keine Berechtigung für die Fotomediathek an: Die Galerie zeigt nur die Fotos, die diese Installation gespeichert hat. Es gibt keinen Hintergrundzugriff – jeder Lese- oder Schreibvorgang wird von Ihnen in der App ausgelöst.</string>
     <string name="privacy_h_permissions">Berechtigungen</string>
-    <string name="privacy_p_permissions">Kamera: erforderlich für Fotos, wird beim ersten Start abgefragt. Fotos &amp; Videos: damit die Galerie nach einer Neuinstallation Fotos zeigt, die die App gespeichert hat. Es gibt keinen Hintergrundzugriff – jeder Lese- oder Schreibvorgang wird von Ihnen in der App ausgelöst.</string>
     <string name="privacy_h_backup">Sicherungs­kopien</string>
     <string name="privacy_p_backup">Ihre Kamera-Einstellungen (Filmlook, Rasterlinien usw.) können in der automatischen Android-Gerätesicherung enthalten sein; diese liegt in Ihrem Google-Konto und ist nur für Sie sichtbar. Fotos sind von Sicherungen ausgeschlossen. Sie können Sicherungen in den Android-Systemeinstellungen deaktivieren.</string>
     <string name="privacy_h_nodata">Keine Daten erreichen den Entwickler</string>
@@ -155,9 +155,20 @@
 
     <!-- Open-Source-Lizenzen -->
     <string name="licenses_h_app">Diese App</string>
-    <string name="licenses_p_app">ZoomBox Camera – Copyright © 2026 Indukto.\n\nLizenziert unter der GNU General Public License v3.0 (GPL-3.0). Quellcode: https://github.com/Indukto/Bhig.\n\nDieses Programm wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Dies ist freie Software; Sie dürfen sie unter bestimmten Bedingungen weiterverbreiten – siehe Lizenztext.</string>
+    <string name="licenses_p_app">ZoomBox Camera – Copyright © 2026 Indukto.\n\nLizenziert unter der GNU General Public License v3.0 (GPL-3.0). Quellcode: https://github.com/Indukto/zoom-box.\n\nDieses Programm wird OHNE JEDE GEWÄHRLEISTUNG bereitgestellt. Dies ist freie Software; Sie dürfen sie unter bestimmten Bedingungen weiterverbreiten – siehe Lizenztext.</string>
     <string name="licenses_h_libs">Open-Source-Bibliotheken</string>
     <string name="licenses_p_libs">Basiert auf Apache-License-2.0-Komponenten des Android-/Jetpack-Ökosystems: Jetpack Compose, Material 3, CameraX, Lifecycle, DataStore, Core – außerdem Coil, Accompanist Permissions, Haze und kotlinx.coroutines (JSON-Verarbeitung über org.json des Android-Frameworks). Film-Look-LUTs: MIT, siehe LUT-Hinweis in der App.</string>
     <string name="licenses_h_texts">Lizenztexte</string>
     <string name="licenses_p_texts">Apache-2.0: apache.org/licenses/LICENSE-2.0\nMIT: opensource.org/licenses/MIT\nGPL-3.0: gnu.org/licenses/gpl-3.0.html</string>
+    <string name="imprint_title">Impressum</string>
+    <string name="settings_imprint_label">Impressum</string>
+    <string name="settings_imprint_subtitle">Anbieter- und Kontaktangaben gemäß § 5 DDG</string>
+    <string name="imprint_h_provider">Anbieter / Diensteanbieter</string>
+    <string name="imprint_p_provider">[Ihr Name]\n[Straße und Hausnummer]\n[PLZ] [Ort]\nDeutschland</string>
+    <string name="imprint_h_contact">Kontakt</string>
+    <string name="imprint_p_contact">E-Mail: [ihre@email.example]\nFür Support nutzen Sie bitte bevorzugt E-Mail; Fehlerberichte gerne über den im Store-Eintrag verlinkten Issue-Tracker.</string>
+    <string name="imprint_h_mstv">Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV</string>
+    <string name="imprint_p_mstv">[Ihr Name], Anschrift wie oben.</string>
+    <string name="imprint_h_dispute">Verbraucherstreitbeilegung</string>
+    <string name="imprint_p_dispute">Wir sind nicht verpflichtet und nicht bereit, an einem Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle teilzunehmen (§ 36 VSBG). Die Online-Streitbeilegungsplattform der EU-Kommission wurde am 20. Juli 2025 eingestellt.</string>
 </resources>

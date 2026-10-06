@@ -20,7 +20,7 @@
 
 **Zoom Box Camera** is a retro-themed Android camera app built with **Jetpack Compose** and **CameraX**. A live *Zoom Box* framing overlay shows the exact crop area before you shoot, paired with vintage film color processing, 3D LUT grading, and full manual controls — the darkroom, back in your pocket.
 
-> 💡 **Have a feature request?** Open an [issue](https://github.com/Indukto/Bhig/issues) 
+> 💡 **Have a feature request?** Open an [issue](https://github.com/Indukto/zoom-box/issues) 
 
 ##  Screenshots
 
@@ -114,8 +114,8 @@ The four newest looks (Golden 200, Street Mono 400, Vivid Cool 400, CCD Digicam)
 **Prerequisites:** [Android Studio Ladybug (2024.2.1)+](https://developer.android.com/studio), a device or emulator on **API 29+**.
 
 ```bash
-git clone https://github.com/Indukto/Bhig.git
-cd Bhig
+git clone https://github.com/Indukto/zoom-box.git
+cd zoom-box
 ```
 
 Open the project in Android Studio, sync Gradle, and hit **Run**. That's it — no API keys, no configuration.

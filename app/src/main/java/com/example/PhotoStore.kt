@@ -39,10 +39,11 @@ class PhotoStore(private val context: Context) {
         //      works fine here because we own the directory and it lives
         //      inside our scope (`/sdcard/Android/data/<package>/files/...`).
         //   2. Public-shared MediaStore mirror: Pictures/ZoomBoxCamera/ (plus
-        //      any subfolders, including the RAW/ tree). After an app reinstall
-        //      the private copy is wiped but the MediaStore entries survive —
-        //      and only MediaStore can see them on Android 10+ scoped storage
-        //      without READ_MEDIA_IMAGES.
+        //      any subfolders, including the RAW/ tree). MediaStore is the only
+        //      way to reach this tree on Android 10+ scoped storage, and we query
+        //      it with no media permission at all, so it yields exactly the rows
+        //      this install created (implicit app-uid ownership). Rows written by
+        //      an earlier install belong to the previous UID and stay invisible.
         val publicFiles = listPublicPhotosViaMediaStore()
         // Drop orphan app-private cache mirrors whose MediaStore row has gone
         // away (external delete via file manager, sideload via ADB, etc.).
@@ -309,16 +310,15 @@ class PhotoStore(private val context: Context) {
      *
      * Why MediaStore instead of `File.listFiles()` on the public tree:
      *   - On Android 10+ scoped storage, `File.listFiles()` returns null/empty
-     *     on `/sdcard/Pictures/...` unless the app has MANAGE_EXTERNAL_STORAGE
-     *     or the corresponding READ_MEDIA_IMAGES / READ_EXTERNAL_STORAGE
-     *     permission. Our app previously assumed the public tree was readable
-     *     and would silently show an empty gallery whenever the user reinstalled
-     *     (UID changes → OS no longer treats us as the owner of pre-reinstall
-     *     rows, and File API falls back to "no access").
-     *   - MediaStore queries work for our own rows even without the runtime
-     *     permission (we implicitly own them) and naturally return both our
-     *     own files and any other-app file in the same folder once the
-     *     permission is granted.
+     *     on `/sdcard/Pictures/...` without MANAGE_EXTERNAL_STORAGE or a media
+     *     read permission, so the public tree cannot be listed directly.
+     *   - MediaStore queries do work for the rows this install inserted, even
+     *     with no media permission, because MediaStore.insert makes us the
+     *     owner. That is exactly why the app requests no photo-library
+     *     permission. Rows owned by another app — including rows from a
+     *     previous install, whose UID no longer matches ours — are deliberately
+     *     not returned, which is the scoped-storage behaviour Google Play
+     *     expects from a camera that manages its own captures.
      *
      * RELATIVE_PATH matching uses slash-anchored equality + LIKE so we cover
      * every vendor normalizer without over-matching sibling folders:

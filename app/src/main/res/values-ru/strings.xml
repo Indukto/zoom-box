@@ -133,7 +133,6 @@
     <string name="privacy_h_photos">Фото и камера</string>
     <string name="privacy_p_photos">Фото снимаются, обрабатываются и хранятся только на вашем устройстве (в Pictures/ZoomBoxCamera/ и частном хранилище приложения). Приложение никогда не записывает ваше местоположение или GPS-координаты в фото. Фото покидает устройство, только если вы сами им поделитесь.</string>
     <string name="privacy_h_permissions">Разрешения</string>
-    <string name="privacy_p_permissions">Камера: нужна для съёмки, запрашивается при первом запуске. Фото и видео: чтобы галерея показывала сохранённые приложением фото после переустановки. Фонового доступа нет — каждое чтение или запись инициируете вы в приложении.</string>
     <string name="privacy_h_backup">Резервные копии</string>
     <string name="privacy_p_backup">Ваши настройки камеры (стиль плёнки, линии сетки и т.д.) могут входить в автоматическую резервную копию Android, которая хранится в вашем аккаунте Google и видна только вам. Фото исключены из копий. Копии можно отключить в системных настройках Android.</string>
     <string name="privacy_h_nodata">Данные не доходят до разработчика</string>
@@ -144,7 +143,7 @@
     <string name="privacy_p_rights">Согласно Общему регламенту ЕС о защите данных (GDPR) вы имеете права на доступ, исправление, удаление, ограничение обработки, переносимость данных и возражение, а также право подать жалобу в надзорный орган. Поскольку разработчик не хранит ваших персональных данных, со стороны разработчика нечего осуществлять в рамках этих прав.</string>
 
     <string name="licenses_h_app">Это приложение</string>
-    <string name="licenses_p_app">ZoomBox Camera — Copyright © 2026 Indukto.\n\nЛицензировано под GNU General Public License v3.0 (GPL-3.0). Исходный код: https://github.com/Indukto/Bhig.\n\nПрограмма поставляется БЕЗ КАКИХ-ЛИБО ГАРАНТИЙ. Это свободное ПО, вы можете распространять его на определённых условиях; см. текст лицензии.</string>
+    <string name="licenses_p_app">ZoomBox Camera — Copyright © 2026 Indukto.\n\nЛицензировано под GNU General Public License v3.0 (GPL-3.0). Исходный код: https://github.com/Indukto/zoom-box.\n\nПрограмма поставляется БЕЗ КАКИХ-ЛИБО ГАРАНТИЙ. Это свободное ПО, вы можете распространять его на определённых условиях; см. текст лицензии.</string>
     <string name="licenses_h_libs">Библиотеки open source</string>
     <string name="licenses_p_libs">Основано на компонентах Apache License 2.0 экосистемы Android/Jetpack: Jetpack Compose, Material 3, CameraX, Lifecycle, DataStore, Core — плюс Coil, Accompanist Permissions, Haze и kotlinx.coroutines (парсинг JSON через org.json фреймворка Android). LUT образов: MIT, см. уведомление LUT в приложении.</string>
     <string name="licenses_h_texts">Тексты лицензий</string>

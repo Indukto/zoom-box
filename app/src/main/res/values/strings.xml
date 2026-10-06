@@ -32,8 +32,14 @@
     <string name="retro_camera_icon_desc">Retro Camera Icon</string>
     <string name="splash_title">ZOOM CAMERA</string>
     <string name="splash_tagline">RETRO FILM CAMERA</string>
-    <string name="splash_description">Capture vintage film-styled photos with our signature zoom box and warm retro filters. Grant camera access to begin.</string>
+    <string name="splash_description">Frame with the Zoom Box, grade with 13 retro film looks, and shoot fully offline. Grant camera access to begin.</string>
+    <string name="splash_rationale_description">Camera access was denied. Grant it to keep shooting — or enable it anytime in system Settings.</string>
+    <string name="splash_privacy_note">Offline • No ads • Photos stay on device</string>
+    <string name="splash_feature_zoom">Zoom Box framing</string>
+    <string name="splash_feature_film">13 film looks</string>
+    <string name="splash_feature_offline">Fully offline</string>
     <string name="enable_camera">ENABLE CAMERA</string>
+    <string name="splash_open_settings">OPEN SETTINGS</string>
     <string name="splash_footer">Zoom Cam · %1$s</string>
 
     <!-- Film style picker -->
@@ -143,7 +149,7 @@
     <string name="privacy_h_photos">Photos &amp; camera</string>
     <string name="privacy_p_photos">Photos are captured, processed and stored only on your device (in Pictures/ZoomBoxCamera/ and the app\'s private storage). The app never writes your location or GPS coordinates into photos. A photo leaves your device only when you share it yourself.</string>
     <string name="privacy_h_permissions">Permissions</string>
-    <string name="privacy_p_permissions">Camera: required to take photos, requested on first launch. Photos &amp; videos: lets the gallery show photos the app saved after a reinstall. There is no background access — every read or write is triggered by you in the app.</string>
+    <string name="privacy_p_permissions">Camera: required to take photos, requested on first launch. The app requests no photo-library permission: the gallery lists only the photos this installation saved. There is no background access — every read or write is triggered by you in the app.</string>
     <string name="privacy_h_backup">Backups</string>
     <string name="privacy_p_backup">Your camera settings (film look, grid lines, etc.) may be included in Android\'s automatic device backup, which is stored in your Google account and visible only to you. Photos are excluded from backups. You can turn backups off in Android system settings.</string>
     <string name="privacy_h_nodata">No data reaches the developer</string>
@@ -155,9 +161,20 @@
 
     <!-- Open-source licenses -->
     <string name="licenses_h_app">This app</string>
-    <string name="licenses_p_app">ZoomBox Camera — Copyright © 2026 Indukto.\n\nLicensed under the GNU General Public License v3.0 (GPL-3.0). Source code: https://github.com/Indukto/Bhig.\n\nThis program comes with ABSOLUTELY NO WARRANTY. This is free software, and you are welcome to redistribute it under certain conditions; see the license text.</string>
+    <string name="licenses_p_app">ZoomBox Camera — Copyright © 2026 Indukto.\n\nLicensed under the GNU General Public License v3.0 (GPL-3.0). Source code: https://github.com/Indukto/zoom-box.\n\nThis program comes with ABSOLUTELY NO WARRANTY. This is free software, and you are welcome to redistribute it under certain conditions; see the license text.</string>
     <string name="licenses_h_libs">Open-source libraries</string>
     <string name="licenses_p_libs">Built on Apache License 2.0 components of the Android/Jetpack ecosystem: Jetpack Compose, Material 3, CameraX, Lifecycle, DataStore, Core — plus Coil, Accompanist Permissions, Haze and kotlinx.coroutines (JSON parsing uses the Android framework\'s org.json). Film-look LUTs: MIT, see the LUT notice packaged with the app.</string>
     <string name="licenses_h_texts">License texts</string>
     <string name="licenses_p_texts">Apache-2.0: apache.org/licenses/LICENSE-2.0\nMIT: opensource.org/licenses/MIT\nGPL-3.0: gnu.org/licenses/gpl-3.0.html</string>
+    <string name="imprint_title">Imprint</string>
+    <string name="settings_imprint_label">Imprint</string>
+    <string name="settings_imprint_subtitle">Provider and contact details per § 5 DDG</string>
+    <string name="imprint_h_provider">Provider / Service provider</string>
+    <string name="imprint_p_provider">[Your legal name]\n[Street and number]\n[Postcode] [City]\nGermany</string>
+    <string name="imprint_h_contact">Contact</string>
+    <string name="imprint_p_contact">Email: [your@email.example]\nPlease use email for support requests; report bugs through the issue tracker linked in the app listing.</string>
+    <string name="imprint_h_mstv">Responsible for content per § 18 (2) MStV</string>
+    <string name="imprint_p_mstv">[Your legal name], address as above.</string>
+    <string name="imprint_h_dispute">Consumer dispute resolution</string>
+    <string name="imprint_p_dispute">We are neither obliged nor willing to take part in dispute resolution proceedings before a consumer arbitration board (§ 36 VSBG). The European Commission’s online dispute resolution platform was discontinued on 20 July 2025.</string>
 </resources>

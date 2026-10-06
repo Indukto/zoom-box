@@ -133,7 +133,6 @@
     <string name="privacy_h_photos">फोटो और कैमरा</string>
     <string name="privacy_p_photos">फोटो सिर्फ आपके डिवाइस पर कैप्चर, प्रोसेस और स्टोर होती हैं (Pictures/ZoomBoxCamera/ और ऐप के निजी स्टोरेज में)। ऐप फोटो में आपकी लोकेशन या GPS नहीं लिखता। फोटो डिवाइस से तभी जाती है जब आप खुद शेयर करें।</string>
     <string name="privacy_h_permissions">परमिशन</string>
-    <string name="privacy_p_permissions">कैमरा: फोटो लेने के लिए जरूरी, पहली बार पूछा जाता है। फोटो और वीडियो: ताकि रीइंस्टॉल के बाद गैलरी ऐप की सेव की फोटो दिखा सके। कोई बैकग्राउंड एक्सेस नहीं — हर रीड/राइट आप ऐप में खुद शुरू करते हैं।</string>
     <string name="privacy_h_backup">बैकअप</string>
     <string name="privacy_p_backup">आपकी कैमरा सेटिंग (फिल्म लुक, ग्रिड लाइन आदि) Android के ऑटो बैकअप में शामिल हो सकती हैं, जो आपके Google खाते में रहता है और सिर्फ आपको दिखता है। फोटो बैकअप से बाहर हैं। Android सिस्टम सेटिंग में बैकअप बंद कर सकते हैं।</string>
     <string name="privacy_h_nodata">डेवलपर तक कोई डेटा नहीं पहुंचता</string>
@@ -144,7 +143,7 @@
     <string name="privacy_p_rights">EU GDPR के तहत आपको एक्सेस, सुधार, मिटाने, प्रोसेसिंग रोकने, पोर्टेबिलिटी और आपत्ति के अधिकार हैं, साथ ही निगरानी प्राधिकरण में शिकायत का अधिकार। चूंकि डेवलपर के पास आपका कोई निजी डेटा नहीं है, डेवलपर पक्ष में इन अधिकारों का कोई विषय नहीं है।</string>
 
     <string name="licenses_h_app">यह ऐप</string>
-    <string name="licenses_p_app">ZoomBox Camera — Copyright © 2026 Indukto.\n\nGNU General Public License v3.0 (GPL-3.0) के तहत लाइसेंस प्राप्त। सोर्स कोड: https://github.com/Indukto/Bhig.\n\nयह प्रोग्राम बिना किसी वारंटी के दिया गया है। यह मुक्त सॉफ्टवेयर है जिसे कुछ शर्तों पर बांट सकते हैं; लाइसेंस टेक्स्ट देखें।</string>
+    <string name="licenses_p_app">ZoomBox Camera — Copyright © 2026 Indukto.\n\nGNU General Public License v3.0 (GPL-3.0) के तहत लाइसेंस प्राप्त। सोर्स कोड: https://github.com/Indukto/zoom-box.\n\nयह प्रोग्राम बिना किसी वारंटी के दिया गया है। यह मुक्त सॉफ्टवेयर है जिसे कुछ शर्तों पर बांट सकते हैं; लाइसेंस टेक्स्ट देखें।</string>
     <string name="licenses_h_libs">ओपन-सोर्स लाइब्रेरी</string>
     <string name="licenses_p_libs">Android/Jetpack इकोसिस्टम के Apache License 2.0 घटकों पर बना: Jetpack Compose, Material 3, CameraX, Lifecycle, DataStore, Core — साथ में Coil, Accompanist Permissions, Haze और kotlinx.coroutines (Android फ्रेमवर्क के org.json से JSON पार्सिंग)। फिल्म LUT: MIT, ऐप में LUT नोटिस देखें।</string>
     <string name="licenses_h_texts">लाइसेंस टेक्स्ट</string>

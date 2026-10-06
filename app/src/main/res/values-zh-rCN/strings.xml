@@ -133,7 +133,6 @@
     <string name="privacy_h_photos">照片与相机</string>
     <string name="privacy_p_photos">照片仅在您的设备上拍摄、处理和存储（位于 Pictures/ZoomBoxCamera/ 及应用私有存储）。应用从不在照片中写入位置或 GPS 坐标。只有您主动分享时，照片才会离开设备。</string>
     <string name="privacy_h_permissions">权限</string>
-    <string name="privacy_p_permissions">相机：拍照必需，首次启动时请求。照片和视频：以便重装后相册能显示应用保存的照片。无后台访问 — 每次读写都由您在应用内触发。</string>
     <string name="privacy_h_backup">备份</string>
     <string name="privacy_p_backup">您的相机设置（胶片风格、网格线等）可能包含在 Android 自动设备备份中，存储在您的 Google 账号中且仅您可见。照片不包含在备份中。您可在 Android 系统设置中关闭备份。</string>
     <string name="privacy_h_nodata">开发者收不到任何数据</string>
@@ -144,7 +143,7 @@
     <string name="privacy_p_rights">根据欧盟《通用数据保护条例》(GDPR)，您享有访问、更正、删除、限制处理、数据可携、反对等权利，以及向监管机构投诉的权利。由于开发者未保存您的个人数据，开发者侧没有任何可执行这些权利的对象。</string>
 
     <string name="licenses_h_app">此应用</string>
-    <string name="licenses_p_app">ZoomBox Camera — 版权 © 2026 Indukto。\n\n基于 GNU General Public License v3.0 (GPL-3.0) 许可。源代码：https://github.com/Indukto/Bhig。\n\n本程序不提供任何保证。这是自由软件，您可在特定条件下重新分发；见许可文本。</string>
+    <string name="licenses_p_app">ZoomBox Camera — 版权 © 2026 Indukto。\n\n基于 GNU General Public License v3.0 (GPL-3.0) 许可。源代码：https://github.com/Indukto/zoom-box。\n\n本程序不提供任何保证。这是自由软件，您可在特定条件下重新分发；见许可文本。</string>
     <string name="licenses_h_libs">开源库</string>
     <string name="licenses_p_libs">基于 Android/Jetpack 生态的 Apache License 2.0 组件：Jetpack Compose、Material 3、CameraX、Lifecycle、DataStore、Core — 以及 Coil、Accompanist Permissions、Haze 和 kotlinx.coroutines（通过 Android 框架的 org.json 解析 JSON）。胶片 LUT：MIT，见应用内 LUT 说明。</string>
     <string name="licenses_h_texts">许可文本</string>
