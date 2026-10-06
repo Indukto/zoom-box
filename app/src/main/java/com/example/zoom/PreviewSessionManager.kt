@@ -35,7 +35,6 @@ import androidx.lifecycle.LifecycleOwner
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
-import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Manages the live preview session, handling lens transitions.
@@ -241,10 +240,7 @@ class PreviewSessionManager(
             .apply {
                 if (usePhysicalLens) {
                     val camera2Ext = Camera2Interop.Extender(this)
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                        @SuppressLint("NewApi") // API 28+, gated by SDK check above
-                        camera2Ext.setPhysicalCameraId(physicalCameraId)
-                    }
+                    camera2Ext.setPhysicalCameraId(physicalCameraId)
                 }
                 applyQualityKeys(this, characteristics)
             }
@@ -257,10 +253,7 @@ class PreviewSessionManager(
             .apply {
                 if (usePhysicalLens) {
                     val camera2Ext = Camera2Interop.Extender(this)
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                        @SuppressLint("NewApi") // API 28+, gated by SDK check above
-                        camera2Ext.setPhysicalCameraId(physicalCameraId)
-                    }
+                    camera2Ext.setPhysicalCameraId(physicalCameraId)
                 }
                 applyQualityKeys(this, characteristics)
                 when (flashMode) {
@@ -631,7 +624,6 @@ class PreviewSessionManager(
         extender: Camera2Interop.Extender<*>,
         characteristics: CameraCharacteristics
     ) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return
         // Distortion correction (API 28+). Useful on ultra-wide lenses
         // (uncorrected barrel distortion is severe there).
         //
@@ -791,24 +783,6 @@ class PreviewSessionManager(
     }
 
     /**
-     * Checks if concurrent camera streaming (e.g. Primary + Tele simultaneously)
-     * is supported on this device.
-     */
-    fun isConcurrentStreamingSupported(): Boolean {
-        return try {
-            val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-                val concurrentIds = cameraManager.concurrentCameraIds
-                concurrentIds.isNotEmpty()
-            } else {
-                false
-            }
-        } catch (e: Exception) {
-            false
-        }
-    }
-
-    /**
      * Returns the CameraCharacteristics for a given physical camera ID.
      */
     fun getCharacteristics(physicalCameraId: String): CameraCharacteristics? {
@@ -825,7 +799,7 @@ class PreviewSessionManager(
 /**
  * Returns the current display rotation in surface-rotation constants.
  * Modern API (30+) on Context.display; deprecated WindowManager.defaultDisplay
- * fallback for older devices (project minSdk is 24).
+ * fallback for older devices (project minSdk is 29).
  */
 private val Context.displayRotation: Int
     get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {

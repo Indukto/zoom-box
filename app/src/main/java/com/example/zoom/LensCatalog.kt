@@ -246,7 +246,6 @@ class LensCatalog(private val context: Context) {
      * physical lenses exposed under a single logical ID). API 28+.
      */
     private fun isLogicalMultiCamera(characteristics: CameraCharacteristics): Boolean {
-        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.P) return false
         val capabilities = characteristics.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES) ?: return false
         return capabilities.any {
             it == CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA
@@ -259,7 +258,6 @@ class LensCatalog(private val context: Context) {
      * [isLogicalMultiCamera] (which is only true on API 28+).
      */
     private fun getPhysicalCameraIds(characteristics: CameraCharacteristics): Set<String> {
-        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.P) return emptySet()
         return try {
             characteristics.physicalCameraIds
         } catch (e: Exception) {

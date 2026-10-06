@@ -30,9 +30,6 @@ data class ExifData(
 enum class FilmPreset(
     val displayName: String,
     val assetPath: String,
-    val defaultTemp: Float = 0f,
-    val defaultTint: Float = 0f,
-    val defaultExposure: Float = 0f,
     /**
      * Film-grain strength added on top of the LUT at save time, in [0, 1].
      * Real film stocks have visible silver-halide / dye-cloud grain that

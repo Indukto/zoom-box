@@ -18,13 +18,11 @@ import android.hardware.camera2.params.OutputConfiguration
 import android.hardware.camera2.params.SessionConfiguration
 import android.media.Image
 import android.media.ImageReader
-import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.Log
 import android.util.Size
 import android.view.Surface
-import android.view.WindowManager
 import java.io.File
 import java.io.FileOutputStream
 import java.nio.ByteBuffer
@@ -296,9 +294,7 @@ object RawCapture {
                             }
                         }
 
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
-                            logicalCameraId != physicalCameraId
-                        ) {
+                        if (logicalCameraId != physicalCameraId) {
                             val outputConfig = OutputConfiguration(imageReader.surface)
                             outputConfig.setPhysicalCameraId(physicalCameraId)
                             // RAW targets the requested physical lens; the
@@ -315,11 +311,6 @@ object RawCapture {
                             )
                             device.createCaptureSession(sessionConfig)
                         } else {
-                            // API < 28 fallback. The 3-arg createCaptureSession(...) was
-                            // deprecated in CameraX 1.3 but SessionConfiguration requires
-                            // API 28+; there is no equivalent on Android 7/8. The project's
-                            // minSdk is 24, so we cannot route this branch through the
-                            // modern API without a minSdk bump to 28.
                             @Suppress("DEPRECATION")
                             device.createCaptureSession(
                                 listOfNotNull(

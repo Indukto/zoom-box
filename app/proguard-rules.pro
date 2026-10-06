@@ -1,4 +1,4 @@
-# Preserve attributes needed by Room, Compose and Kotlin at runtime.
+# Preserve attributes needed by Compose and Kotlin at runtime.
 # Removing any of these causes silent runtime failures in reflection-based libraries.
 -keepattributes *Annotation*
 -keepattributes Signature
@@ -12,11 +12,6 @@
 # Keep CameraX — narrow: allow obfuscation
 -keep,allowobfuscation class androidx.camera.** { *; }
 -dontwarn androidx.camera.**
-
-# Keep Room entities
--keep class * extends androidx.room.RoomDatabase { *; }
--keep @androidx.room.Entity class *
--keepclassmembers @androidx.room.Entity class * { *; }
 
 # Keep Kotlin coroutines internals
 -keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
@@ -35,7 +30,6 @@
 -keep class com.example.ExifData { *; }
 -keep class com.example.FilmPreset { *; }
 -keep class com.example.color.CubeLut { *; }
--keep class com.example.zoom.CaptureController$CaptureResult { *; }
 -keep class com.example.zoom.LensCatalog$CatalogResult { *; }
 
 # Keep Compose runtime (reflection-heavy)

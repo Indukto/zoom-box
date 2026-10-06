@@ -29,10 +29,8 @@ import android.util.Log
 import android.view.Surface
 import android.view.WindowManager
 import androidx.camera.core.Camera
-import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
-import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.animation.core.Animatable
@@ -58,18 +56,14 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlin.time.Duration.Companion.milliseconds
 import com.example.color.CubeLut
-import com.example.color.CubeLutParser
 import com.example.color.LOOK_CROSSFADE_DURATION_MS
 import com.example.color.LutPreviewView
 import com.example.color.RetroRenderParams
@@ -186,21 +180,11 @@ fun captureWithCamera2(
                         }
                     }
 
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                         val outputConfig = OutputConfiguration(imageReader.surface)
                         outputConfig.setPhysicalCameraId(targetPhysicalId)
                         val executor = java.util.concurrent.Executor { command -> cameraHandler.post(command) }
                         val sessionConfig = SessionConfiguration(SessionConfiguration.SESSION_REGULAR, listOf(outputConfig), executor, sessionCallback)
                         camera.createCaptureSession(sessionConfig)
-                    } else {
-                        // API < 28 fallback. The 3-arg createCaptureSession(...) was
-                        // deprecated in CameraX 1.3 but SessionConfiguration requires
-                        // API 28+; there is no equivalent on Android 7/8. The project's
-                        // minSdk is 24, so we cannot route this branch through the
-                        // modern API without a minSdk bump to 28.
-                        @Suppress("DEPRECATION")
-                        camera.createCaptureSession(listOf(imageReader.surface), sessionCallback, cameraHandler)
-                    }
                 } catch (e: Exception) {
                     Log.e("CameraPreviewView", "Error creating Camera2 session", e)
                     cleanup(imageReader, camera)
@@ -828,7 +812,7 @@ fun triggerImageCapture(
  * `WindowManager.getDefaultDisplay()` was deprecated in API 30 in favour of
  * the per-Context `Display` (`Context.getDisplay()`); we use the modern
  * accessor where available and fall back to the deprecated one on older
- * devices (project minSdk is 24). The fallback warning is scoped to the
+ * devices (project minSdk is 29). The fallback warning is scoped to the
  * `else` branch and suppressed so it does not surface in the build log.
  */
 private val Context.displayRotation: Int

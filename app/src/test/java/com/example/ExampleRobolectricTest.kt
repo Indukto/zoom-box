@@ -1,14 +1,9 @@
 package com.example
 
-import android.app.Application
 import androidx.activity.ComponentActivity
 import android.content.Context
 import android.graphics.Bitmap
 import com.example.zoom.AspectRatio
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick

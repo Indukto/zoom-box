@@ -4,7 +4,6 @@ import android.graphics.SurfaceTexture
 import android.opengl.GLES11Ext
 import android.opengl.GLES20
 import android.opengl.GLES30
-import android.opengl.Matrix
 import android.util.Log
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -121,7 +120,6 @@ class LutPreviewRenderer(
 
     // --- Per-frame inputs ---
     private val stMatrix = FloatArray(16)
-    private val mvpMatrix = FloatArray(16).also { Matrix.setIdentityM(it, 0) }
 
     @Volatile private var temperature = 0f
     @Volatile private var tint = 0f

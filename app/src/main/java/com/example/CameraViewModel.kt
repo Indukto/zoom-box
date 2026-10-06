@@ -28,7 +28,6 @@ import android.view.OrientationEventListener
 import android.view.Surface
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.compose.runtime.Stable
 import com.example.color.CubeLut
 import com.example.color.CubeLutParser
 import com.example.color.CameraProfileRegistry
@@ -50,9 +49,6 @@ import com.example.zoom.RawCapture
 import com.example.zoom.ZoomBoxCalculator
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -61,7 +57,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
-import kotlin.math.PI
 import kotlin.time.Duration.Companion.milliseconds
 
 class CameraViewModel(application: Application) : AndroidViewModel(application) {
@@ -119,10 +114,8 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     val filmStyleScrollOffset: StateFlow<Int> = _filmStyleScrollOffset.asStateFlow()
 
     private val _previewLensRole = MutableStateFlow(LensRole.PRIMARY)
-    val previewLensRole: StateFlow<LensRole> = _previewLensRole.asStateFlow()
 
     private val _captureLensRole = MutableStateFlow(LensRole.PRIMARY)
-    val captureLensRole: StateFlow<LensRole> = _captureLensRole.asStateFlow()
 
     private val _digitalZoomRatio = MutableStateFlow(1.0f)
     val digitalZoomRatio: StateFlow<Float> = _digitalZoomRatio.asStateFlow()
@@ -134,7 +127,6 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     val boxScale: StateFlow<Float> = _boxScale.asStateFlow()
 
     private val _availableFocalLengths = MutableStateFlow<List<Float>>(listOf(24f, 77f))
-    val availableFocalLengths: StateFlow<List<Float>> = _availableFocalLengths.asStateFlow()
 
     var lensCatalogResult: LensCatalog.CatalogResult? = null
         private set
@@ -282,7 +274,6 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     fun endCapture() { _captureInFlight.value = false }
 
     private val _lensSwitchTrigger = MutableStateFlow(0)
-    val lensSwitchTrigger: StateFlow<Int> = _lensSwitchTrigger.asStateFlow()
 
     private val _showGridLines = MutableStateFlow(false)
     val showGridLines: StateFlow<Boolean> = _showGridLines.asStateFlow()
@@ -679,7 +670,6 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     fun setExposure(value: Float) { _exposure.value = value.coerceIn(-3.0f, 3.0f) }
     fun setTemperature(value: Float) { _temperature.value = value.coerceIn(-2.0f, 2.0f) }
     fun setTint(value: Float) { _tint.value = value.coerceIn(-2.0f, 2.0f) }
-    fun setCameraPreset(preset: FilmPreset) = setLook(preset.profileId)
 
     /**
      * Selects the look named [lookId] from [CameraProfileRegistry.catalog].
@@ -696,20 +686,6 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         setTint(profile.look.tint)
         setExposure(profile.look.exposure)
     }
-
-    /**
-     * Step the active film preset by [direction] slots in enum order,
-     * wrapping at the ends. Used by the viewfinder horizontal-swipe
-     * gesture so consecutive swipes ("next, next, next") walk through
-     * the full preset gallery then loop back to the start.
-     *
-     * @param direction +1 advances to the next preset (swipe left);
-     *                 -1 advances to the previous preset (swipe right).
-     * Delegates to [setCameraPreset] so the new preset's default
-     * exposure / temperature / tint are applied exactly like a tap in
-     * the bottom-sheet picker, and the choice is persisted.
-     */
-    fun cycleCameraPreset(direction: Int) = cycleLook(direction)
 
     /**
      * Step the active look by [direction] slots in catalog order, wrapping at
@@ -1002,7 +978,6 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     // Starred photos, persisted by file name (survives reinstalls like the
     // public MediaStore mirror). Pruned lazily on load, never on toggle.
     private val _favoritePhotos = MutableStateFlow<Set<String>>(emptySet())
-    val favoritePhotos: StateFlow<Set<String>> = _favoritePhotos.asStateFlow()
 
     fun isFavorite(file: File?): Boolean = file != null && file.name in _favoritePhotos.value
 
@@ -1069,7 +1044,6 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     // the pager. The UI calls `requestGalleryExif` and reads the cached
     // entry; parsing happens once per file on IO.
     private val _galleryExif = MutableStateFlow<Map<String, ExifData>>(emptyMap())
-    val galleryExif: StateFlow<Map<String, ExifData>> = _galleryExif.asStateFlow()
 
     fun requestGalleryExif(file: File?) {
         if (file == null || file.absolutePath in _galleryExif.value) return
@@ -1190,16 +1164,6 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun setRawModeEnabled(enabled: Boolean) {
-        if (enabled && !_rawAvailableForCurrentLens.value) return
-        _rawModeEnabled.value = enabled
-        viewModelScope.launch { prefsRepo.saveRawMode(enabled) }
-        if (enabled) {
-            _activeExtension.value = CaptureExtension.NONE
-            viewModelScope.launch { prefsRepo.saveActiveExtension(CaptureExtension.NONE) }
-        }
-    }
-
     /**
      * Select an OEM extension mode. Falls back to NONE if the mode isn't in
      * [availableExtensions] (probed at runtime).
@@ -1210,18 +1174,6 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch { prefsRepo.saveActiveExtension(ext) }
         // Extensions produce processed output, so RAW is mutually exclusive.
         if (ext != CaptureExtension.NONE) {
-            _rawModeEnabled.value = false
-            viewModelScope.launch { prefsRepo.saveRawMode(false) }
-        }
-    }
-
-    fun cycleExtension() {
-        val available = CaptureExtension.userSelectable.filter { it in _availableExtensions.value }
-        if (available.size <= 1) return
-        val idx = available.indexOf(_activeExtension.value)
-        _activeExtension.value = available[(idx + 1).mod(available.size)]
-        viewModelScope.launch { prefsRepo.saveActiveExtension(_activeExtension.value) }
-        if (_activeExtension.value != CaptureExtension.NONE) {
             _rawModeEnabled.value = false
             viewModelScope.launch { prefsRepo.saveRawMode(false) }
         }
@@ -1468,7 +1420,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                             intArrayOf(curX, curY, curX + curW, curY + curH)
                     }
                     // BitmapRegionDecoder.newInstance(String) is API 31+, but the
-                    // project's minSdk is 24. The 2-arg `newInstance(String, Boolean)`
+                    // project's minSdk is 29. The 2-arg `newInstance(String, Boolean)`
                     // overload is deprecated but available on all API levels, so we
                     // use it with `inInputShareable = false` (non-shared / safer) and
                     // suppress the deprecation lint. The modern 1-arg form is otherwise
@@ -1666,8 +1618,6 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
             }
         }
     }
-
-    fun readExifData(file: File): ExifData = photoStore.readExif(file)
 
     fun deletePhoto(context: Context, file: File) {
         viewModelScope.launch(Dispatchers.IO) {
