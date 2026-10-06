@@ -57,6 +57,17 @@ android {
     buildConfig = true
   }
   testOptions { unitTests { isIncludeAndroidResources = true } }
+
+  // The app ships deliberately partial localizations. The legal disclosures
+  // (Privacy, and the § 5 DDG Imprint) are authored in English and German
+  // only, and any locale without a translation falls back to the English
+  // default — which is exactly the intended behaviour now that the app no
+  // longer requests a photo-library permission and the old machine-translated
+  // privacy text would assert one. MissingTranslation still surfaces as a
+  // warning, so gaps stay visible without failing every release build.
+  lint {
+    warning += "MissingTranslation"
+  }
 }
 
 dependencies {
