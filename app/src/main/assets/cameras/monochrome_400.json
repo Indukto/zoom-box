@@ -3,7 +3,7 @@
   "displayName": "Monochrome 400",
   "category": "black-and-white",
   "look": {
-    "lutPath": "luts/kodak_bw_400_cn.cube",
+    "lutPath": "luts/monochrome_400.cube",
     "filmCurve": 0.35,
     "contrast": 1.35,
     "saturation": 0.0,

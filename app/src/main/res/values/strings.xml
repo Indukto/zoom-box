@@ -169,17 +169,6 @@
     <string name="licenses_p_libs">Built on Apache License 2.0 components of the Android/Jetpack ecosystem: Jetpack Compose, Material 3, CameraX, Lifecycle, DataStore, Core — plus Coil, Accompanist Permissions, Haze and kotlinx.coroutines (JSON parsing uses the Android framework\'s org.json). Film-look LUTs: MIT, see the LUT notice packaged with the app.</string>
     <string name="licenses_h_texts">License texts</string>
     <string name="licenses_p_texts">Apache-2.0: apache.org/licenses/LICENSE-2.0\nMIT: opensource.org/licenses/MIT\nGPL-3.0: gnu.org/licenses/gpl-3.0.html</string>
-    <string name="imprint_title">Imprint</string>
-    <string name="settings_imprint_label">Imprint</string>
-    <string name="settings_imprint_subtitle">Provider and contact details per § 5 DDG</string>
-    <string name="imprint_h_provider">Provider / Service provider</string>
-    <string name="imprint_p_provider">[Your legal name]\n[Street and number]\n[Postcode] [City]\nGermany</string>
-    <string name="imprint_h_contact">Contact</string>
-    <string name="imprint_p_contact">Email: [your@email.example]\nPlease use email for support requests; report bugs through the issue tracker linked in the app listing.</string>
-    <string name="imprint_h_mstv">Responsible for content per § 18 (2) MStV</string>
-    <string name="imprint_p_mstv">[Your legal name], address as above.</string>
-    <string name="imprint_h_dispute">Consumer dispute resolution</string>
-    <string name="imprint_p_dispute">We are neither obliged nor willing to take part in dispute resolution proceedings before a consumer arbitration board (§ 36 VSBG). The European Commission’s online dispute resolution platform was discontinued on 20 July 2025.</string>
     <!-- Film Looks: the bundled looks are assets, the user's own looks are
          editable documents stored alongside them (see UserLookStore), and a
          look may point at a `.cube` the user imported (see UserLutStore). -->
@@ -189,6 +178,7 @@
     <string name="look_editor_title_edit">Edit Look</string>
     <string name="look_editor_name_label">Name</string>
     <string name="look_editor_save">Save</string>
+    <string name="look_editor_reset">Reset</string>
     <string name="look_editor_name_hint">My Look</string>
     <string name="look_editor_based_on">Based on %1$s</string>
     <string name="look_editor_based_on_none">Starting from scratch</string>
@@ -203,6 +193,9 @@
     <string name="look_editor_lut_clear">Remove</string>
     <string name="look_editor_lut_error">That file could not be read as a .cube LUT.</string>
     <string name="look_editor_delete">Delete this look</string>
+    <string name="look_editor_restore">Restore original</string>
+    <string name="look_editor_restore_title">Restore original?</string>
+    <string name="look_editor_restore_message">%1$s will return to its original bundled grade. Your changes to it will be removed.</string>
     <string name="look_editor_section_tone">Tone</string>
     <string name="look_editor_section_color">Color</string>
     <string name="look_editor_section_split">Split Toning</string>

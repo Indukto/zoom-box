@@ -12,8 +12,8 @@ android {
     applicationId = "com.indukto.zoomboxcamera"
     minSdk = 29
     targetSdk = 36
-    versionCode = 3
-    versionName = "1.3.2"
+    versionCode = 4
+    versionName = "1.3.3"
   }
 
   // Release keystore credentials come from environment variables so that

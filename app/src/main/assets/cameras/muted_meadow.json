@@ -3,7 +3,7 @@
   "displayName": "Muted Meadow",
   "category": "color-negative",
   "look": {
-    "lutPath": "luts/Muted Meadow.cube",
+    "lutPath": "luts/muted_meadow.cube",
     "filmCurve": 0.15,
     "contrast": 1.05,
     "saturation": 0.70,

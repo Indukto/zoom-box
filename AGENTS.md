@@ -60,7 +60,9 @@ perf. On a config-cache failure, retry once with `--no-configuration-cache`.
 2. **Bundled looks are assets; user looks are documents.** The thirteen shipped looks are
    `assets/cameras/` JSON plus `.cube` files and are never written to — add or tune one as an
    asset change. Looks the *user* authors live in `filesDir/looks/<id>.json` in the same schema
-   and are edited in-app;   `CameraProfileRegistry` merges both and nothing else may fork the
+   and are edited in-app; editing a bundled look saves an override file under the same id that
+   shadows the shipped grade in place (no copies), and deleting it restores the factory grade.
+   `CameraProfileRegistry` merges both and nothing else may fork the
    grading math. A look's `lutPath` is either a bundled asset path or the
    `user:<file>.cube` form that `UserLutStore` owns, and
    `CameraViewModel.loadLutByPath` is the single resolver for both — preview and

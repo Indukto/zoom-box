@@ -24,7 +24,7 @@ class CameraProfileLoaderTest {
           "displayName": "Warm Portrait",
           "category": "color-negative",
           "look": {
-            "lutPath": "luts/kodak_portra_160_vc.cube",
+            "lutPath": "luts/warm_portrait.cube",
             "filmCurve": 0.20,
             "contrast": 1.05,
             "saturation": 1.0,
@@ -55,7 +55,7 @@ class CameraProfileLoaderTest {
         assertEquals("warm_portrait", profile.id)
         assertEquals("Warm Portrait", profile.displayName)
         assertEquals("color-negative", profile.category)
-        assertEquals("luts/kodak_portra_160_vc.cube", profile.look.lutPath)
+        assertEquals("luts/warm_portrait.cube", profile.look.lutPath)
         assertEquals(0.20f, profile.look.filmCurve, 0f)
         assertEquals(1.05f, profile.look.contrast, 0f)
         assertEquals(0.18f, profile.look.bloom, 0f)

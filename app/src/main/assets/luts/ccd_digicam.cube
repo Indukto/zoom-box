@@ -1,5 +1,5 @@
-TITLE "CCD R"
-# DAZZ Camera LUT - CCD R
+TITLE "ccd_digicam"
+# Early-2000s CCD compact camera grade
 # 2003-2006 Early CCD Compact Camera
 # Subtle cool tone, natural CCD character, slight desaturation
 # temperature=-18, tint=-2 (applied via defaultLook, not baked in)

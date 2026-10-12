@@ -160,15 +160,4 @@
     <string name="licenses_p_libs">Basiert auf Apache-License-2.0-Komponenten des Android-/Jetpack-Ökosystems: Jetpack Compose, Material 3, CameraX, Lifecycle, DataStore, Core – außerdem Coil, Accompanist Permissions, Haze und kotlinx.coroutines (JSON-Verarbeitung über org.json des Android-Frameworks). Film-Look-LUTs: MIT, siehe LUT-Hinweis in der App.</string>
     <string name="licenses_h_texts">Lizenztexte</string>
     <string name="licenses_p_texts">Apache-2.0: apache.org/licenses/LICENSE-2.0\nMIT: opensource.org/licenses/MIT\nGPL-3.0: gnu.org/licenses/gpl-3.0.html</string>
-    <string name="imprint_title">Impressum</string>
-    <string name="settings_imprint_label">Impressum</string>
-    <string name="settings_imprint_subtitle">Anbieter- und Kontaktangaben gemäß § 5 DDG</string>
-    <string name="imprint_h_provider">Anbieter / Diensteanbieter</string>
-    <string name="imprint_p_provider">[Ihr Name]\n[Straße und Hausnummer]\n[PLZ] [Ort]\nDeutschland</string>
-    <string name="imprint_h_contact">Kontakt</string>
-    <string name="imprint_p_contact">E-Mail: [ihre@email.example]\nFür Support nutzen Sie bitte bevorzugt E-Mail; Fehlerberichte gerne über den im Store-Eintrag verlinkten Issue-Tracker.</string>
-    <string name="imprint_h_mstv">Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV</string>
-    <string name="imprint_p_mstv">[Ihr Name], Anschrift wie oben.</string>
-    <string name="imprint_h_dispute">Verbraucherstreitbeilegung</string>
-    <string name="imprint_p_dispute">Wir sind nicht verpflichtet und nicht bereit, an einem Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle teilzunehmen (§ 36 VSBG). Die Online-Streitbeilegungsplattform der EU-Kommission wurde am 20. Juli 2025 eingestellt.</string>
 </resources>

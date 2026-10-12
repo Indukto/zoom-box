@@ -112,7 +112,7 @@ class CameraProfileRegistryTest {
         // Untouched by the user layer, so still straight from the file.
         assertEquals(0.20f, bundled.filmCurve, 0f)
         assertEquals(0.05f, bundled.grainStrength, 0f)
-        assertEquals("luts/kodak_portra_160_vc.cube", bundled.lutPath)
+        assertEquals("luts/warm_portrait.cube", bundled.lutPath)
     }
 
     @Test
@@ -168,24 +168,33 @@ class CameraProfileRegistryTest {
     }
 
     @Test
-    fun `a user file can never shadow a bundled look id`() {
+    fun `a user file shadows the bundled grade in place`() {
         val dir = createTempDirectory("looks").toFile()
         try {
             val store = UserLookStore(dir)
-            store.save(userProfile("warm_portrait", "Impostor", RetroRenderParams(contrast = 1.9f)))
+            store.save(userProfile("warm_portrait", "Warm Portrait", RetroRenderParams(contrast = 1.9f)))
 
             val scoped = registryWith(dir)
             val warm = scoped.entryFor("warm_portrait")
 
             assertNotNull(warm)
-            assertFalse("a bundled id must not become a user look", warm!!.isUser)
-            assertEquals("Warm Portrait", warm.displayName)
+            // Same slot, same preset — no duplicate appended.
+            assertEquals("warm_portrait", warm!!.id)
             assertSame(FilmPreset.WARM_PORTRAIT, warm.preset)
-            // And the parameters still come from the asset, not the file.
+            assertFalse(warm.isUser)
+            assertTrue(warm.hasUserOverride)
+            // And the parameters come from the file, not the asset.
+            assertEquals(
+                1.9f,
+                scoped.profileFor("warm_portrait")!!.look.contrast,
+                0f
+            )
+            // The shipped grade stays reachable for restore.
             assertEquals(
                 FilmPreset.WARM_PORTRAIT.toRetroRenderParams(),
-                scoped.profileFor("warm_portrait")!!.look
+                scoped.assetProfileFor("warm_portrait")!!.look
             )
+            assertEquals(setOf("warm_portrait"), scoped.overriddenLookIds())
             assertEquals(emptySet<String>(), scoped.userLookIds())
         } finally {
             dir.deleteRecursively()
@@ -252,6 +261,9 @@ class CameraProfileRegistryTest {
             assertTrue(scoped.loadedProfileIds().contains("warm_portrait"))
             assertTrue(scoped.isUserLook("my_look"))
             assertFalse(scoped.isUserLook("warm_portrait"))
+            // An override is tracked apart from scratch-authored looks.
+            assertFalse(scoped.hasUserOverride("my_look"))
+            assertFalse(scoped.hasUserOverride("warm_portrait"))
         } finally {
             dir.deleteRecursively()
         }

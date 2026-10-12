@@ -18,7 +18,7 @@ import org.json.JSONObject
  *   "displayName": "Warm Portrait",
  *   "category": "color-negative",
  *   "look": {
- *     "lutPath": "luts/kodak_portra_160_vc.cube",
+ *     "lutPath": "luts/warm_portrait.cube",
  *     "filmCurve": 0.20,
  *     "contrast": 1.05,
  *     "saturation": 1.0,

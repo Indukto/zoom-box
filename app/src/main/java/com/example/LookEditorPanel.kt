@@ -87,11 +87,19 @@ internal fun LookEditorPanel(
     onClearLut: () -> Unit,
     modifier: Modifier = Modifier,
     onDelete: (() -> Unit)? = null,
-    lutError: Boolean = false
+    lutError: Boolean = false,
+    onReset: () -> Unit = {},
+    // Null means "enabled when the draft is dirty". The host passes an
+    // explicit value so Reset can stay enabled for a clean draft that still
+    // has factory defaults to return to (a saved bundled override): tapping
+    // it then routes to the restore confirm instead of a no-op undo.
+    resetEnabled: Boolean? = null,
+    onRestoreFactory: (() -> Unit)? = null
 ) {
     val haptic = LocalHapticFeedback.current
     val look = draft.look
     val canSave = LookDraftValidator.isValidName(LookDraftValidator.sanitizeName(draft.displayName))
+    val canReset = resetEnabled ?: draft.isDirty
 
     // Pinned to the film chrome: the deck floats over the camera, so it must
     // not flip to a light palette when the system (or dynamic color) is light.
@@ -149,6 +157,31 @@ internal fun LookEditorPanel(
                             .weight(1f)
                             .padding(start = 4.dp)
                     )
+                    // Restores the sliders + LUT to what the draft started
+                    // from, without touching the typed name or anything on
+                    // disk — or, when the draft is clean but a saved override
+                    // still shadows the factory grade (see resetEnabled), to
+                    // those factory defaults via the restore confirm. Always
+                    // laid out (enabled only when there is somewhere to go
+                    // back to) so the header never jumps as the first slider
+                    // moves.
+                    TextButton(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onReset()
+                        },
+                        enabled = canReset,
+                        contentPadding = PaddingValues(horizontal = 10.dp),
+                        modifier = Modifier
+                            .height(40.dp)
+                            .testTag("look_editor_reset")
+                    ) {
+                        Text(
+                            text = stringResource(R.string.look_editor_reset),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                     Button(
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -489,6 +522,22 @@ internal fun LookEditorPanel(
                                 fontSize = 12.sp
                             )
                         }
+                    } else if (onRestoreFactory != null) {
+                        // Bundled looks are never deleted — their slot stays
+                        // in the picker. Restoring deletes the user override
+                        // so the shipped grade shows again.
+                        TextButton(
+                            onClick = onRestoreFactory,
+                            modifier = Modifier
+                                .padding(top = 4.dp, bottom = 16.dp)
+                                .testTag("look_editor_restore_factory")
+                        ) {
+                            Text(
+                                text = stringResource(R.string.look_editor_restore),
+                                color = Color(0xFFEF4444),
+                                fontSize = 12.sp
+                            )
+                        }
                     } else {
                         Spacer(modifier = Modifier.height(20.dp))
                     }
@@ -653,6 +702,7 @@ internal fun LookEditorPanelHost(
     val draft by viewModel.lookDraft.collectAsState()
     val current = draft ?: return
     var confirmDelete by remember { mutableStateOf(false) }
+    var confirmRestore by remember { mutableStateOf(false) }
     var lutError by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -674,6 +724,12 @@ internal fun LookEditorPanelHost(
         }
     }
 
+    // The shipped grade when the draft edits a bundled look in place; null
+    // for scratch-authored looks, which have no factory defaults to return
+    // to. Read once per composition so the Reset/restore wiring below agrees
+    // on what "defaults" means for this draft.
+    val factory = current.factoryLook
+
     LookEditorPanel(
         draft = current,
         onNameChange = viewModel::updateLookDraftName,
@@ -692,8 +748,31 @@ internal fun LookEditorPanelHost(
             lutError = false
             viewModel.clearDraftLut()
         },
-        onDelete = if (current.id != null) { { confirmDelete = true } } else null,
+        onDelete = if (current.id != null && factory == null) {
+            { confirmDelete = true }
+        } else null,
         lutError = lutError,
+        onReset = {
+            // A reset restores the source LUT, so a stale import error must
+            // not linger under the restored row.
+            lutError = false
+            // Dirty means unsaved slider moves: undo those back to the saved
+            // grade. Clean with a factory restore pending means the draft
+            // already shows the saved edit, so Reset is the way back to the
+            // factory defaults — same confirm as the row at the deck's foot.
+            if (current.isDirty) viewModel.resetLookDraft()
+            else if (factory != null && current.look != factory) {
+                confirmRestore = true
+            }
+        },
+        // Enabled while slider moves can be undone, and while a clean draft
+        // still has factory defaults to return to. Without the second half
+        // a saved edit could never be reset again: reopening lands clean on
+        // the saved grade, so dirty-only Reset would sit disabled forever.
+        resetEnabled = current.isDirty || (factory != null && current.look != factory),
+        onRestoreFactory = if (current.id != null && factory != null) {
+            { confirmRestore = true }
+        } else null,
         modifier = modifier
     )
 
@@ -734,6 +813,54 @@ internal fun LookEditorPanelHost(
             },
             dismissButton = {
                 TextButton(onClick = { confirmDelete = false }) {
+                    Text(stringResource(R.string.cancel), color = Color.White)
+                }
+            },
+            containerColor = Color(0xFF1E1E1E),
+            tonalElevation = 0.dp
+        )
+    }
+
+    if (confirmRestore) {
+        val id = current.id
+        AlertDialog(
+            onDismissRequest = { confirmRestore = false },
+            title = {
+                Text(
+                    text = stringResource(R.string.look_editor_restore_title),
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = stringResource(
+                        R.string.look_editor_restore_message,
+                        current.displayName
+                    ),
+                    color = Color.White.copy(alpha = 0.75f)
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (id != null) {
+                            lutError = false
+                            viewModel.restoreBundledLook(id)
+                        }
+                        confirmRestore = false
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFEF4444),
+                        contentColor = Color.White
+                    ),
+                    modifier = Modifier.testTag("look_editor_restore_confirm")
+                ) {
+                    Text(stringResource(R.string.look_editor_restore), fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmRestore = false }) {
                     Text(stringResource(R.string.cancel), color = Color.White)
                 }
             },

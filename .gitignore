@@ -48,3 +48,14 @@ __pycache__/
 # Internal-only: Play Store docs and dev tools stay local, not public.
 /docs/
 /tools/
+/app/src/test/java/com/example/color/CameraProfileWriterTest.kt
+/app/src/test/roborazzi/film_style_picker.png
+/app/src/test/roborazzi/film_style_picker_bottom.png
+/app/src/test/java/com/example/FilmLooksPickerTest.kt
+/app/src/test/roborazzi/look_editor_panel.png
+/app/src/test/java/com/example/color/LookDraftValidatorTest.kt
+/app/src/test/java/com/example/LookEditorLutRowTest.kt
+/app/src/test/java/com/example/LookEditorScreenshotTest.kt
+/app/src/test/java/com/example/LookEditorStateTest.kt
+/app/src/test/java/com/example/color/UserLookStoreTest.kt
+/app/src/test/java/com/example/color/UserLutStoreTest.kt

@@ -34,8 +34,8 @@ import androidx.compose.ui.unit.dp
 import com.example.ui.theme.FilmDarkColorScheme
 
 /**
- * Legal & compliance pages — Privacy (GDPR), Imprint (§ 5 DDG) and
- * open-source licenses — reachable from Settings → Legal.
+ * Legal & compliance pages — Privacy (GDPR) and open-source licenses —
+ * reachable from Settings → Legal.
  *
  * Pages render as full-screen overlays in the same film-chrome dark palette
  * as [SettingsScreen], so they read as part of the camera identity rather
@@ -47,7 +47,7 @@ import com.example.ui.theme.FilmDarkColorScheme
  * [Section] model below is plain data so adding a clause never touches the
  * layout code.
  */
-enum class LegalPage { Privacy, Imprint, Licenses }
+enum class LegalPage { Privacy, Licenses }
 
 @Composable
 fun LegalScreen(page: LegalPage, onClose: () -> Unit) {
@@ -71,7 +71,6 @@ private fun LegalContent(page: LegalPage, onClose: () -> Unit) {
 
     val titleRes = when (page) {
         LegalPage.Privacy -> R.string.privacy_title
-        LegalPage.Imprint -> R.string.imprint_title
         LegalPage.Licenses -> R.string.licenses_title
     }
     val sections = when (page) {
@@ -83,12 +82,6 @@ private fun LegalContent(page: LegalPage, onClose: () -> Unit) {
             Section(R.string.privacy_h_nodata, R.string.privacy_p_nodata),
             Section(R.string.privacy_h_children, R.string.privacy_p_children),
             Section(R.string.privacy_h_rights, R.string.privacy_p_rights)
-        )
-        LegalPage.Imprint -> listOf(
-            Section(R.string.imprint_h_provider, R.string.imprint_p_provider),
-            Section(R.string.imprint_h_contact, R.string.imprint_p_contact),
-            Section(R.string.imprint_h_mstv, R.string.imprint_p_mstv),
-            Section(R.string.imprint_h_dispute, R.string.imprint_p_dispute)
         )
         LegalPage.Licenses -> listOf(
             Section(R.string.licenses_h_app, R.string.licenses_p_app),

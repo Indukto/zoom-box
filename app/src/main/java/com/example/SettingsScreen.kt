@@ -22,7 +22,6 @@ import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.CameraAlt
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Crop
-import androidx.compose.material.icons.rounded.Badge
 import androidx.compose.material.icons.rounded.Gavel
 import androidx.compose.material.icons.rounded.PrivacyTip
 import androidx.compose.material.icons.rounded.FlashOn
@@ -425,17 +424,6 @@ private fun SettingsContent(
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 legalPage = LegalPage.Privacy
-                            }
-                        )
-                        CardDivider()
-                        SettingsNavRow(
-                            icon = Icons.Rounded.Badge,
-                            label = stringResource(R.string.settings_imprint_label),
-                            subtitle = stringResource(R.string.settings_imprint_subtitle),
-                            testTag = "legal_imprint_row",
-                            onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                legalPage = LegalPage.Imprint
                             }
                         )
                         CardDivider()

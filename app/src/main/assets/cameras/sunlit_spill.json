@@ -3,7 +3,7 @@
   "displayName": "Sunlit Spill",
   "category": "color-negative",
   "look": {
-    "lutPath": "luts/Sunlit Spill.cube",
+    "lutPath": "luts/sunlit_spill.cube",
     "filmCurve": 0.10,
     "contrast": 1.0,
     "saturation": 1.10,

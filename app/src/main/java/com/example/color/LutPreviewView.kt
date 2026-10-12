@@ -142,8 +142,8 @@ class LutPreviewView(
      * capture pipeline build the same [RetroRenderParams], so the viewfinder
      * and the saved JPEG share a single source of truth.
      */
-    fun setRenderParams(params: RetroRenderParams) {
-        renderer.setRenderParams(params)
+    fun setRenderParams(params: RetroRenderParams, grainSeed: Int = 0) {
+        renderer.setRenderParams(params, grainSeed)
     }
 
     fun setLut(lut: CubeLut?) {

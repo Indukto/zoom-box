@@ -831,24 +831,35 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     /**
      * Opens the editor on a draft.
      *
-     * A null [sourceId] starts a blank look. A bundled id opens an editable
-     * *copy* — the shipped looks are assets and are never written to. A user id
-     * opens that look itself, keeping its id so the persisted selection and any
-     * capture history that points at it keep working.
+     * Every look edits in place under its own id: a null [sourceId] starts a
+     * blank look (the id is minted on save), otherwise the draft keeps the
+     * source id and saving overwrites that look — including bundled looks,
+     * whose edits land as a user override file shadowing the shipped grade.
+     * The shipped assets themselves are never written to; deleting the
+     * override restores the factory grade (see [restoreBundledLook]).
      */
     fun beginLookDraft(sourceId: String? = null) {
         val source = sourceId?.let { cameraProfileRegistry.profileFor(it) }
         if (sourceId == null || source == null) {
-            _lookDraft.value = LookDraft(id = null, displayName = "", look = RetroRenderParams())
+            val neutral = RetroRenderParams()
+            _lookDraft.value = LookDraft(
+                id = null,
+                displayName = "",
+                look = neutral,
+                initialLook = neutral
+            )
             return
         }
-        val editingOwnLook = cameraProfileRegistry.isUserLook(sourceId)
+        val factory = cameraProfileRegistry.assetProfileFor(sourceId)
         _lookDraft.value = LookDraft(
-            id = if (editingOwnLook) sourceId else null,
-            displayName = if (editingOwnLook) source.displayName else copyName(source.displayName),
+            id = sourceId,
+            displayName = source.displayName,
             look = source.look,
             basedOnId = sourceId,
-            basedOnLabel = source.displayName
+            basedOnLabel = source.displayName,
+            initialLook = source.look,
+            factoryLook = factory?.look,
+            factoryName = factory?.displayName
         )
     }
 
@@ -859,6 +870,19 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
 
     fun updateLookDraftName(name: String) {
         _lookDraft.value = _lookDraft.value?.copy(displayName = name)
+    }
+
+    /**
+     * Restores the open draft to the grading it started from: the saved
+     * look's snapshot for an edit, neutral for a blank look. Only the grading (sliders + LUT) is restored — the name
+     * the user typed stays, so a reset never eats the title of a new look.
+     * A no-op when the draft is already clean, and it never touches disk:
+     * the saved look only changes on save.
+     */
+    fun resetLookDraft() {
+        _lookDraft.value = _lookDraft.value?.let { draft ->
+            if (!draft.isDirty) draft else draft.copy(look = draft.initialLook)
+        }
     }
 
     /**
@@ -898,6 +922,12 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
      * makes the saved look active, so the user immediately sees what they
      * built instead of having to hunt for it in the picker.
      *
+     * A draft with an id overwrites that look — including bundled ids, where
+     * the file becomes the user override shadowing the shipped grade. A
+     * blank draft mints a fresh id that avoids every id the catalog and the
+     * directory already own, so a new look can never land on a shipped id by
+     * accident.
+     *
      * Returns the look's id, or null when the draft is unnamed or the write
      * failed (a failed write must leave the editor open, not lose the edit).
      */
@@ -906,12 +936,14 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         val name = LookDraftValidator.sanitizeName(draft.displayName)
         if (!LookDraftValidator.isValidName(name)) return null
 
-        val taken = cameraProfileRegistry.catalog().mapTo(mutableSetOf()) { it.id }
-        // Ids that exist on disk but are not selectable — an unparsable document,
-        // say — count as taken too, or a new look could be minted onto that file
-        // name and silently destroy whatever was in it.
-        taken += userLookStore.ids()
-        val id = draft.id ?: userLookStore.uniqueId(name, taken)
+        val id = draft.id ?: run {
+            val taken = cameraProfileRegistry.catalog().mapTo(mutableSetOf()) { it.id }
+            // Ids that exist on disk but are not selectable — an unparsable document,
+            // say — count as taken too, or a new look could be minted onto that file
+            // name and silently destroy whatever was in it.
+            taken += userLookStore.ids()
+            userLookStore.uniqueId(name, taken)
+        }
         val profile = CameraProfile(
             id = id,
             displayName = name,
@@ -922,9 +954,8 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         )
         if (!userLookStore.save(profile)) return null
 
-        // The look may point at a LUT whose parameters just changed (a duplicate
-        // of a bundled look shares that look's .cube), so drop it from the
-        // parse cache and let the preview re-read it.
+        // The look may point at a LUT whose file just changed, so drop it
+        // from the parse cache and let the preview re-read it.
         if (profile.look.lutPath.isNotBlank()) cachedLuts.remove(profile.look.lutPath)
         cameraProfileRegistry.refresh()
         _lookCatalog.value = cameraProfileRegistry.catalog()
@@ -936,10 +967,14 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     /**
      * Deletes a user look and forgets everything cached about it.
      *
-     * When the deleted look is the active one the selection falls back to the
-     * pass-through look. Leaving the id in place would grade the viewfinder
-     * with the neutral fallback while the picker showed nothing selected — the
-     * kind of divergence that reads as "the app lost my look".
+     * For a bundled id this deletes the user override, so the shipped grade
+     * shows again: the selection stays on the same id and an open draft
+     * returns to the factory grade instead of closing. For a look the user
+     * authored from scratch the entry is gone, so an active selection falls
+     * back to the pass-through look — leaving the id in place would grade
+     * the viewfinder with the neutral fallback while the picker showed
+     * nothing selected, the kind of divergence that reads as "the app lost
+     * my look".
      */
     fun deleteUserLook(id: String): Boolean {
         val lutPath = cameraProfileRegistry.profileFor(id)?.look?.lutPath.orEmpty()
@@ -947,8 +982,68 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         if (lutPath.isNotBlank()) cachedLuts.remove(lutPath)
         cameraProfileRegistry.refresh()
         _lookCatalog.value = cameraProfileRegistry.catalog()
-        if (_lookDraft.value?.id == id) _lookDraft.value = null
-        if (_activeLookId.value == id) setLook(FilmPreset.NORMAL.profileId)
+        val draft = _lookDraft.value
+        if (draft?.id == id) {
+            val factory = cameraProfileRegistry.assetProfileFor(id)
+            _lookDraft.value = if (factory == null) {
+                null
+            } else {
+                if (factory.look.lutPath.isNotBlank()) cachedLuts.remove(factory.look.lutPath)
+                draft.copy(
+                    displayName = factory.displayName,
+                    look = factory.look,
+                    initialLook = factory.look,
+                    factoryLook = factory.look,
+                    factoryName = factory.displayName
+                )
+            }
+        }
+        if (_activeLookId.value == id && factoryIsGone(id)) setLook(FilmPreset.NORMAL.profileId)
+        return true
+    }
+
+    /** True when [id] names no selectable look anymore (a deleted custom look). */
+    private fun factoryIsGone(id: String): Boolean =
+        cameraProfileRegistry.entryFor(id) == null
+
+    /**
+     * Restores a bundled look to its shipped grade: deletes the user
+     * override, refreshes the catalog and returns an open draft to the
+     * factory grade with the editor left open. The selection stays on the
+     * same id throughout. Returns false when there was no override to
+     * remove or the id is not a bundled look.
+     */
+    fun restoreBundledLook(id: String): Boolean {
+        val factory = cameraProfileRegistry.assetProfileFor(id) ?: return false
+        val hadOverride = cameraProfileRegistry.hasUserOverride(id)
+        val draft = _lookDraft.value
+        val draftLut = draft?.takeIf { it.id == id }?.look?.lutPath.orEmpty()
+        if (!userLookStore.delete(id)) {
+            // No file on disk: still return an open draft to factory so a
+            // restore tap never looks dead, but report whether an override
+            // actually existed.
+            if (draft?.id == id && draft.factoryLook != null) {
+                _lookDraft.value = draft.copy(
+                    displayName = factory.displayName,
+                    look = factory.look,
+                    initialLook = factory.look
+                )
+            }
+            return hadOverride
+        }
+        if (draftLut.isNotBlank()) cachedLuts.remove(draftLut)
+        if (factory.look.lutPath.isNotBlank()) cachedLuts.remove(factory.look.lutPath)
+        cameraProfileRegistry.refresh()
+        _lookCatalog.value = cameraProfileRegistry.catalog()
+        if (draft?.id == id) {
+            _lookDraft.value = draft.copy(
+                displayName = factory.displayName,
+                look = factory.look,
+                initialLook = factory.look,
+                factoryLook = factory.look,
+                factoryName = factory.displayName
+            )
+        }
         return true
     }
 
@@ -957,14 +1052,12 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
 
     /**
      * Loads the LUT the live preview should show for an arbitrary path — the
-     * editor needs it because a duplicated draft still grades through its
-     * source look's `.cube` before the draft exists on disk.
+     * editor needs it because a draft of a bundled look still grades through
+     * its source look's `.cube` before anything is saved to disk.
      */
     fun previewLutForPath(context: Context, lutPath: String): CubeLut? =
         loadLutByPath(context, lutPath)
 
-    private fun copyName(sourceName: String): String =
-        LookDraftValidator.sanitizeName("$sourceName copy")
     fun toggleFlash() {
         _flashMode.value = (_flashMode.value + 1) % 3
         viewModelScope.launch { prefsRepo.saveFlashMode(_flashMode.value) }
@@ -1707,20 +1800,27 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                 )
                 val currentLut = loadLut(context, lookId)
                 if (currentLut != null || renderParams.needsProcessing) {
+                    // Fresh organic grain per shutter press: the seed re-keys
+                    // the grain field on both back-ends so consecutive shots
+                    // never repeat the same speckle. Bounded to MAX_GRAIN_SEED
+                    // (see RetroFilter.kt): the GPU receives it as a float and
+                    // larger values would tile into visible blocks. The live
+                    // preview stays on seed 0 for a stable viewfinder.
+                    val grainSeed = kotlin.random.Random.nextInt(0, com.example.color.MAX_GRAIN_SEED)
                     val filtered = if (USE_GPU_CAPTURE) {
                         // GPU still capture with a CPU fallback.
                         // GpuCaptureProcessor returns null on any EGL/shader
                         // failure, in which case the well-tested CPU pipeline
                         // below still produces the saved JPEG.
                         val gpu = try {
-                            gpuCaptureProcessor.process(finalBitmap, renderParams, lut = currentLut)
+                            gpuCaptureProcessor.process(finalBitmap, renderParams, lut = currentLut, grainSeed = grainSeed)
                         } catch (e: Exception) {
                             Log.e("CameraViewModel", "GPU capture threw; using CPU filter", e)
                             null
                         }
-                        gpu ?: finalBitmap.applyRetroFilter(renderParams, lut = currentLut)
+                        gpu ?: finalBitmap.applyRetroFilter(renderParams, lut = currentLut, grainSeed = grainSeed)
                     } else {
-                        finalBitmap.applyRetroFilter(renderParams, lut = currentLut)
+                        finalBitmap.applyRetroFilter(renderParams, lut = currentLut, grainSeed = grainSeed)
                     }
                     if (filtered !== finalBitmap) {
                         finalBitmap.recycle()

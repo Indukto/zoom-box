@@ -67,7 +67,7 @@ enum class FilmPreset(
     /**
      * Halation / bloom strength in [0, 1]. Simulates light scattering through
      * film emulsion layers, creating a warm glow around bright highlights.
-     * Key characteristic of color negative stocks like Portra.
+     * Key characteristic of warm color negative stocks.
      */
     val defaultBloom: Float = 0f,
     /**
@@ -151,7 +151,7 @@ enum class FilmPreset(
 
     WARM_PORTRAIT(
         "Warm Portrait",
-        "luts/kodak_portra_160_vc.cube",
+        "luts/warm_portrait.cube",
         defaultGrainStrength = 0.05f,
         defaultGrainChroma = 0.3f,       // dye-cloud grain from color emulsion layers
         defaultFilmCurve = 0.20f,
@@ -166,7 +166,7 @@ enum class FilmPreset(
     ),
     MONOCHROME_400(
         "Monochrome 400",
-        "luts/kodak_bw_400_cn.cube",
+        "luts/monochrome_400.cube",
         defaultGrainStrength = 0.32f,
         defaultGrainChroma = 0f,          // strict mono — chroma speckles would look wrong on B&W
         defaultFilmCurve = 0.35f,
@@ -181,7 +181,7 @@ enum class FilmPreset(
     ),
     INSTANT_CLASSIC(
         "Instant Classic",
-        "luts/polaroid_px-680.cube",
+        "luts/instant_classic.cube",
         defaultGrainStrength = 0.18f,
         defaultGrainChroma = 0.35f,       // high-ISO instant film has chunky dye clouds
         defaultFilmCurve = 0.20f,
@@ -196,7 +196,7 @@ enum class FilmPreset(
     ),
     CROSS_PROCESS(
         "Cross Process",
-        "luts/kodak_elite_100_xpro.cube",
+        "luts/cross_process.cube",
         defaultGrainStrength = 0.08f,
         defaultGrainChroma = 0.20f,       // cross-processing accentuates color grain
         defaultFilmCurve = 0.25f,
@@ -211,7 +211,7 @@ enum class FilmPreset(
     ),
     INSTANT_VINTAGE(
         "Instant Vintage",
-        "luts/polaroid_669_++.cube",
+        "luts/instant_vintage.cube",
         defaultGrainStrength = 0.10f,
         defaultGrainChroma = 0.25f,       // peel-apart film with visible dye specks
         defaultFilmCurve = 0.20f,
@@ -241,7 +241,7 @@ enum class FilmPreset(
     ),
     MUTED_MEADOW(
         "Muted Meadow",
-        "luts/Muted Meadow.cube",
+        "luts/muted_meadow.cube",
         defaultGrainStrength = 0.06f,
         defaultGrainChroma = 0.20f,
         defaultFilmCurve = 0.15f,
@@ -256,7 +256,7 @@ enum class FilmPreset(
     ),
     SUNLIT_SPILL(
         "Sunlit Spill",
-        "luts/Sunlit Spill.cube",
+        "luts/sunlit_spill.cube",
         defaultGrainStrength = 0.08f,
         defaultGrainChroma = 0.25f,       // warm halation-style chroma grain
         defaultFilmCurve = 0.10f,

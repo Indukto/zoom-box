@@ -2235,7 +2235,7 @@ fun CameraActiveScreen(
     // lutPath — not just the enum's — drives the preview, matching capture.
     var previewLut by remember { mutableStateOf<CubeLut?>(null) }
     // The LUT's *path* is part of the key, not just the look id: a draft
-    // duplicated from a bundled look grades through that look's `.cube` before
+    // of a bundled look grades through that look's `.cube` before
     // anything is saved, so the path can change while the active look stays
     // put. Null means "no draft open — use the active look's LUT".
     val draftLutPathFlow = remember(viewModel) {
@@ -3112,8 +3112,7 @@ fun CameraActiveScreen(
                     // the deck renders on the camera screen, and leaving the
                     // sheet up would park its scrim over the deck it just
                     // opened. beginLookDraft(null) starts blank; a look id
-                    // opens that look, or an editable copy of it when the id
-                    // is a bundled asset.
+                    // opens that look in place under its own id.
                     onNewLook = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         showPresetPicker = false
@@ -3231,8 +3230,9 @@ fun CameraActiveScreen(
  * Creating and editing live here, not in Settings, because this is the only
  * screen where the looks themselves are on display; a Settings row made users
  * leave the thing they were choosing between to go edit one. The selected tile
- * carries a gear — a bundled look opens an editable copy (the shipped ones are
- * assets and are never written to), one of your own reopens in place — and the
+ * carries a gear that reopens the look in place — bundled edits save as a
+ * user override shadowing the shipped grade, and the editor offers
+ * a restore-to-original instead of a delete — and the
  * create tile closes the grid. A corner target rather than a
  * long-press, because a long-press on a tile that already applies on tap is
  * invisible.

@@ -40,7 +40,7 @@ class LutPreviewRenderer(
         private set
 
     // --- GL program state ---
-    // DAZZ's renderer uses two passes: copy the external camera texture into
+    // The renderer uses two passes: copy the external camera texture into
     // a stable 2D texture first, then run all multi-sample effects from that
     // snapshot. Sampling the OES texture repeatedly in one fragment shader can
     // produce unstable frames on tile-based GPUs (Mali/Adreno).
@@ -93,6 +93,7 @@ class LutPreviewRenderer(
     private var uFadeLoc = 0
     private var uGrainStrengthLoc = 0
     private var uGrainChromaLoc = 0
+    private var uGrainSeedLoc = 0
     private var uVignetteLoc = 0
     private var uDustLoc = 0
     private var uScratchLoc = 0
@@ -160,6 +161,7 @@ class LutPreviewRenderer(
     @Volatile private var lightLeak = 0f
     @Volatile private var grainStrength = 0f
     @Volatile private var grainChroma = 0f
+    @Volatile private var grainSeed = 0f
 
     // The active LUT is retained so it can be re-uploaded after an EGL
     // context recreation. The pending value is consumed only on the GL thread.
@@ -193,7 +195,7 @@ class LutPreviewRenderer(
      * viewfinder and the saved JPEG stay in sync. WB/exposure, film effects,
      * and dreamcore extras previously arrived through three separate setters.
      */
-    fun setRenderParams(params: RetroRenderParams) {
+    fun setRenderParams(params: RetroRenderParams, grainSeed: Int = 0) {
         temperature = params.temperature
         tint = params.tint
         exposure = params.exposure
@@ -223,6 +225,7 @@ class LutPreviewRenderer(
         lightLeak = params.lightLeak
         grainStrength = params.grainStrength
         grainChroma = params.grainChroma
+        this.grainSeed = grainSeed.toFloat()
         onRequestRender()
     }
 
@@ -372,6 +375,7 @@ class LutPreviewRenderer(
         uFadeLoc = GLES20.glGetUniformLocation(program, "uFade")
         uGrainStrengthLoc = GLES20.glGetUniformLocation(program, "uGrainStrength")
         uGrainChromaLoc = GLES20.glGetUniformLocation(program, "uGrainChroma")
+        uGrainSeedLoc = GLES20.glGetUniformLocation(program, "uGrainSeed")
         uVignetteLoc = GLES20.glGetUniformLocation(program, "uVignette")
         uDustLoc = GLES20.glGetUniformLocation(program, "uDust")
         uScratchLoc = GLES20.glGetUniformLocation(program, "uScratch")
@@ -533,6 +537,7 @@ class LutPreviewRenderer(
         GLES20.glUniform1f(uFadeLoc, fade)
         GLES20.glUniform1f(uGrainStrengthLoc, grainStrength)
         GLES20.glUniform1f(uGrainChromaLoc, grainChroma)
+        GLES20.glUniform1f(uGrainSeedLoc, grainSeed)
         GLES20.glUniform1f(uVignetteLoc, vignette)
         GLES20.glUniform1f(uDustLoc, 0f)
         GLES20.glUniform1f(uScratchLoc, 0f)
@@ -977,6 +982,7 @@ class LutPreviewRenderer(
             uniform float uFade;
             uniform float uGrainStrength;
             uniform float uGrainChroma;
+            uniform float uGrainSeed;
             uniform float uVignette;
             uniform float uDust;
             uniform float uScratch;
@@ -1005,11 +1011,12 @@ class LutPreviewRenderer(
                 return 0.7 + shoulder * 0.3;
             }
 
-            // ── Portable float hash + value noise (matches the CPU grain) ──
-            // Sin-free fract-multiply hash (hash12); must stay in lock-step
-            // with hashF() in RetroFilter.kt so CPU captures and the GPU
-            // preview/capture shaders key grain, dust and scratches off the
-            // same noise field.
+            // ── Portable float hash + value noise ──
+            // Sin-free fract-multiply hash (hash12); stays in lock-step
+            // with hashF() in RetroFilter.kt for dust and scratches. Grain
+            // uses the seeded grainHash below so each capture re-keys its
+            // field; the CPU pairs integer hashPixel with the same weights,
+            // giving statistical (not bit-exact) parity.
             float hash(vec2 p) {
                 vec3 p3 = fract(vec3(p.xyx) * 0.1031);
                 p3 += dot(p3, p3.yzx + 33.33);
@@ -1029,6 +1036,23 @@ class LutPreviewRenderer(
                 float nx0 = mix(n00, n10, s.x);
                 float nx1 = mix(n01, n11, s.x);
                 return mix(nx0, nx1, s.y);
+            }
+            // ── Pure-white grain hash (matches the CPU hashPixel) ──
+            // Small mod() wraps keep every multiply in mediump-clean
+            // magnitudes (q * 0.1031 stays below ~27, where mediump steps
+            // are ~0.002) so low-precision GPUs cannot quantize the hash
+            // into visible structure; the wrapped seed re-keys and shifts
+            // the field per capture. A 256px repeat in white noise is
+            // invisible, unlike lattice interpolation at pixel scale.
+            float grainHash(vec2 p, float seed) {
+                // Wrap the seed first: it arrives as a float uniform and a
+                // large magnitude would quantize the lattice into repeating
+                // blocks (even highp loses integer steps past 2^24).
+                float s = mod(seed, 256.0);
+                vec2 q = mod(p + s, 256.0);
+                vec3 p3 = fract(vec3(q.xyx) * vec3(0.1031, 0.1030, 0.0973) + s * 0.000091);
+                p3 += dot(p3, p3.yzx + 33.33);
+                return fract((p3.x + p3.y) * p3.z);
             }
             // ── Procedural overlays: dust, scratches, light leak ──
             float dustAmount(vec2 p) {
@@ -1105,7 +1129,7 @@ class LutPreviewRenderer(
 
                 // ── 3. Chromatic Fringing ──
                 // Shift R and B channels relative to G to simulate color
-                // channel misregistration in instant/Polaroid films.
+                // channel misregistration in instant films.
                 if (uFringing > 0.0) {
                     vec2 fringingOff = vec2(uFringing * 0.004, 0.0);
                     float rFringe = texture2D(uTexture, vTexCoord + fringingOff).r;
@@ -1123,7 +1147,7 @@ class LutPreviewRenderer(
                 }
 
                 // ── 5. Halation / Bloom ──
-                // Warm glow around bright highlights (Portra glow, etc.)
+                // Warm glow around bright highlights (warm negative glow, etc.)
                 if (uBloomStrength > 0.0) {
                     float luma = dot(c.rgb, vec3(0.299, 0.587, 0.114));
                     float brightMask = smoothstep(0.3, 0.8, luma);
@@ -1194,23 +1218,25 @@ class LutPreviewRenderer(
                     c = clamp(c, 0.0, 1.0);
                 }
 
-                // ── 8.7. Film grain (matches the CPU two-octave value noise) ──
+                // ── 8.7. Film grain: pure per-pixel white ──
+                // Single hash tap, nothing interpolated: an interpolated
+                // octave terraced into a visible lattice once quantized,
+                // which read as a repetitive grid. Rounding (not truncation)
+                // matches the CPU so faint grain keeps its density.
                 if (uGrainStrength > 0.0) {
                     float lum = dot(c.rgb, vec3(0.299, 0.587, 0.114));
                     float midMask = 1.0 - 4.0 * (lum - 0.5) * (lum - 0.5);
                     float midMaskClamped = max(midMask, 0.4);
-                    float fine = valueNoise(gl_FragCoord.xy * 1.05);
-                    float medium = valueNoise(gl_FragCoord.xy * 0.32 + vec2(31.7, 17.3));
-                    float monoCentered = (fine + medium) - 1.0;
+                    float white = grainHash(gl_FragCoord.xy, uGrainSeed) - 0.5;
                     float amp = uGrainStrength * (1.2 + 2.0 * midMaskClamped) * 11.0;
-                    c.rgb += vec3(monoCentered * amp / 255.0);
+                    c.rgb += vec3(floor(white * amp + 0.5) / 255.0);
                     if (uGrainChroma > 0.0) {
-                        float nr = valueNoise(gl_FragCoord.xy * 1.13 + vec2(7.1, 3.7));
-                        float ng = valueNoise(gl_FragCoord.xy * 0.97 + vec2(91.3, 47.2));
-                        float nb = valueNoise(gl_FragCoord.xy * 1.21 + vec2(13.4, 71.9));
-                        c.r += (nr - 0.5) * amp * uGrainChroma / 255.0;
-                        c.g += (ng - 0.5) * amp * uGrainChroma / 255.0;
-                        c.b += (nb - 0.5) * amp * uGrainChroma / 255.0;
+                        float nr = grainHash(gl_FragCoord.xy, uGrainSeed + 101.0);
+                        float ng = grainHash(gl_FragCoord.xy, uGrainSeed + 917.0);
+                        float nb = grainHash(gl_FragCoord.xy, uGrainSeed + 1543.0);
+                        c.r += floor((nr - 0.5) * amp * uGrainChroma + 0.5) / 255.0;
+                        c.g += floor((ng - 0.5) * amp * uGrainChroma + 0.5) / 255.0;
+                        c.b += floor((nb - 0.5) * amp * uGrainChroma + 0.5) / 255.0;
                     }
                     c = clamp(c, 0.0, 1.0);
                 }
@@ -1301,6 +1327,7 @@ class LutPreviewRenderer(
             uniform float uFade;
             uniform float uGrainStrength;
             uniform float uGrainChroma;
+            uniform float uGrainSeed;
             uniform float uVignette;
             uniform float uDust;
             uniform float uScratch;
@@ -1329,11 +1356,12 @@ class LutPreviewRenderer(
                 return 0.7 + shoulder * 0.3;
             }
 
-            // ── Portable float hash + value noise (matches the CPU grain) ──
-            // Sin-free fract-multiply hash (hash12); must stay in lock-step
-            // with hashF() in RetroFilter.kt so CPU captures and the GPU
-            // preview/capture shaders key grain, dust and scratches off the
-            // same noise field.
+            // ── Portable float hash + value noise ──
+            // Sin-free fract-multiply hash (hash12); stays in lock-step
+            // with hashF() in RetroFilter.kt for dust and scratches. Grain
+            // uses the seeded grainHash below so each capture re-keys its
+            // field; the CPU pairs integer hashPixel with the same weights,
+            // giving statistical (not bit-exact) parity.
             float hash(vec2 p) {
                 vec3 p3 = fract(vec3(p.xyx) * 0.1031);
                 p3 += dot(p3, p3.yzx + 33.33);
@@ -1353,6 +1381,23 @@ class LutPreviewRenderer(
                 float nx0 = mix(n00, n10, s.x);
                 float nx1 = mix(n01, n11, s.x);
                 return mix(nx0, nx1, s.y);
+            }
+            // ── Pure-white grain hash (matches the CPU hashPixel) ──
+            // Small mod() wraps keep every multiply in mediump-clean
+            // magnitudes (q * 0.1031 stays below ~27, where mediump steps
+            // are ~0.002) so low-precision GPUs cannot quantize the hash
+            // into visible structure; the wrapped seed re-keys and shifts
+            // the field per capture. A 256px repeat in white noise is
+            // invisible, unlike lattice interpolation at pixel scale.
+            float grainHash(vec2 p, float seed) {
+                // Wrap the seed first: it arrives as a float uniform and a
+                // large magnitude would quantize the lattice into repeating
+                // blocks (even highp loses integer steps past 2^24).
+                float s = mod(seed, 256.0);
+                vec2 q = mod(p + s, 256.0);
+                vec3 p3 = fract(vec3(q.xyx) * vec3(0.1031, 0.1030, 0.0973) + s * 0.000091);
+                p3 += dot(p3, p3.yzx + 33.33);
+                return fract((p3.x + p3.y) * p3.z);
             }
             // ── Procedural overlays: dust, scratches, light leak ──
             float dustAmount(vec2 p) {
@@ -1514,23 +1559,25 @@ class LutPreviewRenderer(
                     c = clamp(c, 0.0, 1.0);
                 }
 
-                // ── 8.7. Film grain (matches the CPU two-octave value noise) ──
+                // ── 8.7. Film grain: pure per-pixel white ──
+                // Single hash tap, nothing interpolated: an interpolated
+                // octave terraced into a visible lattice once quantized,
+                // which read as a repetitive grid. Rounding (not truncation)
+                // matches the CPU so faint grain keeps its density.
                 if (uGrainStrength > 0.0) {
                     float lum = dot(c.rgb, vec3(0.299, 0.587, 0.114));
                     float midMask = 1.0 - 4.0 * (lum - 0.5) * (lum - 0.5);
                     float midMaskClamped = max(midMask, 0.4);
-                    float fine = valueNoise(gl_FragCoord.xy * 1.05);
-                    float medium = valueNoise(gl_FragCoord.xy * 0.32 + vec2(31.7, 17.3));
-                    float monoCentered = (fine + medium) - 1.0;
+                    float white = grainHash(gl_FragCoord.xy, uGrainSeed) - 0.5;
                     float amp = uGrainStrength * (1.2 + 2.0 * midMaskClamped) * 11.0;
-                    c.rgb += vec3(monoCentered * amp / 255.0);
+                    c.rgb += vec3(floor(white * amp + 0.5) / 255.0);
                     if (uGrainChroma > 0.0) {
-                        float nr = valueNoise(gl_FragCoord.xy * 1.13 + vec2(7.1, 3.7));
-                        float ng = valueNoise(gl_FragCoord.xy * 0.97 + vec2(91.3, 47.2));
-                        float nb = valueNoise(gl_FragCoord.xy * 1.21 + vec2(13.4, 71.9));
-                        c.r += (nr - 0.5) * amp * uGrainChroma / 255.0;
-                        c.g += (ng - 0.5) * amp * uGrainChroma / 255.0;
-                        c.b += (nb - 0.5) * amp * uGrainChroma / 255.0;
+                        float nr = grainHash(gl_FragCoord.xy, uGrainSeed + 101.0);
+                        float ng = grainHash(gl_FragCoord.xy, uGrainSeed + 917.0);
+                        float nb = grainHash(gl_FragCoord.xy, uGrainSeed + 1543.0);
+                        c.r += floor((nr - 0.5) * amp * uGrainChroma + 0.5) / 255.0;
+                        c.g += floor((ng - 0.5) * amp * uGrainChroma + 0.5) / 255.0;
+                        c.b += floor((nb - 0.5) * amp * uGrainChroma + 0.5) / 255.0;
                     }
                     c = clamp(c, 0.0, 1.0);
                 }

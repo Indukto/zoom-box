@@ -407,4 +407,159 @@ class RetroFilterTest {
             assertEquals("pixel $i must round-trip through the identity LUT", before[i], pixels[i])
         }
     }
+
+    // ── 12. Organic grain (white + clump, seeded) ───────────────────────
+
+    @Test
+    fun `grain - different seeds produce different output`() {
+        val w = 48
+        val h = 32
+        val src = solid(w, h, 0xFF808080.toInt())
+        val params = RetroRenderParams(grainStrength = 0.5f, grainChroma = 0.3f, vignette = 0f)
+        val out1 = pixelsOf(runBlocking { bitmapOf(w, h, src).applyRetroFilter(params, grainSeed = 1) })
+        val out2 = pixelsOf(runBlocking { bitmapOf(w, h, src).applyRetroFilter(params, grainSeed = 2) })
+        assertFalse("different seeds must re-key the grain field", out1.contentEquals(out2))
+    }
+
+    @Test
+    fun `grain - same seed is deterministic`() {
+        val w = 48
+        val h = 32
+        val src = solid(w, h, 0xFF808080.toInt())
+        val params = RetroRenderParams(grainStrength = 0.5f, grainChroma = 0.3f, vignette = 0f)
+        val out1 = pixelsOf(runBlocking { bitmapOf(w, h, src).applyRetroFilter(params, grainSeed = 7) })
+        val out2 = pixelsOf(runBlocking { bitmapOf(w, h, src).applyRetroFilter(params, grainSeed = 7) })
+        assertArrayEquals(out1, out2)
+    }
+
+    @Test
+    fun `grain - neighboring pixels are decorrelated, not smooth blotches`() {
+        // The old value-noise-only field interpolated smoothly, so adjacent
+        // pixels barely differed. Per-pixel white grain must show strong
+        // neighbor-to-neighbor variation on a flat field.
+        val w = 64
+        val h = 64
+        val src = solid(w, h, 0xFF808080.toInt())
+        val out = pixelsOf(
+            runBlocking {
+                bitmapOf(w, h, src).applyRetroFilter(
+                    RetroRenderParams(grainStrength = 0.5f, grainChroma = 0f, vignette = 0f)
+                )
+            }
+        )
+        var sum = 0L
+        var count = 0
+        for (y in 0 until h) for (x in 0 until w - 1) {
+            val a = out[y * w + x] and 0xFF
+            val b = out[y * w + x + 1] and 0xFF
+            sum += kotlin.math.abs(a - b)
+            count++
+        }
+        val meanNeighborDiff = sum / count.toFloat()
+        assertTrue("grain must vary per pixel (mean neighbor diff $meanNeighborDiff > 2.0)", meanNeighborDiff > 2.0f)
+    }
+
+    @Test
+    fun `grain - distant tiles do not repeat the same pattern`() {
+        // A repeating lattice would make two far-apart tiles near-identical.
+        // White grain must make them differ well above rounding noise.
+        val w = 128
+        val h = 32
+        val src = solid(w, h, 0xFF808080.toInt())
+        val out = pixelsOf(
+            runBlocking {
+                bitmapOf(w, h, src).applyRetroFilter(
+                    RetroRenderParams(grainStrength = 0.5f, grainChroma = 0f, vignette = 0f)
+                )
+            }
+        )
+        var sum = 0L
+        for (y in 0 until h) for (x in 0 until 32) {
+            val a = out[y * w + x] and 0xFF
+            val b = out[y * w + x + 64] and 0xFF
+            sum += kotlin.math.abs(a - b)
+        }
+        val meanTileDiff = sum / (32f * h)
+        assertTrue("distant tiles must differ (mean diff $meanTileDiff > 1.5)", meanTileDiff > 1.5f)
+    }
+
+    @Test
+    fun `grain - GPU shaders carry the seeded pure-white stage`() {
+        for (shader in listOf(LutPreviewRenderer.FRAG_SHADER, LutPreviewRenderer.FRAG_SHADER_NO_3D)) {
+            assertTrue("shader must declare uGrainSeed", shader.contains("uGrainSeed"))
+            assertTrue("shader must hash white grain per pixel", shader.contains("grainHash(gl_FragCoord.xy"))
+            // Regression for the visible grid: no interpolated octave may
+            // remain in the grain stage, and the hash must wrap into
+            // mediump-clean magnitudes.
+            assertFalse("shader must not interpolate a grain octave", shader.contains("grainNoise("))
+            assertTrue("shader must wrap uGrainSeed into float-safe range", shader.contains("mod(seed, 256.0)"))
+            assertTrue("shader must hash in mediump-clean range", shader.contains("mod(p + s, 256.0)"))
+        }
+    }
+
+    @Test
+    fun `grain - even huge seeds stay per-pixel white on the CPU`() {
+        // Integer hash math is magnitude-immune; only the GPU float path
+        // needs the MAX_GRAIN_SEED bound. Locks that a wild seed can never
+        // collapse the CPU field into blocks either.
+        val w = 64
+        val h = 64
+        val src = solid(w, h, 0xFF808080.toInt())
+        val out = pixelsOf(
+            runBlocking {
+                bitmapOf(w, h, src).applyRetroFilter(
+                    RetroRenderParams(grainStrength = 0.5f, grainChroma = 0f, vignette = 0f),
+                    grainSeed = Int.MAX_VALUE
+                )
+            }
+        )
+        var sum = 0L
+        var count = 0
+        for (y in 0 until h) for (x in 0 until w - 1) {
+            val a = out[y * w + x] and 0xFF
+            val b = out[y * w + x + 1] and 0xFF
+            sum += kotlin.math.abs(a - b)
+            count++
+        }
+        assertTrue("huge seed must stay white (diff ${sum / count.toFloat()} > 2.0)", sum / count.toFloat() > 2.0f)
+    }
+
+    @Test
+    fun `grain - capture seed bound fits float precision`() {
+        assertTrue("MAX_GRAIN_SEED must stay exactly representable", MAX_GRAIN_SEED <= 256)
+    }
+
+    @Test
+    fun `grain - no lattice structure at any short lag`() {
+        // Regression for the visible grid: the old interpolated octave
+        // correlated neighbors and terraced on its lattice. Pure white
+        // grain must be uncorrelated at every lag 1..8 in x and y.
+        val w = 128
+        val h = 128
+        val src = solid(w, h, 0xFF808080.toInt())
+        val out = pixelsOf(
+            runBlocking {
+                bitmapOf(w, h, src).applyRetroFilter(
+                    RetroRenderParams(grainStrength = 0.5f, grainChroma = 0f, vignette = 0f)
+                )
+            }
+        )
+        val dev = DoubleArray(w * h) { (out[it] and 0xFF) - 128.0 }
+        val mean = dev.average()
+        val variance = dev.sumOf { (it - mean) * (it - mean) } / dev.size
+        assertTrue("grain must actually vary", variance > 1.0)
+        fun corr(dx: Int, dy: Int): Double {
+            var s = 0.0
+            var c = 0
+            for (y in 0 until h - dy) for (x in 0 until w - dx) {
+                s += (dev[y * w + x] - mean) * (dev[(y + dy) * w + x + dx] - mean)
+                c++
+            }
+            return s / c / variance
+        }
+        for (lag in 1..8) {
+            assertTrue("lag-$lag x corr ${corr(lag, 0)} must be ~0", kotlin.math.abs(corr(lag, 0)) < 0.12)
+            assertTrue("lag-$lag y corr ${corr(0, lag)} must be ~0", kotlin.math.abs(corr(0, lag)) < 0.12)
+        }
+    }
 }

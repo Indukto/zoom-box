@@ -42,7 +42,7 @@ object CubeLutParser {
     /**
      * Parses the LUT at the given relative path under `assets/`.
      *
-     * @param assetPath e.g. `"luts/kodak_portra_160_vc.cube"`
+     * @param assetPath e.g. `"luts/warm_portrait.cube"`
      * @param context   any application/activity context
      */
     fun parse(assetPath: String, context: Context): CubeLut =

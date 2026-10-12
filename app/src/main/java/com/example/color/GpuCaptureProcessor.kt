@@ -63,7 +63,8 @@ class GpuCaptureProcessor {
     fun process(
         source: Bitmap,
         params: RetroRenderParams,
-        lut: CubeLut? = null
+        lut: CubeLut? = null,
+        grainSeed: Int = 0
     ): Bitmap? {
         val w = source.width
         val h = source.height
@@ -80,7 +81,7 @@ class GpuCaptureProcessor {
                     Log.e(TAG, "eglMakeCurrent failed")
                     return@Callable null
                 }
-                render(source, params, lut)
+                render(source, params, lut, grainSeed)
             }).get()
         } catch (e: Exception) {
             Log.e(TAG, "GPU capture failed; CPU fallback will be used", e)
@@ -197,7 +198,7 @@ class GpuCaptureProcessor {
         }
     }
 
-    private fun render(source: Bitmap, params: RetroRenderParams, lut: CubeLut?): Bitmap? {
+    private fun render(source: Bitmap, params: RetroRenderParams, lut: CubeLut?, grainSeed: Int = 0): Bitmap? {
         val w = source.width
         val h = source.height
 
@@ -329,6 +330,7 @@ class GpuCaptureProcessor {
         // Grain is a capture-time finish; the live preview leaves it at 0.
         setFloatUniform(program, "uGrainStrength", params.grainStrength)
         setFloatUniform(program, "uGrainChroma", params.grainChroma)
+        setFloatUniform(program, "uGrainSeed", grainSeed.toFloat())
         setFloatUniform(program, "uVignette", params.vignette)
         setFloatUniform(program, "uDust", params.dust)
         setFloatUniform(program, "uScratch", params.scratch)

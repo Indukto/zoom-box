@@ -3,7 +3,7 @@
   "displayName": "Cross Process",
   "category": "experimental",
   "look": {
-    "lutPath": "luts/kodak_elite_100_xpro.cube",
+    "lutPath": "luts/cross_process.cube",
     "filmCurve": 0.25,
     "contrast": 1.20,
     "saturation": 1.30,

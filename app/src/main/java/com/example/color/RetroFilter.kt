@@ -55,7 +55,8 @@ private val filterBuffers = ThreadLocal<FilterBuffers>()
  */
 suspend fun Bitmap.applyRetroFilter(
     params: RetroRenderParams,
-    lut: CubeLut? = null
+    lut: CubeLut? = null,
+    grainSeed: Int = 0
 ): Bitmap {
     // Destructure the shared snapshot into locals so the existing
     // per-pixel body stays untouched (and stays in the same order as the
@@ -513,28 +514,38 @@ suspend fun Bitmap.applyRetroFilter(
 
                         // ── 9. Film Grain ──
                         if (grainStrength > 0f) {
-                            // ── Realistic silver-halide film grain ────────────
+                            // ── Pure white silver-halide grain ────────────
+                            // One uncorrelated per-pixel hash tap, nothing
+                            // interpolated: an earlier value-noise octave
+                            // terraced into a visible ~3px lattice once
+                            // quantized to bytes, which read as a repetitive
+                            // grid. White noise has no lattice by
+                            // construction, so it cannot tile or band.
                             val lum = (r8 * 0.299f + g8 * 0.587f + b8 * 0.114f) / 255f
                             val midMask = 1f - 4f * (lum - 0.5f) * (lum - 0.5f) // [0, 1]
                             val midMaskClamped = midMask.coerceAtLeast(0.4f)
 
-                            val fine = valueNoise2D(x * 1.05f, y * 1.05f)
-                            val medium = valueNoise2D(x * 0.32f + 31.7f, y * 0.32f + 17.3f)
-                            val monoCentered = (fine + medium) - 1f
+                            val white = hashPixel(x, y, grainSeed) - 0.5f
 
                             val amp = grainStrength * (1.2f + 2.0f * midMaskClamped) * 11f
-                            val monoDelta = (monoCentered * amp).toInt()
+                            // Round (never truncate): truncation thins faint
+                            // grain into sparse speckle and terraces smooth
+                            // gradients into bands.
+                            val monoDelta = java.lang.Math.round(white * amp)
 
                             var chromaR = 0
                             var chromaG = 0
                             var chromaB = 0
                             if (grainChroma > 0f) {
-                                val cr = valueNoise2D(x * 1.13f + 7.1f, y * 1.13f + 3.7f)
-                                val cg = valueNoise2D(x * 0.97f + 91.3f, y * 0.97f + 47.2f)
-                                val cb = valueNoise2D(x * 1.21f + 13.4f, y * 1.21f + 71.9f)
-                                chromaR = ((cr - 0.5f) * amp * grainChroma).toInt()
-                                chromaG = ((cg - 0.5f) * amp * grainChroma).toInt()
-                                chromaB = ((cb - 0.5f) * amp * grainChroma).toInt()
+                                // Per-channel white speckle (CCD/dye speckle is
+                                // pixel-scale). Salts mirror the GPU shader so
+                                // both back-ends decorrelate R/G/B the same way.
+                                val cr = hashPixel(x, y, grainSeed + 101)
+                                val cg = hashPixel(x, y, grainSeed + 917)
+                                val cb = hashPixel(x, y, grainSeed + 1543)
+                                chromaR = java.lang.Math.round((cr - 0.5f) * amp * grainChroma)
+                                chromaG = java.lang.Math.round((cg - 0.5f) * amp * grainChroma)
+                                chromaB = java.lang.Math.round((cb - 0.5f) * amp * grainChroma)
                             }
 
                             r8 = (r8 + monoDelta + chromaR).coerceIn(0, 255)
@@ -773,12 +784,10 @@ private fun fract(x: Float): Float = x - kotlin.math.floor(x.toDouble()).toFloat
  * This is the classic sin-free "hash12" fract-multiply hash. It replaces
  * `fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453)`, whose double-
  * precision `sin` cost 8–20 transcendental calls per grain pixel (~100 M
- * per 12 MP capture). The fract-multiply form is only multiplies and adds,
- * and it changed in lock-step with the GLSL helper so the CPU and GPU
- * still key film grain / dust / scratches off the same noise field and
- * match within float precision (the JVM computes in strict IEEE float;
- * the shader's mediump path may round slightly differently on some GPUs,
- * as before).
+ * per 12 MP capture). The fract-multiply form is only multiplies and adds.
+ * It keys dust and scratches (both back-ends share this field and match
+ * within float precision); grain uses the seeded integer hashPixel instead
+ * so every capture gets a fresh per-pixel-white field.
  */
 private fun hashF(x: Float, y: Float): Float {
     // vec3(p.xyx): the z component mirrors x.
@@ -789,44 +798,36 @@ private fun hashF(x: Float, y: Float): Float {
     return fract((p1 + d + p2 + d) * (p3 + d))
 }
 
-/** 5th-order smootherstep, matching the shader's `smootherstepNoise`. */
-private fun smootherstep(t: Float): Float = t * t * t * (t * (t * 6f - 15f) + 10f)
-
 /** GLSL `smoothstep(edge0, edge1, x)` equivalent (3rd-order). */
 private fun smoothstep3(edge0: Float, edge1: Float, x: Float): Float {
     val t = ((x - edge0) / (edge1 - edge0)).coerceIn(0f, 1f)
     return t * t * (3f - 2f * t)
 }
 
+/** Largest `grainSeed` a capture may mint. Must stay tiny: the seed travels
+ * to the GPU as a `float` uniform, where values past ~2^24 lose integer
+ * precision and quantize the hash lattice into visible repeating blocks.
+ * 0..255 is exactly representable even in `mediump`. */
+const val MAX_GRAIN_SEED = 256
+
 /**
- * 2-D value (Perlin-like) noise. Returns a uniform random in [0, 1) with
- * smooth interpolation between integer-lattice hash samples.
+ * Uncorrelated per-pixel white hash in [0, 1) for film grain.
  *
- * Uses 5th-order smootherstep (`6x^5 - 15x^4 + 10x^3`) instead of the
- * usual 3rd-order smoothstep: the smootherstep has zero 1st and 2nd
- * derivatives at the lattice boundary, which kills the faint grid
- * cells visible in cheaper interpolators (you can usually see them
- * when zooming into generated Perlin noise — they read as soft
- * checkerboard instead of pure noise).
+ * Integer avalanche (xorshift + multiply finalizer) instead of the
+ * fract-multiply [hashF]: every input pixel maps independently, so there is
+ * no lattice interpolation and no repeating blotch period. Int arithmetic
+ * wraps on overflow, which is the desired modulo-2^32 mixing. The [seed]
+ * re-keys the whole field per capture (capture seeds stay below
+ * MAX_GRAIN_SEED so the GPU float path survives them); the per-channel
+ * chroma salts mirror the shader offsets so both back-ends decorrelate
+ * R/G/B the same way.
  *
- * Per-call cost: 4 hash lookups + ~6 multiplies + ~6 adds. Called twice
- * per grain pixel (fine + medium octaves) inside the parallel chunk
- * loop, which already amortises the chunk start/coroutine overhead.
+ * Per-call cost: a few integer ops — cheaper than the value-noise
+ * lookups it replaces.
  */
-private fun valueNoise2D(x: Float, y: Float): Float {
-    val ix = x.toInt()
-    val iy = y.toInt()
-    val fx = x - ix
-    val fy = y - iy
-    val sx = smootherstep(fx)
-    val sy = smootherstep(fy)
-
-    val n00 = hashF(ix.toFloat(), iy.toFloat())
-    val n10 = hashF((ix + 1).toFloat(), iy.toFloat())
-    val n01 = hashF(ix.toFloat(), (iy + 1).toFloat())
-    val n11 = hashF((ix + 1).toFloat(), (iy + 1).toFloat())
-
-    val nx0 = n00 + (n10 - n00) * sx
-    val nx1 = n01 + (n11 - n01) * sx
-    return nx0 + (nx1 - nx0) * sy
+private fun hashPixel(x: Int, y: Int, seed: Int): Float {
+    var h = seed + x * 374761393 + y * 668265263
+    h = (h xor (h ushr 13)) * 1274126177
+    h = h xor (h ushr 16)
+    return (h ushr 8) * (1f / 16777216f)
 }

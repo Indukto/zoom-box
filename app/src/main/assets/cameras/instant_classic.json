@@ -3,7 +3,7 @@
   "displayName": "Instant Classic",
   "category": "instant",
   "look": {
-    "lutPath": "luts/polaroid_px-680.cube",
+    "lutPath": "luts/instant_classic.cube",
     "filmCurve": 0.20,
     "contrast": 1.10,
     "saturation": 1.15,

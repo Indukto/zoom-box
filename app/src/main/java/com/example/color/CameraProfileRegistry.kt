@@ -53,12 +53,18 @@ class CameraProfileRegistry(
 
     /** One immutable, internally consistent view of every look source. */
     private class Snapshot(
-        /** Lookup used by `profileFor`; asset ids win over user ids. */
+        /** Lookup used by `profileFor`: user edits win over bundled grades. */
         val profiles: Map<String, CameraProfile>,
+        /** Shipped grades keyed by id: assets first, enum adapter as fallback. */
+        val assetProfiles: Map<String, CameraProfile>,
         /** Ids declared by the bundled JSON profiles only. */
         val assetIds: Set<String>,
-        /** Ids that are selectable *and* user-authored. */
+        /** Every id the shipped catalog owns (enum order + JSON-only assets). */
+        val bundledIds: Set<String>,
+        /** Ids that are selectable *and* authored from scratch by the user. */
         val userIds: Set<String>,
+        /** Bundled ids carrying a user-saved file that shadows the shipped grade. */
+        val overriddenIds: Set<String>,
         val catalog: List<LookEntry>
     )
 
@@ -99,11 +105,24 @@ class CameraProfileRegistry(
     /** True when [id] grades nothing (no LUT and no render stage). */
     fun isPassThrough(id: String): Boolean = entryFor(id)?.isPassThrough ?: false
 
-    /** True when [id] is a look the user authored. */
+    /** True when [id] is a look the user authored from scratch. */
     fun isUserLook(id: String): Boolean = id in snapshot().userIds
+
+    /** True when [id] is a shipped look (enum order or a JSON asset). */
+    fun isBundled(id: String): Boolean = id in snapshot().bundledIds
+
+    /** True when [id] is a shipped look carrying user-saved edits. */
+    fun hasUserOverride(id: String): Boolean = id in snapshot().overriddenIds
 
     /** The bundled profile for [id], or null when no JSON file declares it. */
     fun profileFor(id: String): CameraProfile? = snapshot().profiles[id]
+
+    /**
+     * The shipped grade for [id]: the JSON asset when one exists, else the
+     * enum adapter. Null for looks the user authored from scratch — those
+     * have no factory grade to restore.
+     */
+    fun assetProfileFor(id: String): CameraProfile? = snapshot().assetProfiles[id]
 
     /** The profile for [preset], preferring a JSON definition when one exists. */
     fun profileFor(preset: FilmPreset): CameraProfile =
@@ -147,13 +166,17 @@ class CameraProfileRegistry(
     /** Ids of the looks the user authored and that are selectable. */
     fun userLookIds(): Set<String> = snapshot().userIds
 
+    /** Bundled ids currently shadowed by a user-saved file. */
+    fun overriddenLookIds(): Set<String> = snapshot().overriddenIds
+
     /**
      * Merges the enum order with every profile source. When a JSON file and
      * the enum both describe a look, the JSON parameters win (see
-     * [profileFor]) but the enum decides where the entry sits. A user look can
-     * never take an id the shipped catalog already owns: a file claiming one is
-     * ignored for that id, because silently re-grading a bundled look from a
-     * file the user cannot see is indistinguishable from a bug.
+     * [profileFor]) but the enum decides where the entry sits. A user file
+     * whose id matches a shipped look shadows that look's grade in place:
+     * the entry keeps its bundled slot, order and preset so the picker never
+     * grows a duplicate — editing a style edits it, and deleting the file
+     * (see restore) brings the shipped grade back.
      */
     private fun build(): Snapshot {
         val assetProfiles = loadAssetProfiles()
@@ -163,12 +186,29 @@ class CameraProfileRegistry(
         }
 
         val enumIds = FilmPreset.entries.mapTo(mutableSetOf()) { it.profileId }
+        // Shipped grades: JSON wins over the enum adapter, which stays as the
+        // fallback for ids with no asset file. Kept as its own map so an
+        // edit can always ask "what did this look ship as?" even after a
+        // user file shadows it in [profiles].
+        val factoryProfiles = LinkedHashMap<String, CameraProfile>()
+        for (preset in FilmPreset.entries) {
+            factoryProfiles[preset.profileId] =
+                assetProfiles[preset.profileId] ?: preset.toCameraProfile()
+        }
+        for ((id, profile) in assetProfiles) {
+            factoryProfiles.putIfAbsent(id, profile)
+        }
 
-        val profiles = LinkedHashMap<String, CameraProfile>(assetProfiles)
+        // Effective lookup: user edits win, everything else falls through to
+        // the shipped grade. User files never delete a shipped look — an id
+        // with no shipped grade and no user file simply resolves to null.
+        val profiles = LinkedHashMap<String, CameraProfile>(factoryProfiles)
         for ((id, profile) in userProfiles) {
-            if (profiles.containsKey(id) || id in enumIds) continue
             profiles[id] = profile
         }
+
+        val bundledIds = LinkedHashSet<String>(enumIds)
+        bundledIds += assetProfiles.keys
 
         val byId = LinkedHashMap<String, LookEntry>()
         for (entry in enumEntries()) {
@@ -176,32 +216,57 @@ class CameraProfileRegistry(
             // ownership of the slot so the bundled order never shifts.
             // Read the asset map directly: going through `profileFor` here
             // would re-enter `snapshot()` and recurse forever.
-            byId[entry.id] = assetProfiles[entry.id]?.let { bundled ->
+            val shipped = assetProfiles[entry.id]?.let { bundled ->
                 entry.copy(profile = bundled, displayName = bundled.displayName, category = bundled.category)
             } ?: entry
+            val override = userProfiles[entry.id]
+            byId[entry.id] = if (override == null) {
+                shipped
+            } else {
+                shipped.copy(
+                    profile = override,
+                    displayName = override.displayName,
+                    hasUserOverride = true
+                )
+            }
         }
         for (id in assetProfiles.keys.sorted()) {
             if (byId.containsKey(id)) continue
-            val profile = assetProfiles.getValue(id)
-            byId[id] = LookEntry(
-                id = profile.id,
-                displayName = profile.displayName,
-                category = profile.category,
-                // No enum entry — this look exists purely as an asset.
-                preset = null,
-                profile = profile
-            )
+            val shipped = assetProfiles.getValue(id)
+            val override = userProfiles[id]
+            byId[id] = if (override == null) {
+                LookEntry(
+                    id = shipped.id,
+                    displayName = shipped.displayName,
+                    category = shipped.category,
+                    // No enum entry — this look exists purely as an asset.
+                    preset = null,
+                    profile = shipped
+                )
+            } else {
+                LookEntry(
+                    id = shipped.id,
+                    displayName = override.displayName,
+                    category = shipped.category,
+                    preset = null,
+                    profile = override,
+                    hasUserOverride = true
+                )
+            }
         }
         val userIds = mutableSetOf<String>()
+        val overriddenIds = mutableSetOf<String>()
         for (id in userProfiles.keys.sorted()) {
-            if (byId.containsKey(id) || id in enumIds) continue
+            if (id in bundledIds) {
+                overriddenIds += id
+                continue
+            }
             val profile = userProfiles.getValue(id)
             byId[id] = LookEntry(
                 id = profile.id,
                 displayName = profile.displayName,
                 category = profile.category,
-                // A user look is never enum-backed, even when it was duplicated
-                // from one: it is its own document from here on.
+                // A user look is never enum-backed: it is its own document.
                 preset = null,
                 profile = profile,
                 isUser = true
@@ -211,8 +276,11 @@ class CameraProfileRegistry(
 
         return Snapshot(
             profiles = profiles,
+            assetProfiles = factoryProfiles,
             assetIds = assetProfiles.keys.toSet(),
+            bundledIds = bundledIds,
             userIds = userIds,
+            overriddenIds = overriddenIds,
             catalog = byId.values.toList()
         )
     }

@@ -17,10 +17,15 @@ import com.example.FilmPreset
  * route switch) can still ask "is this the pass-through Normal preset?"
  * without the enum having to be the source of truth for the catalog.
  *
- * @param isUser true for a look the *user* authored (a file in `filesDir/looks`)
- *        rather than one that ships bundled. The manager screen groups on it,
- *        and it is the flag that decides whether selecting an entry opens the
- *        editor or duplicates it first.
+ * @param isUser true for a look the *user* authored from scratch (a file in
+ *        `filesDir/looks` with an id of its own) rather than one that ships
+ *        bundled. The manager screen groups on it, and pure user looks are
+ *        the only entries the editor offers to delete — a bundled look with
+ *        user edits keeps its slot and offers a restore-to-original instead.
+ * @param hasUserOverride true when a bundled look carries user-saved edits
+ *        shadowing its shipped grade. The entry keeps its bundled slot, order
+ *        and preset; only its grade (and display name, if renamed) comes from
+ *        the user's file.
  */
 data class LookEntry(
     val id: String,
@@ -28,7 +33,8 @@ data class LookEntry(
     val category: String,
     val preset: FilmPreset?,
     val profile: CameraProfile,
-    val isUser: Boolean = false
+    val isUser: Boolean = false,
+    val hasUserOverride: Boolean = false
 ) {
     /**
      * True when the look grades nothing: no LUT to sample and no render

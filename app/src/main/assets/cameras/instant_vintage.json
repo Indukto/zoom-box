@@ -3,7 +3,7 @@
   "displayName": "Instant Vintage",
   "category": "instant",
   "look": {
-    "lutPath": "luts/polaroid_669_++.cube",
+    "lutPath": "luts/instant_vintage.cube",
     "filmCurve": 0.20,
     "contrast": 1.15,
     "saturation": 1.20,

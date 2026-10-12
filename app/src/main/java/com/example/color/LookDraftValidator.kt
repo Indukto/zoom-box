@@ -24,7 +24,7 @@ object LookDraftValidator {
     private val ILLEGAL_ID_CHARS = Regex("[^a-z0-9_]+")
 
     // ── Parameter ranges ────────────────────────────────────────────────────
-    // Tuned so every bundled profile clamps to itself: a duplicated look must
+    // Tuned so every bundled profile clamps to itself: an edited look must
     // start exactly where its source was, with no slider jumping on open.
     private const val MAX_TINT = 0.2f
     private const val MAX_TINT_STRENGTH = 0.5f
@@ -69,8 +69,8 @@ object LookDraftValidator {
      * Coerces every grading stage of [params] into its documented range.
      *
      * [RetroRenderParams.lutPath] is intentionally untouched: it is an
-     * identity, not a value, and a duplicated look must keep pointing at the
-     * LUT it was copied from.
+     * identity, not a value, and an edited look must keep pointing at the
+     * LUT it started from.
      */
     fun clampLook(params: RetroRenderParams): RetroRenderParams = params.copy(
         temperature = params.temperature.coerceIn(-MAX_TEMPERATURE, MAX_TEMPERATURE),
