@@ -77,6 +77,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CameraAlt
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
@@ -96,6 +97,7 @@ import androidx.compose.material.icons.rounded.GridOn
 import androidx.compose.material.icons.rounded.GridOff
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.PrivacyTip
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -130,6 +132,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -182,6 +186,7 @@ import com.example.zoom.CaptureExtension
 import com.example.zoom.focalLabelAnchor
 import com.example.color.CubeLut
 import com.example.color.LOOK_CROSSFADE_DURATION_MS
+import com.example.color.LookEntry
 import com.example.color.LookSwatch
 import com.example.color.profileId
 import com.example.zoom.LensRole
@@ -1872,9 +1877,13 @@ fun CameraPermissionOnboarding(
 }
 
 /**
- * Decorative film-strip edge (frame line + sprocket holes) pinned to the
- * top or bottom of the onboarding surface. Extracted so top/bottom stay
- * in lock-step and the main column reads without duplicated chrome.
+ * Decorative film-strip edge pinned to the top or bottom of the onboarding
+ * surface.
+ *
+ * Only the BOTTOM edge carries the row of sprocket dots — the top edge is
+ * reduced to the bare frame line so the header area reads clean and the
+ * focal point stays on the icon/title. Both edges keep the same gradient
+ * frame line so the surface still reads as a film frame.
  */
 @Composable
 private fun BoxScope.OnboardingFilmEdge(
@@ -1903,54 +1912,23 @@ private fun BoxScope.OnboardingFilmEdge(
                     )
                 }
             }
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(3.dp)
-                    .background(
-                        Brush.horizontalGradient(
-                            listOf(
-                                Color.Transparent,
-                                accent.copy(alpha = 0.3f),
-                                accent.copy(alpha = 0.5f),
-                                accent.copy(alpha = 0.3f),
-                                Color.Transparent
-                            )
-                        )
-                    )
-            )
-        } else {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(3.dp)
-                    .background(
-                        Brush.horizontalGradient(
-                            listOf(
-                                Color.Transparent,
-                                accent.copy(alpha = 0.3f),
-                                accent.copy(alpha = 0.5f),
-                                accent.copy(alpha = 0.3f),
-                                Color.Transparent
-                            )
-                        )
-                    )
-            )
-            Row(
-                modifier = Modifier
-                    .padding(top = 10.dp)
-                    .fillMaxWidth(0.85f),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                repeat(12) {
-                    Box(
-                        modifier = Modifier
-                            .size(6.dp, 4.dp)
-                            .background(accent.copy(alpha = 0.15f), RoundedCornerShape(1.dp))
-                    )
-                }
-            }
         }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(3.dp)
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(
+                            Color.Transparent,
+                            accent.copy(alpha = 0.3f),
+                            accent.copy(alpha = 0.5f),
+                            accent.copy(alpha = 0.3f),
+                            Color.Transparent
+                        )
+                    )
+                )
+        )
     }
 }
 
@@ -2022,9 +2000,15 @@ private fun LiveViewfinderPreview(
     // them drift (preview used to flatten the FilmPreset enum directly).
     // Look switches crossfade inside CameraPreviewView (~250 ms dual-LUT
     // blend); slider ticks snap through — see the driver there.
-    val previewRenderParams = remember(activeLookId, temperature, tint, exposure) {
+    //
+    // Deliberately not `remember`-ed on (look, WB, exposure): the snapshot also
+    // depends on the look's *own* parameters, which change when the editor
+    // previews a draft or when a user look is saved under the same id. Keying
+    // on those three would hand back a stale grade in exactly those cases, and
+    // the call itself is a map lookup plus a copy on a leaf that already
+    // recomposes per slider tick.
+    val previewRenderParams =
         viewModel.previewRenderParams(activeLookId, temperature, tint, exposure)
-    }
 
     // The preview binds immediately, without waiting for persisted
     // settings (cold-start): the pass-through start route is a stable
@@ -2037,7 +2021,18 @@ private fun LiveViewfinderPreview(
     // window first, so the LUT mix can dissolve to ungraded on the GPU
     // instead of snapping; only then does the route drop to the stable
     // CameraX path. A look change inside the window cancels the drop.
-    val settledFiltered = !viewModel.isPassThroughLook(activeLookId)
+    // While the editor is open the *draft* decides whether the GL surface is
+    // needed: a params-only draft grades nothing but still has to be rendered
+    // by the shader, and on the plain CameraX surface every slider would look
+    // dead. distinctUntilChanged keeps this to one recomposition per crossing
+    // instead of one per slider tick.
+    val draftGradedFlow = remember(viewModel) {
+        viewModel.lookDraft
+            .map { draft -> draft?.let { !it.look.isPassThrough } }
+            .distinctUntilChanged()
+    }
+    val draftGraded by draftGradedFlow.collectAsState(initial = null)
+    val settledFiltered = draftGraded ?: !viewModel.isPassThroughLook(activeLookId)
     var routeFiltered by remember { mutableStateOf(settledFiltered) }
     val currentSettled by rememberUpdatedState(settledFiltered)
     LaunchedEffect(settledFiltered) {
@@ -2239,9 +2234,21 @@ fun CameraActiveScreen(
     // Goes through the JSON profile registry (loadPreviewLut) so a profile's
     // lutPath — not just the enum's — drives the preview, matching capture.
     var previewLut by remember { mutableStateOf<CubeLut?>(null) }
-    LaunchedEffect(activeLookId) {
+    // The LUT's *path* is part of the key, not just the look id: a draft
+    // duplicated from a bundled look grades through that look's `.cube` before
+    // anything is saved, so the path can change while the active look stays
+    // put. Null means "no draft open — use the active look's LUT".
+    val draftLutPathFlow = remember(viewModel) {
+        viewModel.lookDraft
+            .map { draft -> draft?.look?.lutPath }
+            .distinctUntilChanged()
+    }
+    val draftLutPath by draftLutPathFlow.collectAsState(initial = null)
+    LaunchedEffect(activeLookId, draftLutPath) {
         previewLut = withContext(Dispatchers.IO) {
-            viewModel.loadPreviewLut(context, activeLookId)
+            val path = draftLutPath
+            if (path == null) viewModel.loadPreviewLut(context, activeLookId)
+            else viewModel.previewLutForPath(context, path)
         }
     }
 
@@ -3093,118 +3100,31 @@ fun CameraActiveScreen(
                 containerColor = Color(0xFF141416).copy(alpha = 0.94f),
                 contentColor = Color.White
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = stringResource(R.string.film_style),
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        modifier = Modifier.padding(bottom = 2.dp)
-                    )
-                    Text(
-                        text = stringResource(
-                            R.string.film_style_count,
-                            lookCatalog.size
-                        ),
-                        color = Color.White.copy(alpha = 0.55f),
-                        fontSize = 12.sp,
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(3),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 430.dp),
-                        contentPadding = PaddingValues(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(lookCatalog, key = { it.id }) { look ->
-                            val selected = look.id == activeLookId
-                            val base = filmPresetColor(look.id)
-                            val dark = Color(
-                                red = base.red * 0.45f,
-                                green = base.green * 0.45f,
-                                blue = base.blue * 0.45f
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .aspectRatio(0.86f)
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .background(
-                                        brush = Brush.linearGradient(
-                                            colors = listOf(
-                                                base,
-                                                dark
-                                            ),
-                                            start = Offset.Zero,
-                                            end = Offset.Infinite
-                                        ),
-                                        shape = RoundedCornerShape(16.dp)
-                                    )
-                                    .border(
-                                        if (selected) 2.dp else 1.dp,
-                                        if (selected) SolidColor(Color.White)
-                                        else deckGlassBorder(),
-                                        RoundedCornerShape(16.dp)
-                                    )
-                                    .clickable {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        viewModel.setLook(look.id)
-                                        showPresetPicker = false
-                                    }
-                                    .testTag("film_style_card_${look.id}"),
-                                contentAlignment = Alignment.BottomStart
-                            ) {
-                                // Bottom scrim so the name stays legible on
-                                // the lightest styles (Golden, Sunlit Spill, …).
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .background(
-                                            brush = Brush.verticalGradient(
-                                                colors = listOf(
-                                                    Color.Transparent,
-                                                    Color.Black.copy(alpha = 0.45f)
-                                                )
-                                            )
-                                        )
-                                )
-                                if (selected) {
-                                    Box(
-                                        modifier = Modifier
-                                            .align(Alignment.TopEnd)
-                                            .padding(6.dp)
-                                            .size(22.dp)
-                                            .background(Color.White, CircleShape),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.Check,
-                                            contentDescription = null,
-                                            tint = Color.Black,
-                                            modifier = Modifier.size(14.dp)
-                                        )
-                                    }
-                                }
-                                Text(
-                                    text = look.displayName,
-                                    color = Color.White,
-                                    fontSize = 12.sp,
-                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
-                                    maxLines = 2,
-                                    lineHeight = 14.sp,
-                                    modifier = Modifier.padding(10.dp)
-                                )
-                            }
-                        }
+                FilmLooksPickerSheet(
+                    looks = lookCatalog,
+                    activeLookId = activeLookId,
+                    onSelectLook = { lookId ->
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        viewModel.setLook(lookId)
+                        showPresetPicker = false
+                    },
+                    // Both editor entries close the sheet before changing state:
+                    // the deck renders on the camera screen, and leaving the
+                    // sheet up would park its scrim over the deck it just
+                    // opened. beginLookDraft(null) starts blank; a look id
+                    // opens that look, or an editable copy of it when the id
+                    // is a bundled asset.
+                    onNewLook = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        showPresetPicker = false
+                        viewModel.beginLookDraft(null)
+                    },
+                    onEditLook = { lookId ->
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        showPresetPicker = false
+                        viewModel.beginLookDraft(lookId)
                     }
-                }
+                )
             }
         }
 
@@ -3271,6 +3191,14 @@ fun CameraActiveScreen(
         }
 
 
+        // 6b. Look editor deck. Rendered after the control deck so it floats
+        // above it, and outside the viewfinder so the live grade stays visible
+        // while the sliders move. It renders nothing while no draft is open.
+        LookEditorPanelHost(
+            viewModel = viewModel,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
+
         // 7. Photo Viewer Overlay
         AnimatedVisibility(
             visible = selectedPhoto != null,
@@ -3287,6 +3215,229 @@ fun CameraActiveScreen(
                     onDelete = { file -> viewModel.requestDelete(file) },
                     onSelectPhoto = { viewModel.setSelectedPhoto(it) }
                 )
+            }
+        }
+    }
+}
+
+/**
+ * The film-look picker's body: the grid you pick a grade from, plus the tiles
+ * that start or reopen an edit.
+ *
+ * It is the whole look surface now: the manager page it used to hand off to is
+ * gone, because this grid already lists every look and the editor deck already
+ * owns deleting one.
+ *
+ * Creating and editing live here, not in Settings, because this is the only
+ * screen where the looks themselves are on display; a Settings row made users
+ * leave the thing they were choosing between to go edit one. The selected tile
+ * carries a gear — a bundled look opens an editable copy (the shipped ones are
+ * assets and are never written to), one of your own reopens in place — and the
+ * create tile closes the grid. A corner target rather than a
+ * long-press, because a long-press on a tile that already applies on tap is
+ * invisible.
+ *
+ * Separate from the [ModalBottomSheet] that hosts it — and reports taps instead
+ * of applying them — so the grid, the active-look rim and the edit targets can
+ * be driven headlessly, with no camera session behind them.
+ */
+@Composable
+internal fun FilmLooksPickerSheet(
+    looks: List<LookEntry>,
+    activeLookId: String,
+    onSelectLook: (String) -> Unit,
+    onNewLook: () -> Unit,
+    onEditLook: (String) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = stringResource(R.string.film_style),
+            color = Color.White,
+            fontWeight = FontWeight.Bold,
+            fontSize = 18.sp,
+            modifier = Modifier.padding(bottom = 2.dp)
+        )
+        Text(
+            text = stringResource(R.string.film_style_count, looks.size),
+            color = Color.White.copy(alpha = 0.55f),
+            fontSize = 12.sp,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(3),
+            modifier = Modifier
+                .fillMaxWidth()
+                // Capped so the sheet never covers the whole viewfinder. With
+                // fourteen tiles (thirteen looks + the create tile) the grid
+                // scrolls, and the cap is what keeps that scroll inside a band
+                // the live preview stays visible above.
+                .heightIn(max = 430.dp)
+                .testTag("film_style_grid"),
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(looks, key = { it.id }) { look ->
+                val selected = look.id == activeLookId
+                val base = filmPresetColor(look.id)
+                val dark = Color(
+                    red = base.red * 0.45f,
+                    green = base.green * 0.45f,
+                    blue = base.blue * 0.45f
+                )
+                Box(
+                    modifier = Modifier
+                        .aspectRatio(0.86f)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(
+                            brush = Brush.linearGradient(
+                                colors = listOf(
+                                    base,
+                                    dark
+                                ),
+                                start = Offset.Zero,
+                                end = Offset.Infinite
+                            ),
+                            shape = RoundedCornerShape(16.dp)
+                        )
+                        .border(
+                            if (selected) 2.dp else 1.dp,
+                            if (selected) SolidColor(Color.White)
+                            else deckGlassBorder(),
+                            RoundedCornerShape(16.dp)
+                        )
+                        .clickable { onSelectLook(look.id) }
+                        .testTag("film_style_card_${look.id}"),
+                    contentAlignment = Alignment.BottomStart
+                ) {
+                    // Bottom scrim so the name stays legible on
+                    // the lightest styles (Golden, Sunlit Spill, …).
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        Color.Black.copy(alpha = 0.45f)
+                                    )
+                                )
+                            )
+                    )
+                    if (selected) {
+                        // Top-start: the active badge is not interactive, so it
+                        // yields the thumb-reachable top-end corner to the gear.
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(6.dp)
+                                .size(22.dp)
+                                .background(Color.White, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Check,
+                                contentDescription = null,
+                                tint = Color.Black,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    }
+                    // Only the selected tile carries the gear: the grid stays a
+                    // grid of grades, and "edit the one I am shooting with" is
+                    // the case that matters. It also means the tile the user is
+                    // most likely to touch is the only one whose top-end corner
+                    // is not free to apply the look with.
+                    //
+                    // The badge is 24dp but the tap target is 40dp: a finger pad
+                    // is ~9mm, and 24dp is under 4mm, which is a coin-toss
+                    // target. It stops short of Material's 48dp on purpose —
+                    // this tile is only ~118dp wide, and a 48dp square would eat
+                    // a third of the surface itself.
+                    if (selected) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(6.dp)
+                                .size(40.dp)
+                                .clickable { onEditLook(look.id) }
+                                .testTag("film_style_edit_${look.id}"),
+                            contentAlignment = Alignment.TopEnd
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.Black.copy(alpha = 0.38f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Settings,
+                                    contentDescription = stringResource(
+                                        R.string.film_style_edit_desc,
+                                        look.displayName
+                                    ),
+                                    tint = Color.White,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        }
+                    }
+                    Text(
+                        text = look.displayName,
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
+                        maxLines = 2,
+                        lineHeight = 14.sp,
+                        modifier = Modifier.padding(10.dp)
+                    )
+                }
+            }
+
+            // The create tile closes the grid rather than leading it: the
+            // catalog keeps the order it ships in, and "add" reads as the step
+            // after the last look. It is reached by scrolling, which is the
+            // price of not shifting every existing tile one cell along.
+            item(key = "new_look_tile") {
+                Box(
+                    modifier = Modifier
+                        .aspectRatio(0.86f)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color.White.copy(alpha = 0.07f))
+                        .border(1.dp, deckGlassBorder(), RoundedCornerShape(16.dp))
+                        .clickable { onNewLook() }
+                        .testTag("film_style_card_new"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(
+                            modifier = Modifier
+                                .size(30.dp)
+                                .background(Color.White.copy(alpha = 0.14f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Add,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = stringResource(R.string.film_style_new),
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
             }
         }
     }

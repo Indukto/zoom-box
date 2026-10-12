@@ -50,6 +50,8 @@
 
 - **13 film looks** — Warm Portrait, Monochrome 400, Instant Classic, Cross Process, Instant Vintage, Moody, Muted Meadow, Sunlit Spill, Golden 200, Street Mono 400, Vivid Cool 400, CCD Digicam, and Normal (pass-through). Each is defined by a 3D LUT plus per-look tonal parameters.
 - **JSON look profiles** — Every look is fully described by an editable `assets/cameras/*.json` file, and the Film-Style picker is built from the loaded catalog: a look with no `FilmPreset` entry still shows up in the grid and in the swipe cycle. The capture pipeline prefers the JSON and falls back to the built-in enum, so adding or tuning a look is an *asset change, not a code change*.
+- **Your own looks** — Film-Style picker: the **New Look** tile at the end of the grid starts one from scratch, the gear on the selected tile customises it (a bundled look opens an editable copy, one of your own reopens in place), and the editor deck can delete it again; bend the tone, split-toning, grain and artifact stages with the sliders while the *live* viewfinder grades what you are building, then save it. Your looks sit in the same picker and swipe cycle as the bundled thirteen, and they are plain JSON documents on the device — nothing is uploaded, and nothing leaves the phone.
+- **Your own LUTs** — The editor's LUT row imports an Adobe `.cube` from the device: the file is copied into the app's own storage, validated by parsing it, and recorded in the look's JSON profile, so a look can grade through a LUT you brought with you. Bundled looks keep pointing at the shipped `.cube`; nothing is fetched.
 - **Film processing pipeline** — One shared `RetroRenderParams` snapshot (LUT + film curve, contrast/saturation, split toning, bloom, fringing, soft focus, milky haze, grain, artifacts) drives all three render back-ends with a single signal chain:
   - **Live preview** — GLES fragment shader (grain + vignette shown in the viewfinder; dust/scratches/light-leak are capture-only).
   - **CPU capture** — Pixel filter applied to the saved JPEG.
@@ -72,7 +74,7 @@
 
 ##  Film Looks
 
-Each look combines a `.cube` 3D LUT (in `app/src/main/assets/luts/`) with per-look defaults — grain strength/chroma, film S-curve, contrast, saturation, bloom, split toning, fringing, soft focus, milky haze, highlight roll-off, fade, vignette, dust, scratches, and light leak — all expressed in the look's JSON profile.
+Each look combines a `.cube` 3D LUT — the thirteen below ship in `app/src/main/assets/luts/`; a look you author may point at a `.cube` you imported instead (`filesDir/luts/<name>.cube`) — with per-look defaults — grain strength/chroma, film S-curve, contrast, saturation, bloom, split toning, fringing, soft focus, milky haze, highlight roll-off, fade, vignette, dust, scratches, and light leak — all expressed in the look's JSON profile.
 
 | Look | Vibe |
 |---|---|
@@ -103,7 +105,7 @@ The four newest looks (Golden 200, Street Mono 400, Vivid Cool 400, CCD Digicam)
 | Arch | MVVM (ViewModel + StateFlow) |
 | Async | Kotlin Coroutines & Flow |
 | Effects | GLES fragment shaders, CPU pixel filter, EGL offscreen capture, Adobe `.cube` 3D LUT |
-| Look profiles | JSON in `assets/cameras/` (model + loader + registry in `com.example.color`) |
+| Look profiles | JSON in `assets/cameras/`, plus user looks and imported LUTs under `filesDir/` (model + loader + registry + stores in `com.example.color`) |
 | Persistence | Jetpack DataStore |
 | Build | Gradle + Kotlin DSL (Kotlin 2.2, AGP 9) |
 

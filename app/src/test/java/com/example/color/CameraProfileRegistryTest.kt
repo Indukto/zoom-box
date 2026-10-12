@@ -13,6 +13,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.io.File
+import kotlin.io.path.createTempDirectory
 
 /**
  * Reads the real `assets/cameras/` bundle through [CameraProfileRegistry] and
@@ -130,6 +132,128 @@ class CameraProfileRegistryTest {
                 "${preset.profileId} has no assets/cameras file",
                 loaded.contains(preset.profileId)
             )
+        }
+    }
+
+    // ── User-authored looks ─────────────────────────────────────────────────
+
+    private fun registryWith(dir: File) =
+        CameraProfileRegistry(ApplicationProvider.getApplicationContext(), UserLookStore(dir))
+
+    private fun userProfile(id: String, name: String, look: RetroRenderParams = RetroRenderParams()) =
+        CameraProfile(id = id, displayName = name, category = UserLookStore.CATEGORY, look = look)
+
+    @Test
+    fun `user looks are appended after the bundled catalog and flagged as the user's`() {
+        val dir = createTempDirectory("looks").toFile()
+        try {
+            val store = UserLookStore(dir)
+            store.save(userProfile("my_moody", "My Moody", RetroRenderParams(contrast = 1.3f)))
+
+            val catalog = registryWith(dir).catalog()
+            val bundledIds = FilmPreset.entries.map { it.profileId }
+
+            // The shipped order must not shift: the picker grid and the persisted
+            // selection index both depend on the first thirteen slots.
+            assertEquals(bundledIds, catalog.take(bundledIds.size).map { it.id })
+            assertEquals("my_moody", catalog.last().id)
+            assertTrue(catalog.last().isUser)
+            assertEquals("My Moody", catalog.last().displayName)
+            // A user look has no enum entry, exactly like a JSON-only asset look.
+            assertNull(catalog.last().preset)
+            assertEquals(1.3f, catalog.last().profile.look.contrast, 0f)
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `a user file can never shadow a bundled look id`() {
+        val dir = createTempDirectory("looks").toFile()
+        try {
+            val store = UserLookStore(dir)
+            store.save(userProfile("warm_portrait", "Impostor", RetroRenderParams(contrast = 1.9f)))
+
+            val scoped = registryWith(dir)
+            val warm = scoped.entryFor("warm_portrait")
+
+            assertNotNull(warm)
+            assertFalse("a bundled id must not become a user look", warm!!.isUser)
+            assertEquals("Warm Portrait", warm.displayName)
+            assertSame(FilmPreset.WARM_PORTRAIT, warm.preset)
+            // And the parameters still come from the asset, not the file.
+            assertEquals(
+                FilmPreset.WARM_PORTRAIT.toRetroRenderParams(),
+                scoped.profileFor("warm_portrait")!!.look
+            )
+            assertEquals(emptySet<String>(), scoped.userLookIds())
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `the catalog is cached until refresh is called`() {
+        val dir = createTempDirectory("looks").toFile()
+        try {
+            val store = UserLookStore(dir)
+            val scoped = registryWith(dir)
+
+            assertEquals(emptySet<String>(), scoped.userLookIds())
+
+            store.save(userProfile("my_look", "My Look"))
+            assertEquals(
+                "a plain read must not see a look that was written after it",
+                emptySet<String>(),
+                scoped.userLookIds()
+            )
+
+            scoped.refresh()
+            assertEquals(setOf("my_look"), scoped.userLookIds())
+            assertEquals("my_look", scoped.catalog().last().id)
+
+            store.delete("my_look")
+            scoped.refresh()
+            assertEquals(emptySet<String>(), scoped.userLookIds())
+            assertFalse(scoped.contains("my_look"))
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `a params-only user look is a pass-through and a graded one is not`() {
+        val dir = createTempDirectory("looks").toFile()
+        try {
+            val store = UserLookStore(dir)
+            store.save(userProfile("blank", "Blank"))
+            store.save(userProfile("grainy", "Grainy", RetroRenderParams(grainStrength = 0.4f)))
+
+            val scoped = registryWith(dir)
+
+            assertTrue(scoped.isPassThrough("blank"))
+            assertTrue(scoped.entryFor("blank")!!.isPassThrough)
+            assertFalse(scoped.isPassThrough("grainy"))
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `asset ids and user ids stay separate`() {
+        val dir = createTempDirectory("looks").toFile()
+        try {
+            UserLookStore(dir).save(userProfile("my_look", "My Look"))
+
+            val scoped = registryWith(dir)
+
+            assertFalse(scoped.loadedProfileIds().contains("my_look"))
+            assertEquals(setOf("my_look"), scoped.userLookIds())
+            assertTrue(scoped.loadedProfileIds().contains("warm_portrait"))
+            assertTrue(scoped.isUserLook("my_look"))
+            assertFalse(scoped.isUserLook("warm_portrait"))
+        } finally {
+            dir.deleteRecursively()
         }
     }
 }

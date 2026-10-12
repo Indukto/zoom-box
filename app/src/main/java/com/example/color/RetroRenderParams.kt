@@ -69,6 +69,16 @@ data class RetroRenderParams(
     val lutPath: String = ""
 ) {
     /**
+     * True when this snapshot grades nothing at all: no LUT to sample and no
+     * stage switched on. Single definition of "pass-through" — [LookEntry] and
+     * the look editor (a draft that grades nothing) both ask this rather than
+     * re-deriving it, so a snapshot added here can never be graded in one place
+     * and ignored in another.
+     */
+    val isPassThrough: Boolean
+        get() = lutPath.isBlank() && !needsProcessing
+
+    /**
      * True when any non-LUT stage actually changes pixels, i.e. the capture
      * pipeline must run its (potentially expensive) filter pass. Mirrors the
      * previous inline condition so behaviour is unchanged. LUT presence is

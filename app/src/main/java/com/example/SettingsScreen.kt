@@ -83,7 +83,10 @@ import com.example.zoom.CaptureExtension
 // drift apart.
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun SettingsScreen(viewModel: CameraViewModel, onClose: () -> Unit) {
+fun SettingsScreen(
+    viewModel: CameraViewModel,
+    onClose: () -> Unit
+) {
     // Intercept system back to dismiss the settings page back to the camera.
     BackHandler(onBack = onClose)
 
@@ -106,7 +109,10 @@ fun SettingsScreen(viewModel: CameraViewModel, onClose: () -> Unit) {
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun SettingsContent(viewModel: CameraViewModel, onClose: () -> Unit) {
+private fun SettingsContent(
+    viewModel: CameraViewModel,
+    onClose: () -> Unit
+) {
     val haptic = LocalHapticFeedback.current
     val colorScheme = MaterialTheme.colorScheme
     val typography = MaterialTheme.typography

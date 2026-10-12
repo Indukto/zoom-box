@@ -16,13 +16,19 @@ import com.example.FilmPreset
  * enum; it is kept so the enum-shaped UI surfaces (tooltips, the preview
  * route switch) can still ask "is this the pass-through Normal preset?"
  * without the enum having to be the source of truth for the catalog.
+ *
+ * @param isUser true for a look the *user* authored (a file in `filesDir/looks`)
+ *        rather than one that ships bundled. The manager screen groups on it,
+ *        and it is the flag that decides whether selecting an entry opens the
+ *        editor or duplicates it first.
  */
 data class LookEntry(
     val id: String,
     val displayName: String,
     val category: String,
     val preset: FilmPreset?,
-    val profile: CameraProfile
+    val profile: CameraProfile,
+    val isUser: Boolean = false
 ) {
     /**
      * True when the look grades nothing: no LUT to sample and no render
@@ -32,5 +38,5 @@ data class LookEntry(
      * `currentLut != null || renderParams.needsProcessing` guard.
      */
     val isPassThrough: Boolean
-        get() = profile.look.lutPath.isBlank() && !profile.look.needsProcessing
+        get() = profile.look.isPassThrough
 }

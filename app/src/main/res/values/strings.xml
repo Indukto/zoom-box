@@ -45,6 +45,9 @@
     <!-- Film style picker -->
     <string name="film_style">Film Style</string>
     <string name="film_style_count">%1$d styles — tap to apply</string>
+    <!-- Closing create tile in the picker grid, and the gear on every look tile. -->
+    <string name="film_style_new">New Look</string>
+    <string name="film_style_edit_desc">Customize %1$s</string>
 
     <!-- Delete confirmation -->
     <string name="delete_photo_title">Delete photo?</string>
@@ -177,4 +180,51 @@
     <string name="imprint_p_mstv">[Your legal name], address as above.</string>
     <string name="imprint_h_dispute">Consumer dispute resolution</string>
     <string name="imprint_p_dispute">We are neither obliged nor willing to take part in dispute resolution proceedings before a consumer arbitration board (§ 36 VSBG). The European Commission’s online dispute resolution platform was discontinued on 20 July 2025.</string>
+    <!-- Film Looks: the bundled looks are assets, the user's own looks are
+         editable documents stored alongside them (see UserLookStore), and a
+         look may point at a `.cube` the user imported (see UserLutStore). -->
+    <string name="look_editor_delete_title">Delete look?</string>
+    <string name="look_editor_delete_message">%1$s will be removed from the film-style picker. This cannot be undone.</string>
+    <string name="look_editor_title_new">New Look</string>
+    <string name="look_editor_title_edit">Edit Look</string>
+    <string name="look_editor_name_label">Name</string>
+    <string name="look_editor_save">Save</string>
+    <string name="look_editor_name_hint">My Look</string>
+    <string name="look_editor_based_on">Based on %1$s</string>
+    <string name="look_editor_based_on_none">Starting from scratch</string>
+    <string name="look_editor_name_required">Name the look to save it</string>
+    <string name="look_editor_neutral_warning">This look grades nothing yet — move a slider.</string>
+    <!-- LUT row: the `.cube` the look grades through, bundled or imported. -->
+    <string name="look_editor_lut_label">LUT</string>
+    <string name="look_editor_lut_none">None — sliders only</string>
+    <string name="look_editor_lut_bundled">%1$s (bundled)</string>
+    <string name="look_editor_lut_imported">%1$s (your file)</string>
+    <string name="look_editor_lut_choose">Load .cube</string>
+    <string name="look_editor_lut_clear">Remove</string>
+    <string name="look_editor_lut_error">That file could not be read as a .cube LUT.</string>
+    <string name="look_editor_delete">Delete this look</string>
+    <string name="look_editor_section_tone">Tone</string>
+    <string name="look_editor_section_color">Color</string>
+    <string name="look_editor_section_split">Split Toning</string>
+    <string name="look_editor_section_artifacts">Grain &amp; Artifacts</string>
+    <string name="look_slider_film_curve">Film curve</string>
+    <string name="look_slider_contrast">Contrast</string>
+    <string name="look_slider_saturation">Saturation</string>
+    <string name="look_slider_highlight_rolloff">Highlight roll-off</string>
+    <string name="look_slider_fade">Fade</string>
+    <string name="look_slider_vignette">Vignette</string>
+    <string name="look_slider_bloom">Bloom</string>
+    <string name="look_slider_fringing">Fringing</string>
+    <string name="look_slider_soft_focus">Soft focus</string>
+    <string name="look_slider_milky">Milky haze</string>
+    <string name="look_slider_shadow_strength">Shadow strength</string>
+    <string name="look_slider_highlight_strength">Highlight strength</string>
+    <string name="look_slider_red">Red</string>
+    <string name="look_slider_green">Green</string>
+    <string name="look_slider_blue">Blue</string>
+    <string name="look_slider_grain">Grain</string>
+    <string name="look_slider_grain_chroma">Grain color</string>
+    <string name="look_slider_dust">Dust</string>
+    <string name="look_slider_scratch">Scratches</string>
+    <string name="look_slider_light_leak">Light leak</string>
 </resources>

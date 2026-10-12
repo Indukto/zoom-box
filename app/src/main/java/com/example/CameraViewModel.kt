@@ -20,6 +20,7 @@ import android.graphics.Matrix
 import android.graphics.Rect
 import android.media.MediaActionSound
 import android.media.ExifInterface
+import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
@@ -36,6 +37,11 @@ import com.example.color.RetroRenderParams
 import com.example.color.applyRetroFilter
 import com.example.color.DoubleExposure
 import com.example.color.LookEntry
+import com.example.color.LookDraft
+import com.example.color.LookDraftValidator
+import com.example.color.CameraProfile
+import com.example.color.UserLookStore
+import com.example.color.UserLutStore
 import com.example.color.profileId
 // The former standalone LutColorFilter class was removed when its trilinear
 // blend got inlined into applyRetroFilter's parallel chunks (one pixel pass total).
@@ -175,6 +181,15 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     private val _lookCatalog = MutableStateFlow(CameraProfileRegistry.enumEntries())
     val lookCatalog: StateFlow<List<LookEntry>> = _lookCatalog.asStateFlow()
 
+    // The look currently open in the editor, or null when the editor is shut.
+    // This is the single source of truth for "is the editor open?": the editor
+    // deck renders while it is non-null, and the viewfinder grades it instead
+    // of the active look (see `previewRenderParams`). Nothing is written to
+    // disk until the draft is saved, so a cancelled edit cannot leak into the
+    // picker or a capture.
+    private val _lookDraft = MutableStateFlow<LookDraft?>(null)
+    val lookDraft: StateFlow<LookDraft?> = _lookDraft.asStateFlow()
+
     /**
      * Display name for [lookId], for the swipe toast. Unknown ids fall back
      * to the pass-through look's name rather than rendering an empty label.
@@ -207,8 +222,15 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     // Backend look profiles (assets/cameras/*.json). JSON wins over the
     // in-code FilmPreset adapter when a matching id exists, so adding a look
     // no longer requires an enum edit. Loaded lazily on the capture thread.
+    // User-authored looks live beside the bundled ones with the same JSON
+    // schema, in their own directory. Owned by the ViewModel (not the registry)
+    // because this is what saves, renames and deletes them.
+    private val userLookStore by lazy {
+        UserLookStore(UserLookStore.defaultDir(getApplication<Application>()))
+    }
+
     private val cameraProfileRegistry by lazy {
-        CameraProfileRegistry(getApplication<Application>())
+        CameraProfileRegistry(getApplication<Application>(), userLookStore)
     }
 
     private val _flashMode = MutableStateFlow(0)
@@ -406,8 +428,10 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
             // first meant the user's look — often mid-list — waited behind
             // every earlier preset's parse on every cold start.)
             loadLut(app, _activeLookId.value)
-            for (preset in FilmPreset.entries) {
-                loadLut(app, preset)
+            // Catalog order, not enum order: this also warms the LUT of any
+            // user-authored look, which the enum cannot describe at all.
+            for (entry in _lookCatalog.value) {
+                loadLut(app, entry.id)
             }
         }
 
@@ -744,20 +768,33 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     fun isPassThroughLook(lookId: String): Boolean =
         cameraProfileRegistry.isPassThrough(lookId)
 
-    private fun loadLutByPath(context: Context, assetPath: String): CubeLut? {
+    /**
+     * The one resolver every back-end goes through: a bundled asset path, or the
+     * `user:<file>.cube` form [UserLutStore] owns. Preview and capture must ask
+     * here rather than reading `lutPath` themselves, or a user LUT would grade
+     * the viewfinder and not the saved JPEG.
+     */
+    private fun loadLutByPath(context: Context, lutPath: String): CubeLut? {
         // Pass-through / no-grade preset (e.g. NORMAL): skip the parser
         // and the asset I/O entirely. Returning null here is what tells
         // both the live GL preview (`LutPreviewView.setLut(null)`) and
         // the post-capture `applyRetroFilter` (the `currentLut != null`
         // OR-chain guard) to skip the LUT step.
-        if (assetPath.isBlank()) return null
-        cachedLuts[assetPath]?.let { return it }
+        if (lutPath.isBlank()) return null
+        cachedLuts[lutPath]?.let { return it }
         return try {
-            val lut = CubeLutParser.parse(assetPath, context)
-            cachedLuts[assetPath] = lut
+            val lut = if (UserLutStore.isUserPath(lutPath)) {
+                // Authoritative, with no asset fallback: if an imported file is
+                // missing, grading nothing is honest, while silently falling
+                // back to an asset of the same name would be a different look.
+                CubeLutParser.parse(UserLutStore.fileFor(context, lutPath) ?: return null)
+            } else {
+                CubeLutParser.parse(lutPath, context)
+            }
+            cachedLuts[lutPath] = lut
             lut
         } catch (e: Exception) {
-            Log.e("CameraViewModel", "Failed to load LUT $assetPath", e)
+            Log.e("CameraViewModel", "Failed to load LUT $lutPath", e)
             null
         }
     }
@@ -776,11 +813,158 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         temperature: Float,
         tint: Float,
         exposure: Float
-    ): RetroRenderParams =
-        cameraProfileRegistry.renderParamsFor(lookId, temperature, tint, exposure)
+    ): RetroRenderParams {
+        // An open draft owns the viewfinder — that live feedback is the whole
+        // point of editing on the camera screen. WB/exposure stay the user's:
+        // a profile's values are slider *defaults*, never baked grading.
+        _lookDraft.value?.let { draft ->
+            return draft.look.copy(temperature = temperature, tint = tint, exposure = exposure)
+        }
+        return cameraProfileRegistry.renderParamsFor(lookId, temperature, tint, exposure)
             ?: cameraProfileRegistry.renderParamsFor(
                 FilmPreset.NORMAL, temperature, tint, exposure
             )
+    }
+
+    // ── Look editor ────────────────────────────────────────────────────────
+
+    /**
+     * Opens the editor on a draft.
+     *
+     * A null [sourceId] starts a blank look. A bundled id opens an editable
+     * *copy* — the shipped looks are assets and are never written to. A user id
+     * opens that look itself, keeping its id so the persisted selection and any
+     * capture history that points at it keep working.
+     */
+    fun beginLookDraft(sourceId: String? = null) {
+        val source = sourceId?.let { cameraProfileRegistry.profileFor(it) }
+        if (sourceId == null || source == null) {
+            _lookDraft.value = LookDraft(id = null, displayName = "", look = RetroRenderParams())
+            return
+        }
+        val editingOwnLook = cameraProfileRegistry.isUserLook(sourceId)
+        _lookDraft.value = LookDraft(
+            id = if (editingOwnLook) sourceId else null,
+            displayName = if (editingOwnLook) source.displayName else copyName(source.displayName),
+            look = source.look,
+            basedOnId = sourceId,
+            basedOnLabel = source.displayName
+        )
+    }
+
+    /** Live edit from an editor slider; the viewfinder follows on the next frame. */
+    fun updateLookDraft(look: RetroRenderParams) {
+        _lookDraft.value = _lookDraft.value?.copy(look = look)
+    }
+
+    fun updateLookDraftName(name: String) {
+        _lookDraft.value = _lookDraft.value?.copy(displayName = name)
+    }
+
+    /**
+     * Points the open draft at a `.cube` the user picked from the device.
+     *
+     * Returns false — with the draft untouched — when the document is not a
+     * readable LUT, so the editor can say so instead of saving a look that
+     * grades nothing. The file itself is copied into the app's own storage
+     * first; see [UserLutStore.import] for why.
+     *
+     * Reads and parses the picked document: call it off the main thread.
+     */
+    fun importDraftLut(context: Context, uri: Uri): Boolean {
+        val draft = _lookDraft.value ?: return false
+        val path = UserLutStore.import(context, uri) ?: return false
+        _lookDraft.value = draft.copy(look = draft.look.copy(lutPath = path))
+        return true
+    }
+
+    /**
+     * Drops the draft's LUT, leaving whatever the sliders describe. The imported
+     * file stays on disk: another look may point at it.
+     */
+    fun clearDraftLut() {
+        _lookDraft.value = _lookDraft.value?.let {
+            it.copy(look = it.look.copy(lutPath = ""))
+        }
+    }
+
+    /** Abandons the edit. Nothing was written, so the catalog is untouched. */
+    fun cancelLookDraft() {
+        _lookDraft.value = null
+    }
+
+    /**
+     * Writes the open draft to `filesDir/looks/`, refreshes the catalog and
+     * makes the saved look active, so the user immediately sees what they
+     * built instead of having to hunt for it in the picker.
+     *
+     * Returns the look's id, or null when the draft is unnamed or the write
+     * failed (a failed write must leave the editor open, not lose the edit).
+     */
+    fun saveLookDraft(): String? {
+        val draft = _lookDraft.value ?: return null
+        val name = LookDraftValidator.sanitizeName(draft.displayName)
+        if (!LookDraftValidator.isValidName(name)) return null
+
+        val taken = cameraProfileRegistry.catalog().mapTo(mutableSetOf()) { it.id }
+        // Ids that exist on disk but are not selectable — an unparsable document,
+        // say — count as taken too, or a new look could be minted onto that file
+        // name and silently destroy whatever was in it.
+        taken += userLookStore.ids()
+        val id = draft.id ?: userLookStore.uniqueId(name, taken)
+        val profile = CameraProfile(
+            id = id,
+            displayName = name,
+            category = UserLookStore.CATEGORY,
+            // Clamp on the way in rather than in the sliders: the file is what
+            // has to stay in range, whatever the UI happened to allow.
+            look = LookDraftValidator.clampLook(draft.look)
+        )
+        if (!userLookStore.save(profile)) return null
+
+        // The look may point at a LUT whose parameters just changed (a duplicate
+        // of a bundled look shares that look's .cube), so drop it from the
+        // parse cache and let the preview re-read it.
+        if (profile.look.lutPath.isNotBlank()) cachedLuts.remove(profile.look.lutPath)
+        cameraProfileRegistry.refresh()
+        _lookCatalog.value = cameraProfileRegistry.catalog()
+        _lookDraft.value = null
+        setLook(id)
+        return id
+    }
+
+    /**
+     * Deletes a user look and forgets everything cached about it.
+     *
+     * When the deleted look is the active one the selection falls back to the
+     * pass-through look. Leaving the id in place would grade the viewfinder
+     * with the neutral fallback while the picker showed nothing selected — the
+     * kind of divergence that reads as "the app lost my look".
+     */
+    fun deleteUserLook(id: String): Boolean {
+        val lutPath = cameraProfileRegistry.profileFor(id)?.look?.lutPath.orEmpty()
+        if (!userLookStore.delete(id)) return false
+        if (lutPath.isNotBlank()) cachedLuts.remove(lutPath)
+        cameraProfileRegistry.refresh()
+        _lookCatalog.value = cameraProfileRegistry.catalog()
+        if (_lookDraft.value?.id == id) _lookDraft.value = null
+        if (_activeLookId.value == id) setLook(FilmPreset.NORMAL.profileId)
+        return true
+    }
+
+    /** The user's own looks, in catalog order. */
+    fun userLooks(): List<LookEntry> = _lookCatalog.value.filter { it.isUser }
+
+    /**
+     * Loads the LUT the live preview should show for an arbitrary path — the
+     * editor needs it because a duplicated draft still grades through its
+     * source look's `.cube` before the draft exists on disk.
+     */
+    fun previewLutForPath(context: Context, lutPath: String): CubeLut? =
+        loadLutByPath(context, lutPath)
+
+    private fun copyName(sourceName: String): String =
+        LookDraftValidator.sanitizeName("$sourceName copy")
     fun toggleFlash() {
         _flashMode.value = (_flashMode.value + 1) % 3
         viewModelScope.launch { prefsRepo.saveFlashMode(_flashMode.value) }

@@ -1,0 +1,36 @@
+# Editor and AI-agent formatting defaults for this repository.
+# These mirror the existing source style: Kotlin is 4-space indented, Gradle
+# scripts and JSON 2-space, XML resources 4-space. Line endings are LF in the
+# repository (see .gitattributes) because CRLF blobs previously corrupted the
+# F-Droid metadata.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.kt]
+indent_style = space
+indent_size = 4
+
+[*.kts]
+indent_style = space
+indent_size = 2
+
+[*.xml]
+indent_style = space
+indent_size = 4
+
+[*.json]
+indent_style = space
+indent_size = 2
+
+# Markdown uses trailing double-spaces for hard line breaks.
+[*.md]
+trim_trailing_whitespace = false
+
+[*.{png,webp,jpg,jpeg,ttf,otf,jks,dm}]
+insert_final_newline = false
+trim_trailing_whitespace = false
