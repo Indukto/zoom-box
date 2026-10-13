@@ -1197,16 +1197,17 @@ internal fun MorphedPanelChrome(
 }
 
 /**
- * Compact icon button shown in a panel's title row. Smaller than the
- * bubble's tap targets so the title stays legible when two of these sit
- * next to the EV readout in the ExposurePanel header.
+ * Icon button shown in a panel's title row. The glyph stays a compact
+ * 20 dp so the title stays legible when two of these sit next to the EV
+ * readout in the ExposurePanel header, but the tap target is the full
+ * 48 dp accessibility minimum.
  */
 @Composable
 private fun MorphedPanelHeaderButton(
     icon: ImageVector,
     onClick: () -> Unit
 ) {
-    IconButton(onClick = onClick, modifier = Modifier.size(24.dp)) {
+    IconButton(onClick = onClick, modifier = Modifier.size(48.dp)) {
         Icon(
             imageVector = icon,
             contentDescription = stringResource(R.string.close_label),
@@ -1263,7 +1264,7 @@ private fun FloatingBubbleRow(
     ) {
         IconButton(
             onClick = onTemperatureClick,
-            modifier = Modifier.size(40.dp).testTag("bubble_temperature_button")
+            modifier = Modifier.size(48.dp).testTag("bubble_temperature_button")
         ) {
             Icon(
                 imageVector = Icons.Rounded.Thermostat,
@@ -1344,7 +1345,7 @@ private fun FloatingBubbleRow(
             modifier = Modifier
                 .clip(RoundedCornerShape(14.dp))
                 .clickable { onExposureClick() }
-                .padding(horizontal = 10.dp, vertical = 10.dp)
+                .padding(horizontal = 10.dp, vertical = 14.dp)
                 .testTag("bubble_exposure_button"),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -2545,14 +2546,14 @@ fun CameraActiveScreen(
         // and the bottom deck.
         Box(
             modifier = Modifier
-                .offset(x = vfX + vfWidth - 48.dp, y = vfTop + 8.dp)
+                .offset(x = vfX + vfWidth - 60.dp, y = vfTop + 8.dp)
         ) {
             IconButton(
                 onClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     onOpenSettings()
                 },
-                modifier = Modifier.size(36.dp).testTag("settings_menu_button")
+                modifier = Modifier.size(48.dp).testTag("settings_menu_button")
             ) {
                 Icon(
                     imageVector = Icons.Rounded.MoreVert,                        contentDescription = stringResource(R.string.settings_label),
