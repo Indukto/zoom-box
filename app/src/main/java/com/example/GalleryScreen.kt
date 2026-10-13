@@ -46,7 +46,7 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material.icons.rounded.Undo
+import androidx.compose.material.icons.automirrored.rounded.Undo
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -701,7 +701,7 @@ private fun GalleryUndoBar(onUndo: () -> Unit) {
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.Undo,
+                        imageVector = Icons.AutoMirrored.Rounded.Undo,
                         contentDescription = null,
                         tint = Color(0xFFFBBF24),
                         modifier = Modifier.size(16.dp)

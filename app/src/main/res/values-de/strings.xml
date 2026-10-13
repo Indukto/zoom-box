@@ -34,12 +34,20 @@
     <string name="splash_title">ZOOM CAMERA</string>
     <string name="splash_tagline">RETRO-FILMKAMERA</string>
     <string name="splash_description">Nehmen Sie Fotos im Vintage-Filmstil auf – mit unserer charakteristischen Zoom-Box und warmen Retro-Filtern. Gewähren Sie Kamerazugriff, um zu beginnen.</string>
+    <string name="splash_rationale_description">Der Kamerazugriff wurde verweigert. Gewähren Sie ihn, um weiter zu fotografieren — oder aktivieren Sie ihn jederzeit in den Systemeinstellungen.</string>
+    <string name="splash_privacy_note">Offline • Keine Werbung • Fotos bleiben auf dem Gerät</string>
+    <string name="splash_feature_zoom">Framing mit der Zoom-Box</string>
+    <string name="splash_feature_film">13 Film-Looks</string>
+    <string name="splash_feature_offline">Komplett offline</string>
     <string name="enable_camera">KAMERA AKTIVIEREN</string>
+    <string name="splash_open_settings">EINSTELLUNGEN ÖFFNEN</string>
     <string name="splash_footer">Zoom Cam · %1$s</string>
 
     <!-- Filmstil-Auswahl -->
     <string name="film_style">Filmstil</string>
     <string name="film_style_count">%1$d Stile – zum Anwenden tippen</string>
+    <string name="film_style_new">Neuer Look</string>
+    <string name="film_style_edit_desc">%1$s anpassen</string>
 
     <!-- Lösch-Bestätigung -->
     <string name="delete_photo_title">Foto löschen?</string>
@@ -160,4 +168,56 @@
     <string name="licenses_p_libs">Basiert auf Apache-License-2.0-Komponenten des Android-/Jetpack-Ökosystems: Jetpack Compose, Material 3, CameraX, Lifecycle, DataStore, Core – außerdem Coil, Accompanist Permissions, Haze und kotlinx.coroutines (JSON-Verarbeitung über org.json des Android-Frameworks). Film-Look-LUTs: MIT, siehe LUT-Hinweis in der App.</string>
     <string name="licenses_h_texts">Lizenztexte</string>
     <string name="licenses_p_texts">Apache-2.0: apache.org/licenses/LICENSE-2.0\nMIT: opensource.org/licenses/MIT\nGPL-3.0: gnu.org/licenses/gpl-3.0.html</string>
+
+    <string name="look_editor_delete_title">Look löschen?</string>
+    <string name="look_editor_delete_message">%1$s wird aus der Filmstil-Auswahl entfernt. Dies kann nicht rückgängig gemacht werden.</string>
+    <string name="look_editor_title_new">Neuer Look</string>
+    <string name="look_editor_title_edit">Look bearbeiten</string>
+    <string name="look_editor_name_label">Name</string>
+    <string name="look_editor_save">Speichern</string>
+    <string name="look_editor_name_hint">Mein Look</string>
+    <string name="look_editor_based_on">Basiert auf %1$s</string>
+    <string name="look_editor_based_on_none">Neu von Grund auf</string>
+    <string name="look_editor_name_required">Benennen Sie den Look, um ihn zu speichern</string>
+    <string name="look_editor_neutral_warning">Dieser Look verändert noch nichts — bewegen Sie einen Regler.</string>
+    <string name="look_editor_lut_label">LUT</string>
+    <string name="look_editor_lut_none">Keine — nur Regler</string>
+    <string name="look_editor_lut_bundled">%1$s (mitgeliefert)</string>
+    <string name="look_editor_lut_imported">%1$s (eigene Datei)</string>
+    <string name="look_editor_lut_choose">.cube laden</string>
+    <string name="look_editor_lut_clear">Entfernen</string>
+    <string name="look_editor_lut_error">Diese Datei konnte nicht als .cube-LUT gelesen werden.</string>
+    <string name="look_editor_delete">Diesen Look löschen</string>
+    <string name="look_editor_restore">Original wiederherstellen</string>
+    <string name="look_editor_restore_title">Original wiederherstellen?</string>
+    <string name="look_editor_restore_message">%1$s wird auf die mitgelieferte Original-Abstimmung zurückgesetzt. Ihre Änderungen daran werden entfernt.</string>
+    <string name="look_editor_section_tone">Tonwert</string>
+    <string name="look_editor_section_color">Farbe</string>
+    <string name="look_editor_section_split">Split-Toning</string>
+    <string name="look_editor_section_artifacts">Korn &amp; Artefakte</string>
+    <string name="look_editor_tab_look">Look</string>
+    <string name="look_editor_tab_color">Farbe</string>
+    <string name="look_editor_tab_texture">Textur</string>
+    <string name="look_slider_film_curve">Filmkurve</string>
+    <string name="look_slider_contrast">Kontrast</string>
+    <string name="look_slider_saturation">Sättigung</string>
+    <string name="look_slider_highlight_rolloff">Lichter-Roll-off</string>
+    <string name="look_slider_fade">Fade</string>
+    <string name="look_slider_vignette">Vignette</string>
+    <string name="look_slider_bloom">Bloom</string>
+    <string name="look_slider_fringing">Farbsäume</string>
+    <string name="look_slider_soft_focus">Weichzeichner</string>
+    <string name="look_slider_milky">Milchiger Dunst</string>
+    <string name="look_slider_shadow_strength">Schattenstärke</string>
+    <string name="look_slider_highlight_strength">Lichterstärke</string>
+    <string name="look_slider_red">Rot</string>
+    <string name="look_slider_green">Grün</string>
+    <string name="look_slider_blue">Blau</string>
+    <string name="look_slider_grain">Korn</string>
+    <string name="look_slider_grain_chroma">Korn-Farbe</string>
+    <string name="look_slider_dust">Staub</string>
+    <string name="look_slider_scratch">Kratzer</string>
+    <string name="look_slider_light_leak">Lichteinfall</string>
+    <string name="look_slider_decrease_desc">%1$s verringern</string>
+    <string name="look_slider_increase_desc">%1$s erhöhen</string>
 </resources>

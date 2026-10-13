@@ -54,6 +54,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -129,7 +130,7 @@ internal fun LookEditorPanel(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 4.dp),
+                        .padding(top = 8.dp, bottom = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(
@@ -222,45 +223,44 @@ internal fun LookEditorPanel(
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 2.dp)
+                        .padding(top = 8.dp)
                         .testTag("look_editor_name")
                 )
 
                 // The LUT is the coarsest control in the deck — it decides what
                 // every slider below is bending — so it sits above the sections
-                // rather than inside one of them. Two lines on purpose: the file
-                // name gets its own line, then two full-height buttons side by
-                // side, so neither tap sits against a neighbour on a 40dp strip.
+                // rather than inside one of them. The file name is centred on
+                // its own line: beside the caption it read as another row
+                // label, while centred it reads as the deck's current grade.
+                // The two full-height buttons stay side by side below it, so
+                // neither tap sits against a neighbour on a 40dp strip.
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 8.dp)
-                        .testTag("look_editor_lut_row")
+                        .padding(top = 12.dp)
+                        .testTag("look_editor_lut_row"),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        CaptionText(
-                            text = stringResource(R.string.look_editor_lut_label),
-                            modifier = Modifier.padding(end = 8.dp)
-                        )
-                        Text(
-                            text = lutLabel(look.lutPath),
-                            color = Color.White,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier
-                                .weight(1f)
-                                .testTag("look_editor_lut_name")
-                        )
-                    }
+                    CaptionText(
+                        text = stringResource(R.string.look_editor_lut_label)
+                    )
+                    Text(
+                        text = lutLabel(look.lutPath),
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 2.dp)
+                            .testTag("look_editor_lut_name")
+                    )
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 4.dp),
+                            .padding(top = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -305,7 +305,7 @@ internal fun LookEditorPanel(
                         color = MaterialTheme.colorScheme.error,
                         fontSize = 12.sp,
                         modifier = Modifier
-                            .padding(top = 4.dp)
+                            .padding(top = 8.dp)
                             .testTag("look_editor_lut_error")
                     )
                 }
@@ -317,7 +317,7 @@ internal fun LookEditorPanel(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 4.dp)
+                        .padding(top = 12.dp, bottom = 4.dp)
                         .testTag("look_editor_tabs"),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -348,6 +348,7 @@ internal fun LookEditorPanel(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
+                        .padding(top = 4.dp)
                         .verticalScroll(rememberScrollState())
                 ) {
                     when (selectedTab) {

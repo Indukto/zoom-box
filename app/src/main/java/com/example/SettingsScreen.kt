@@ -196,11 +196,6 @@ private fun SettingsContent(
                             style = typography.titleLarge,
                             fontWeight = FontWeight.SemiBold
                         )
-                        Text(
-                            text = stringResource(R.string.settings_subtitle),
-                            color = colorScheme.onSurfaceVariant,
-                            style = typography.bodySmall
-                        )
                     }
                     // Version pill — mirrors the splash footer + About row so
                     // the build is identifiable without scrolling.
