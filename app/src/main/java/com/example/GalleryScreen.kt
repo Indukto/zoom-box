@@ -207,7 +207,7 @@ private val GalleryGlassBorder: Brush = Brush.linearGradient(
 private fun Modifier.galleryGlass(): Modifier = this
     .clip(RoundedCornerShape(26.dp))
     .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(26.dp))
-    .border(1.dp, GalleryGlassBorder, RoundedCornerShape(26.dp))
+    .liquidGlassRim(cornerRadius = 26.dp, fallbackBorder = GalleryGlassBorder)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Redesigned viewer: counter/date header, EXIF chip, zoom, grid, selection

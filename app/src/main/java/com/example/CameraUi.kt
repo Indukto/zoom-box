@@ -275,13 +275,22 @@ private fun auxGlassBorder(active: Boolean = false): Brush = Brush.linearGradien
 private fun Modifier.auxGlass(active: Boolean = false): Modifier = this
     .clip(CircleShape)
     .background(auxGlassBackground(active), CircleShape)
-    .border(1.dp, auxGlassBorder(active), CircleShape)
+    .liquidGlassRim(
+        cornerRadius = null,
+        rimColor = if (active) Color(0xFFFBBF24) else Color.White,
+        fallbackBorder = auxGlassBorder(active)
+    )
 
 /** Same liquid-glass chrome for the 14dp rounded bottom-deck tiles. */
 private fun Modifier.deckGlass(active: Boolean = false): Modifier = this
     .clip(RoundedCornerShape(14.dp))
     .background(deckGlassBackground(active), RoundedCornerShape(14.dp))
-    .border(1.25.dp, deckGlassBorder(active), RoundedCornerShape(14.dp))
+    .liquidGlassRim(
+        cornerRadius = 14.dp,
+        rimColor = if (active) Color(0xFFFBBF24) else Color.White,
+        fallbackBorder = deckGlassBorder(active),
+        fallbackWidth = 1.25.dp
+    )
 
 /**
  * Deck-tile glass fill, lit from the bottom-right like [auxGlassBackground]: the
@@ -922,7 +931,7 @@ internal fun WhiteBalancePanel(
                 modifier = Modifier
                     .width(166.dp)
                     .height(83.dp)
-                    .border(1.dp, PanelGlassRim, RoundedCornerShape(7.dp))
+                    .liquidGlassRim(cornerRadius = 7.dp, fallbackBorder = PanelGlassRim)
             )
 
             // 2×2 preset grid: Auto / Daylight / Tungsten / Shade.
@@ -1179,7 +1188,7 @@ internal fun MorphedPanelChrome(
         modifier = Modifier
             .clip(RoundedCornerShape(18.dp))
             .hazeEffect(state = hazeState, style = PanelHazeStyle)
-            .border(1.dp, PanelGlassRim, RoundedCornerShape(18.dp))
+            .liquidGlassRim(cornerRadius = 18.dp, fallbackBorder = PanelGlassRim)
             .padding(horizontal = 18.dp, vertical = 14.dp)
             .width(300.dp)
     ) {
@@ -1236,9 +1245,9 @@ private fun FloatingBubbleRow(
             // quiet top-left.
             .clip(RoundedCornerShape(26.dp))
             .hazeEffect(state = hazeState, style = BubbleHazeStyle)
-            .border(
-                1.dp,
-                Brush.linearGradient(
+            .liquidGlassRim(
+                cornerRadius = 26.dp,
+                fallbackBorder = Brush.linearGradient(
                     colors = listOf(
                         Color.White.copy(alpha = 0.40f),
                         Color.White.copy(alpha = 0.05f),
@@ -1246,8 +1255,7 @@ private fun FloatingBubbleRow(
                     ),
                     start = Offset.Infinite,
                     end = Offset.Zero
-                ),
-                RoundedCornerShape(26.dp)
+                )
             )
             .padding(horizontal = 12.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -1288,9 +1296,9 @@ private fun FloatingBubbleRow(
                     ),
                     shape = RoundedCornerShape(26.dp)
                 )
-                .border(
-                    1.dp,
-                    Brush.linearGradient(
+                .liquidGlassRim(
+                    cornerRadius = 26.dp,
+                    fallbackBorder = Brush.linearGradient(
                         colorStops = arrayOf(
                             0.0f to Color.White.copy(alpha = 0.36f),
                             0.40f to Color.White.copy(alpha = 0.05f),
@@ -1298,8 +1306,7 @@ private fun FloatingBubbleRow(
                         ),
                         start = Offset.Infinite,
                         end = Offset.Zero
-                    ),
-                    RoundedCornerShape(26.dp)
+                    )
                 )
                 .clickable(enabled = isLensSwitchEnabled) { onLensClick() }
                 .padding(horizontal = 16.dp)
