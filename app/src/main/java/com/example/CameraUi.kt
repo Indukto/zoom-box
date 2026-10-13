@@ -1077,6 +1077,11 @@ private fun LiveBubbleRow(
     val temperature by viewModel.temperature.collectAsState()
     val tint by viewModel.tint.collectAsState()
     val exposure by viewModel.exposure.collectAsState()
+    val catalogReady by viewModel.lensCatalogReady.collectAsState()
+    // Front camera is single-lens; the back bubble also stays inert until the
+    // first enumeration lands, suppressing the "buzz-and-nothing" dead tap on
+    // slow CameraX init. Visuals are untouched (no golden churn).
+    val lensEnabled = !isFrontCamera && catalogReady
     FloatingBubbleRow(
         effectiveFocalLength = effectiveFocalLength,
         temperature = temperature,
@@ -1084,6 +1089,7 @@ private fun LiveBubbleRow(
         exposure = exposure,
         hazeState = hazeState,
         isFrontCamera = isFrontCamera,
+        isLensSwitchEnabled = lensEnabled,
         controlAngle = controlAngle,
         onTemperatureClick = {
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -1091,8 +1097,9 @@ private fun LiveBubbleRow(
         },
         onLensClick = {
             // Guarded here too (cycleLens no-ops internally): suppresses
-            // the "buzz-and-nothing" feel of the dead click on front camera.
-            if (!isFrontCamera) {
+            // the "buzz-and-nothing" feel of the dead click on front camera
+            // or before the catalog arrives.
+            if (lensEnabled) {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 viewModel.cycleLens()
             }
@@ -1214,6 +1221,7 @@ private fun FloatingBubbleRow(
     exposure: Float,
     hazeState: HazeState,
     isFrontCamera: Boolean = false,
+    isLensSwitchEnabled: Boolean = true,
     controlAngle: Float = 0f,
     onTemperatureClick: () -> Unit,
     onLensClick: () -> Unit,
@@ -1293,7 +1301,7 @@ private fun FloatingBubbleRow(
                     ),
                     RoundedCornerShape(26.dp)
                 )
-                .clickable(enabled = !isFrontCamera) { onLensClick() }
+                .clickable(enabled = isLensSwitchEnabled) { onLensClick() }
                 .padding(horizontal = 16.dp)
                 .testTag("bubble_lens_button"),
             contentAlignment = Alignment.Center
@@ -3193,9 +3201,10 @@ fun CameraActiveScreen(
         // 6b. Look editor deck. Rendered after the control deck so it floats
         // above it, and outside the viewfinder so the live grade stays visible
         // while the sliders move. It renders nothing while no draft is open.
+        // Full-size so its scrim catches taps outside the deck to close it.
         LookEditorPanelHost(
             viewModel = viewModel,
-            modifier = Modifier.align(Alignment.BottomCenter)
+            modifier = Modifier.fillMaxSize()
         )
 
         // 7. Photo Viewer Overlay
@@ -3229,13 +3238,11 @@ fun CameraActiveScreen(
  *
  * Creating and editing live here, not in Settings, because this is the only
  * screen where the looks themselves are on display; a Settings row made users
- * leave the thing they were choosing between to go edit one. The selected tile
- * carries a gear that reopens the look in place — bundled edits save as a
- * user override shadowing the shipped grade, and the editor offers
+ * leave the thing they were choosing between to go edit one. The full-width
+ * button below the grid reopens the active look in place — bundled edits save
+ * as a user override shadowing the shipped grade, and the editor offers
  * a restore-to-original instead of a delete — and the
- * create tile closes the grid. A corner target rather than a
- * long-press, because a long-press on a tile that already applies on tap is
- * invisible.
+ * create tile closes the grid.
  *
  * Separate from the [ModalBottomSheet] that hosts it — and reports taps instead
  * of applying them — so the grid, the active-look rim and the edit targets can
@@ -3265,7 +3272,7 @@ internal fun FilmLooksPickerSheet(
         Text(
             text = stringResource(R.string.film_style_count, looks.size),
             color = Color.White.copy(alpha = 0.55f),
-            fontSize = 12.sp,
+            fontSize = 13.sp,
             modifier = Modifier.padding(bottom = 12.dp)
         )
         LazyVerticalGrid(
@@ -3330,8 +3337,8 @@ internal fun FilmLooksPickerSheet(
                             )
                     )
                     if (selected) {
-                        // Top-start: the active badge is not interactive, so it
-                        // yields the thumb-reachable top-end corner to the gear.
+                        // Top-start: non-interactive, so it stays clear of the
+                        // tile tap that applies the look.
                         Box(
                             modifier = Modifier
                                 .align(Alignment.TopStart)
@@ -3348,54 +3355,17 @@ internal fun FilmLooksPickerSheet(
                             )
                         }
                     }
-                    // Only the selected tile carries the gear: the grid stays a
-                    // grid of grades, and "edit the one I am shooting with" is
-                    // the case that matters. It also means the tile the user is
-                    // most likely to touch is the only one whose top-end corner
-                    // is not free to apply the look with.
-                    //
-                    // The badge is 24dp but the tap target is 40dp: a finger pad
-                    // is ~9mm, and 24dp is under 4mm, which is a coin-toss
-                    // target. It stops short of Material's 48dp on purpose —
-                    // this tile is only ~118dp wide, and a 48dp square would eat
-                    // a third of the surface itself.
-                    if (selected) {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(6.dp)
-                                .size(40.dp)
-                                .clickable { onEditLook(look.id) }
-                                .testTag("film_style_edit_${look.id}"),
-                            contentAlignment = Alignment.TopEnd
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(24.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.Black.copy(alpha = 0.38f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Settings,
-                                    contentDescription = stringResource(
-                                        R.string.film_style_edit_desc,
-                                        look.displayName
-                                    ),
-                                    tint = Color.White,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                            }
-                        }
-                    }
+                    // Tiles only apply looks now: editing lives in the
+                    // full-width button below the grid, so no tile carries a
+                    // second tap target in its corner that a thumb can miss.
                     Text(
                         text = look.displayName,
                         color = Color.White,
-                        fontSize = 12.sp,
+                        fontSize = 13.sp,
                         fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
                         maxLines = 2,
-                        lineHeight = 14.sp,
-                        modifier = Modifier.padding(10.dp)
+                        lineHeight = 16.sp,
+                        modifier = Modifier.padding(12.dp)
                     )
                 }
             }
@@ -3433,11 +3403,45 @@ internal fun FilmLooksPickerSheet(
                         Text(
                             text = stringResource(R.string.film_style_new),
                             color = Color.White,
-                            fontSize = 12.sp,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold
                         )
                     }
                 }
+            }
+        }
+        // The one way into the editor: a thumb-sized full-width row, 54dp
+        // tall and far from any tile that would apply a look instead.
+        val activeLook = looks.firstOrNull { it.id == activeLookId }
+        if (activeLook != null) {
+            Button(
+                onClick = { onEditLook(activeLook.id) },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.White.copy(alpha = 0.12f),
+                    contentColor = Color.White
+                ),
+                contentPadding = PaddingValues(horizontal = 20.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, top = 12.dp)
+                    .height(54.dp)
+                    .testTag("film_style_edit_active")
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Settings,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.85f),
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = stringResource(
+                        R.string.film_style_edit_desc,
+                        activeLook.displayName
+                    ),
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
     }

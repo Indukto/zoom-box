@@ -137,6 +137,13 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     var lensCatalogResult: LensCatalog.CatalogResult? = null
         private set
 
+    // False until the first enumeration lands. The lens bubble gates its tap
+    // on this (not on lensCatalogResult directly, which is a plain var and
+    // would never recompose) so taps during slow CameraX init don't buzz
+    // with no effect. cycleLens() no-ops on a null catalog either way.
+    private val _lensCatalogReady = MutableStateFlow(false)
+    val lensCatalogReady: StateFlow<Boolean> = _lensCatalogReady.asStateFlow()
+
     // Warmed in init (see the ProcessCameraProvider warm-up block) and read
     // in [cameraProviderForBind]. Nullable because init can lose the race on
     // very slow devices — the bind path falls back to fetching the future
@@ -559,6 +566,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
 
     fun setLensCatalogResult(result: LensCatalog.CatalogResult) {
         lensCatalogResult = result
+        _lensCatalogReady.value = true
         Log.i("LensSwitch", "Catalog loaded | UW=${result.ultraWide?.equivFocalMm}mm(${result.ultraWide?.physicalCameraId}) " +
             "PRI=${result.primary?.equivFocalMm}mm(${result.primary?.physicalCameraId}) " +
             "TELE=${result.tele?.equivFocalMm}mm(${result.tele?.physicalCameraId})")

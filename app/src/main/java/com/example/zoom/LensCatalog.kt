@@ -1,6 +1,7 @@
 package com.example.zoom
 
 import android.content.Context
+import android.graphics.ImageFormat
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.util.Log
@@ -35,6 +36,88 @@ class LensCatalog(private val context: Context) {
          * pipeline would advertise on any Android device.
          */
         private const val MIN_PHANTOM_AREA_PX = 320 * 240
+
+        /**
+         * Picks the best PRIMARY lens out of the threshold-PRIMARY candidates.
+         * Macro/depth auxiliaries share the 20–70mm band with the real main
+         * camera on triple-lens HALs, so plain "widest wins" can crown a 2MP
+         * fixed-focus macro. Preference order: variable focus, OIS, sensor
+         * megapixels, then widest. Pure (no Android calls) so unit tests pin
+         * the ordering without a device.
+         */
+        internal fun pickBestPrimary(candidates: List<LensProfile>): LensProfile? {
+            return candidates.minWithOrNull(
+                compareBy<LensProfile> { !it.hasVariableFocus }
+                    .thenBy { !it.hasOIS }
+                    .thenByDescending { it.nativeMegapixels }
+                    .thenBy { it.equivFocalMm }
+            )
+        }
+
+        /**
+         * Repairs threshold roles by focal-length rank. Threshold roles win
+         * wherever they exist; fallbacks only fill gaps and never reassign a
+         * lens away from PRIMARY.
+         *
+         * - No PRIMARY: promote the median (one lens → itself, a pair → the
+         *   longer which is usually the main, three or more → the middle), so
+         *   the initial preview selection is never empty.
+         * - No TELE with three or more lenses: the longest non-primary lens
+         *   becomes TELE (collapsed equivs hide real teles otherwise).
+         * - No ULTRA_WIDE with two or more lenses: the shortest non-primary
+         *   lens becomes ULTRA_WIDE.
+         *
+         * Input must be sorted ascending by [LensProfile.equivFocalMm]. Pure
+         * (no logging — [enumerate] diffs the result and logs the repairs) so
+         * unit tests pin the behavior without Robolectric.
+         */
+        internal fun applyRoleFallbacks(sorted: List<LensProfile>): List<LensProfile> {
+            if (sorted.isEmpty()) return sorted
+            val fixed = sorted.toMutableList()
+            if (fixed.none { it.role == LensRole.PRIMARY }) {
+                val median = fixed.size / 2
+                fixed[median] = fixed[median].copy(role = LensRole.PRIMARY)
+            }
+            if (fixed.size >= 3 && fixed.none { it.role == LensRole.TELE }) {
+                val longest = fixed.indices.maxByOrNull { fixed[it].equivFocalMm } ?: fixed.lastIndex
+                if (fixed[longest].role != LensRole.PRIMARY) {
+                    fixed[longest] = fixed[longest].copy(role = LensRole.TELE)
+                }
+            }
+            if (fixed.size >= 2 && fixed.none { it.role == LensRole.ULTRA_WIDE }) {
+                val shortest = fixed.indices.minByOrNull { fixed[it].equivFocalMm } ?: 0
+                if (fixed[shortest].role != LensRole.PRIMARY) {
+                    fixed[shortest] = fixed[shortest].copy(role = LensRole.ULTRA_WIDE)
+                }
+            }
+            return fixed
+        }
+
+        /**
+         * Classifies a lens by its 35mm-equivalent focal length.
+         * In the companion (not an instance method) so unit tests pin the
+         * thresholds without a Context.
+         */
+        internal fun classifyLens(equivFocalMm: Float): LensRole {
+            return when {
+                equivFocalMm < ULTRA_WIDE_THRESHOLD_MM -> LensRole.ULTRA_WIDE
+                equivFocalMm > TELE_THRESHOLD_MM -> LensRole.TELE
+                else -> LensRole.PRIMARY
+            }
+        }
+
+        /**
+         * Computes the 35mm crop factor from the sensor's physical dimensions.
+         * In the companion so the math lives beside its tests; still takes an
+         * Android SizeF, so JVM tests can't drive it without Robolectric.
+         */
+        internal fun computeCropFactor(physicalSize: SizeF?): Float {
+            if (physicalSize == null) return 1.0f
+            val sensorDiagonal = kotlin.math.sqrt(
+                physicalSize.width * physicalSize.width + physicalSize.height * physicalSize.height
+            )
+            return FULL_FRAME_DIAGONAL_MM / sensorDiagonal
+        }
     }
 
     @Stable
@@ -77,24 +160,76 @@ class LensCatalog(private val context: Context) {
                 // Otherwise treat the camera itself as a single lens.
                 val isLogicalMulti = isLogicalMultiCamera(characteristics)
                 val physicalIds = if (isLogicalMulti) {
-                    getPhysicalCameraIds(characteristics)
+                    val ids = getPhysicalCameraIds(characteristics)
+                    // Some HALs flag LOGICAL_MULTI_CAMERA yet expose an empty
+                    // physical set to third-party apps; without a fallback the
+                    // loop below runs zero times and the catalog comes back
+                    // empty (black preview). Bind the logical ID itself instead.
+                    if (ids.isEmpty()) listOf(cameraId) else ids.toList()
                 } else {
                     listOf(cameraId)
                 }
 
                 for (physicalId in physicalIds) {
-                    // Physical sub-cameras expose their own per-lens characteristics;
-                    // fall back to the logical camera's if the lookup fails.
+                    val isSubCamera = isLogicalMulti && physicalId != cameraId
+                    // Physical sub-cameras expose their own per-lens characteristics
+                    // via the manager (physical IDs are queryable since API 28).
+                    // On some Oppo/OnePlus HALs the direct lookup throws
+                    // CameraAccessException, which used to collapse every
+                    // sub-camera onto identical logical values and then merge
+                    // them in dedup. The fallback flag below keeps those
+                    // entries out of dedup so distinct lenses survive.
+                    var isFallbackChars = false
                     val lensChars = try {
                         cameraManager.getCameraCharacteristics(physicalId)
-                    } catch (e: Exception) {
+                    } catch (_: Exception) {
+                        isFallbackChars = true
                         characteristics
                     }
 
-                    val focalLengths = lensChars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS)
-                    val physicalSize = lensChars.get(CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE)
+                    var focalLengths = lensChars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS)
+                    if ((focalLengths == null || focalLengths.isEmpty()) && lensChars !== characteristics) {
+                        focalLengths = characteristics.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS)
+                    }
+                    // Own size drives the dedup key; the effective size (own with
+                    // logical fallback) drives the crop factor. Splitting them
+                    // matters: borrowing the logical size for the equiv estimate
+                    // must not make distinct lenses look like one sensor.
+                    val ownPhysicalSize = lensChars.get(CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE)
+                    val effectivePhysicalSize = ownPhysicalSize
+                        ?: characteristics.get(CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE)
 
-                    if (focalLengths == null || focalLengths.isEmpty()) continue
+                    val equivFocalMm: Float
+                    if (focalLengths == null || focalLengths.isEmpty()) {
+                        // Some HALs withhold focal lengths from third-party apps.
+                        // Dropping the lens here used to empty the whole catalog
+                        // (black preview). Keep it with a primary-class estimate
+                        // so the median-promotion below still lights up the
+                        // viewfinder; the per-lens log marks it estimated.
+                        equivFocalMm = 24f
+                        Log.w(
+                            TAG,
+                            "No focal lengths for physical=$physicalId logical=$cameraId; " +
+                                "keeping as estimated 24mm primary"
+                        )
+                    } else {
+                        // HALs don't guarantee ordering; the widest entry is the
+                        // lens's native focal length.
+                        val nativeFocalMm = focalLengths.minOrNull() ?: focalLengths[0]
+                        // A null sensor size used to force crop 1.0, turning a
+                        // 5-6mm native main into a ~6mm "ultra-wide" and leaving
+                        // PRIMARY empty (e.g. OnePlus Nord CE 3). The logical
+                        // fallback above recovers the real crop on those HALs.
+                        val cropFactor = computeCropFactor(effectivePhysicalSize)
+                        if (effectivePhysicalSize == null) {
+                            Log.w(
+                                TAG,
+                                "No physical sensor size for physical=$physicalId logical=$cameraId; " +
+                                    "crop=1.0, equiv may misclassify"
+                            )
+                        }
+                        equivFocalMm = nativeFocalMm * cropFactor
+                    }
 
                     // Drop phantom physical IDs. Hardware emulators (Pixel 5 AVD,
                     // older SDK profiles) sometimes expose a logical multi-camera
@@ -109,35 +244,29 @@ class LensCatalog(private val context: Context) {
                     // those streams only exist on the logical camera. CameraX
                     // uses the logical camera's stream configs for session
                     // negotiation regardless of setPhysicalCameraId(), so a
-                    // missing YUV table on the physical camera is NOT a sign
+                    // missing table on the physical camera is NOT a sign
                     // of a phantom lens on MTK. We therefore check BOTH the
                     // physical AND the logical camera: skip only when NEITHER
                     // has a usable preview stream.
-                    val physicalHasYuv = hasUsablePreviewStream(lensChars)
+                    val physicalHasStream = hasUsablePreviewStream(lensChars)
                     // Only consider the logical camera's YUV streams when
                     // this is a genuine sub-camera within a logical
                     // multi-camera setup (MTK-style). On single-ID devices
                     // (physicalId == cameraId) or non-logical-multi-cam,
                     // the physical camera's own stream config is authoritative.
-                    val isSubCamera = isLogicalMulti && physicalId != cameraId
                     val logicalFallback = isSubCamera && hasUsablePreviewStream(characteristics)
-                    if (!physicalHasYuv && !logicalFallback) {
+                    if (!physicalHasStream && !logicalFallback) {
                         Log.w(
                             TAG,
-                            "Skipping physical camera $physicalId: no YUV_420_888 " +
+                            "Skipping physical camera $physicalId: no YUV_420_888/PRIVATE " +
                                 "preview stream on physical or logical (phantom sub-camera)"
                         )
-                        Log.i("LensSwitch", "SKIP phantom | physical=$physicalId logical=$cameraId (no YUV streams)")
+                        Log.i("LensSwitch", "SKIP phantom | physical=$physicalId logical=$cameraId (no streams)")
                         continue
                     }
-                    if (!physicalHasYuv) {
-                        Log.i("LensSwitch", "KEEP mtk-style | physical=$physicalId logical=$cameraId (YUV only on logical)")
+                    if (!physicalHasStream) {
+                        Log.i("LensSwitch", "KEEP mtk-style | physical=$physicalId logical=$cameraId (streams only on logical)")
                     }
-
-                    // Use the widest (smallest) focal length as the lens's native focal length
-                    val nativeFocalMm = focalLengths[0]
-                    val cropFactor = computeCropFactor(physicalSize)
-                    val equivFocalMm = nativeFocalMm * cropFactor
 
                     // Estimate megapixels from sensor size
                     val megapixels = estimateMegapixels(lensChars)
@@ -145,8 +274,20 @@ class LensCatalog(private val context: Context) {
                     val hasOIS = hasOpticalStabilization(lensChars)
                     val maxAperture = estimateMaxAperture(lensChars)
                     val supportsRaw = supportsRawCapture(lensChars)
+                    // Fixed-focus auxiliaries (macro, depth) report a zero minimum
+                    // focus distance; the PRIMARY pick below deprioritizes them so
+                    // a 2MP macro can't shadow the real main camera.
+                    val minFocusDistance = lensChars.get(CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE)
+                    val hasVariableFocus = minFocusDistance != null && minFocusDistance > 0f
 
                     val role = classifyLens(equivFocalMm)
+
+                    Log.i(
+                        "LensSwitch",
+                        "FOUND | physical=$physicalId logical=$cameraId equiv=${equivFocalMm}mm " +
+                            "role=${role.name} fallbackChars=$isFallbackChars sub=$isSubCamera " +
+                            "varFocus=$hasVariableFocus ois=$hasOIS ${megapixels}MP"
+                    )
 
                     profiles.add(
                         LensProfile(
@@ -157,19 +298,50 @@ class LensCatalog(private val context: Context) {
                             nativeMegapixels = megapixels,
                             maxApertureF = maxAperture,
                             hasOIS = hasOIS,
+                            hasVariableFocus = hasVariableFocus,
                             supportsRaw = supportsRaw
                         )
                     )
                     profileSensorKeys.add(
-                        // Non-null physical sizes are used to detect duplicate
-                        // sensors; for null sizes we fall back to the physical
-                        // camera ID so profiles are never falsely merged.
-                        physicalSize?.let { "${it.width}_${it.height}" } ?: physicalId
+                        // Null keys are skipped by the dedup pass below. Fallback
+                        // characteristics (every sub-camera collapsed onto the
+                        // logical values) must never participate: they share one
+                        // sensor size and would merge distinct lenses into one.
+                        // Null own sizes fall back to the physical ID so those
+                        // profiles are never falsely merged either.
+                        if (isFallbackChars) null
+                        else ownPhysicalSize?.let { "${it.width}_${it.height}" } ?: physicalId
                     )
                 }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error enumerating cameras", e)
+        }
+
+        // ── Drop duplicated physical IDs ────────────────────────────────
+        // Some Samsung HALs list the same physical camera under two logical
+        // IDs; without this the bubble row offers one lens twice. Runs before
+        // the sensor-size pass and rebuilds both parallel lists together.
+        if (profiles.isNotEmpty()) {
+            val seenPhysical = mutableSetOf<String>()
+            val keptProfiles = mutableListOf<LensProfile>()
+            val keptKeys = mutableListOf<String?>()
+            for (i in profiles.indices) {
+                val pid = profiles[i].physicalCameraId
+                if (seenPhysical.add(pid)) {
+                    keptProfiles.add(profiles[i])
+                    keptKeys.add(profileSensorKeys[i])
+                } else {
+                    Log.w(TAG, "Dedup physical=$pid logical=${profiles[i].logicalCameraId} — already listed, dropping duplicate")
+                }
+            }
+            if (keptProfiles.size != profiles.size) {
+                Log.i("LensSwitch", "Dedup removed ${profiles.size - keptProfiles.size} duplicated physical ID(s)")
+                profiles.clear()
+                profiles.addAll(keptProfiles)
+                profileSensorKeys.clear()
+                profileSensorKeys.addAll(keptKeys)
+            }
         }
 
         // ── Deduplicate in-sensor crop modes ──────────────────────────────
@@ -215,12 +387,32 @@ class LensCatalog(private val context: Context) {
             }
         }
 
-        // Sort by focal length ascending (UW first, Tele last)
+        // Sort by focal length ascending (UW first, Tele last), then repair
+        // whatever the thresholds left empty. Threshold roles win wherever
+        // they exist; rank fallbacks only fill gaps and never steal PRIMARY.
         profiles.sortBy { it.equivFocalMm }
+        val resolved = applyRoleFallbacks(profiles)
 
-        val ultraWide = profiles.find { it.role == LensRole.ULTRA_WIDE }
-        val primary = profiles.find { it.role == LensRole.PRIMARY }
-        val tele = profiles.find { it.role == LensRole.TELE }
+        val ultraWide = resolved.filter { it.role == LensRole.ULTRA_WIDE }.minByOrNull { it.equivFocalMm }
+        val primary = pickBestPrimary(resolved.filter { it.role == LensRole.PRIMARY })
+        val tele = resolved.filter { it.role == LensRole.TELE }.maxByOrNull { it.equivFocalMm }
+
+        // Surface every rank repair in logcat so a future "wrong lens" report
+        // carries the before/after roles without needing a new build.
+        val previousRoles = profiles.associate { it.physicalCameraId to it.role }
+        for (profile in resolved) {
+            val previous = previousRoles[profile.physicalCameraId]
+            if (previous != null && previous != profile.role) {
+                Log.w(
+                    TAG,
+                    "Role fallback equiv=${profile.equivFocalMm}mm " +
+                        "(physical=${profile.physicalCameraId}) ${previous.name} → ${profile.role.name}"
+                )
+            }
+        }
+
+        profiles.clear()
+        profiles.addAll(resolved)
 
         if (profiles.isEmpty()) {
             // Defensive: enumerating produced no usable back lens. The caller
@@ -267,17 +459,6 @@ class LensCatalog(private val context: Context) {
     }
 
     /**
-     * Computes the 35mm crop factor from the sensor's physical dimensions.
-     */
-    private fun computeCropFactor(physicalSize: SizeF?): Float {
-        if (physicalSize == null) return 1.0f
-        val sensorDiagonal = kotlin.math.sqrt(
-            physicalSize.width * physicalSize.width + physicalSize.height * physicalSize.height
-        )
-        return FULL_FRAME_DIAGONAL_MM / sensorDiagonal
-    }
-
-    /**
      * Estimates megapixels from the sensor's active array size.
      */
     private fun estimateMegapixels(characteristics: CameraCharacteristics): Int {
@@ -307,7 +488,7 @@ class LensCatalog(private val context: Context) {
 
     /**
      * True when the sensor's stream config map advertises at least one
-     * `YUV_420_888` output size — i.e. the camera can actually deliver a
+     * usable Preview output size — i.e. the camera can actually deliver a
      * Preview surface. A property of the physical sub-camera itself; we
      * deliberately probe this *before* classifying/adding a profile so we
      * never hand `PreviewSessionManager.setPhysicalCameraId(...)` an ID
@@ -322,6 +503,11 @@ class LensCatalog(private val context: Context) {
      * because it is raised on CameraX's internal SequencerExecutor. The only
      * safe defense is to filter phantom IDs *before* the bind attempt.
      *
+     * Either `YUV_420_888` or `PRIVATE` counts: CameraX Preview negotiates
+     * PRIVATE surfaces, and some HALs (Huawei, Oppo) publish usable PRIVATE
+     * tables while omitting YUV ones — YUV alone used to drop bindable
+     * lenses there.
+     *
      * We additionally require the advertised size to clear
      * [MIN_PHANTOM_AREA_PX]; some HALs claim a non-empty size table while
      * the only entry is a 1×1 (or otherwise impractically small) placeholder,
@@ -332,9 +518,9 @@ class LensCatalog(private val context: Context) {
             val configMap = characteristics.get(
                 CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP
             ) ?: return false
-            val yuvSizes = configMap.getOutputSizes(android.graphics.ImageFormat.YUV_420_888)
-                ?: return false
-            yuvSizes.any { it.width * it.height >= MIN_PHANTOM_AREA_PX }
+            val yuvSizes = configMap.getOutputSizes(ImageFormat.YUV_420_888) ?: emptyArray()
+            val privateSizes = configMap.getOutputSizes(ImageFormat.PRIVATE) ?: emptyArray()
+            (yuvSizes + privateSizes).any { it.width * it.height >= MIN_PHANTOM_AREA_PX }
         } catch (_: Exception) {
             false
         }
@@ -363,17 +549,6 @@ class LensCatalog(private val context: Context) {
         } catch (e: Exception) {
             Log.w(TAG, "supportsRawCapture probe failed", e)
             false
-        }
-    }
-
-    /**
-     * Classifies a lens by its 35mm-equivalent focal length.
-     */
-    private fun classifyLens(equivFocalMm: Float): LensRole {
-        return when {
-            equivFocalMm < ULTRA_WIDE_THRESHOLD_MM -> LensRole.ULTRA_WIDE
-            equivFocalMm > TELE_THRESHOLD_MM -> LensRole.TELE
-            else -> LensRole.PRIMARY
         }
     }
 }

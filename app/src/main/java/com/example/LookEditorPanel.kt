@@ -1,8 +1,11 @@
 package com.example
 
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,13 +16,16 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -88,18 +94,15 @@ internal fun LookEditorPanel(
     modifier: Modifier = Modifier,
     onDelete: (() -> Unit)? = null,
     lutError: Boolean = false,
-    onReset: () -> Unit = {},
-    // Null means "enabled when the draft is dirty". The host passes an
-    // explicit value so Reset can stay enabled for a clean draft that still
-    // has factory defaults to return to (a saved bundled override): tapping
-    // it then routes to the restore confirm instead of a no-op undo.
-    resetEnabled: Boolean? = null,
     onRestoreFactory: (() -> Unit)? = null
 ) {
     val haptic = LocalHapticFeedback.current
     val look = draft.look
     val canSave = LookDraftValidator.isValidName(LookDraftValidator.sanitizeName(draft.displayName))
-    val canReset = resetEnabled ?: draft.isDirty
+    // Tab regroup only: which intent group (Look / Color / Texture) the deck
+    // shows. Ephemeral composition state — it never touches the draft, so a
+    // cancelled edit still leaks nothing and every slider keeps its param.
+    var selectedTab by remember { mutableStateOf(0) }
 
     // Pinned to the film chrome: the deck floats over the camera, so it must
     // not flip to a light palette when the system (or dynamic color) is light.
@@ -135,14 +138,14 @@ internal fun LookEditorPanel(
                             onCancel()
                         },
                         modifier = Modifier
-                            .size(40.dp)
+                            .size(48.dp)
                             .testTag("look_editor_cancel")
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Close,
                             contentDescription = stringResource(R.string.cancel),
                             tint = Color.White.copy(alpha = 0.85f),
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(22.dp)
                         )
                     }
                     Text(
@@ -151,37 +154,16 @@ internal fun LookEditorPanel(
                             else R.string.look_editor_title_edit
                         ),
                         color = Color.White,
-                        fontSize = 16.sp,
+                        fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier
                             .weight(1f)
                             .padding(start = 4.dp)
                     )
-                    // Restores the sliders + LUT to what the draft started
-                    // from, without touching the typed name or anything on
-                    // disk — or, when the draft is clean but a saved override
-                    // still shadows the factory grade (see resetEnabled), to
-                    // those factory defaults via the restore confirm. Always
-                    // laid out (enabled only when there is somewhere to go
-                    // back to) so the header never jumps as the first slider
-                    // moves.
-                    TextButton(
-                        onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onReset()
-                        },
-                        enabled = canReset,
-                        contentPadding = PaddingValues(horizontal = 10.dp),
-                        modifier = Modifier
-                            .height(40.dp)
-                            .testTag("look_editor_reset")
-                    ) {
-                        Text(
-                            text = stringResource(R.string.look_editor_reset),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
+                    // Header holds close, title and save only: slider undo
+                    // left with the draft (Cancel drops it), and the factory
+                    // restore lives on the footer's Restore row for bundled
+                    // looks, so nothing here needs a third action.
                     Button(
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -194,15 +176,15 @@ internal fun LookEditorPanel(
                         ),
                         // Compact enough to sit on the title's line without
                         // making the row taller than the close button beside it.
-                        contentPadding = PaddingValues(horizontal = 18.dp),
+                        contentPadding = PaddingValues(horizontal = 20.dp),
                         modifier = Modifier
-                            .height(36.dp)
+                            .height(48.dp)
                             .testTag("look_editor_save")
                     ) {
                         Text(
                             text = stringResource(R.string.look_editor_save),
                             fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
+                            fontSize = 14.sp
                         )
                     }
                 }
@@ -246,61 +228,74 @@ internal fun LookEditorPanel(
 
                 // The LUT is the coarsest control in the deck — it decides what
                 // every slider below is bending — so it sits above the sections
-                // rather than inside one of them. Laid out on one line as well:
-                // label, file, then the two taps, so all four controls read
-                // along a single baseline.
-                Row(
+                // rather than inside one of them. Two lines on purpose: the file
+                // name gets its own line, then two full-height buttons side by
+                // side, so neither tap sits against a neighbour on a 40dp strip.
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 6.dp)
-                        .testTag("look_editor_lut_row"),
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(top = 8.dp)
+                        .testTag("look_editor_lut_row")
                 ) {
-                    CaptionText(
-                        text = stringResource(R.string.look_editor_lut_label),
-                        modifier = Modifier.padding(end = 8.dp)
-                    )
-                    Text(
-                        text = lutLabel(look.lutPath),
-                        color = Color.White,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag("look_editor_lut_name")
-                    )
-                    // 40dp is Material's own button minimum: these are text-only
-                    // buttons, so trimming them below it would cost tap area
-                    // without changing a single pixel of what is drawn.
-                    TextButton(
-                        onClick = onPickLut,
-                        contentPadding = PaddingValues(horizontal = 10.dp),
-                        modifier = Modifier
-                            .height(40.dp)
-                            .testTag("look_editor_lut_choose")
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
+                        CaptionText(
+                            text = stringResource(R.string.look_editor_lut_label),
+                            modifier = Modifier.padding(end = 8.dp)
+                        )
                         Text(
-                            text = stringResource(R.string.look_editor_lut_choose),
-                            fontSize = 12.sp
+                            text = lutLabel(look.lutPath),
+                            color = Color.White,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("look_editor_lut_name")
                         )
                     }
-                    // Only offered when there is something to clear: an empty
-                    // "Remove" next to an empty LUT invites a pointless tap.
-                    if (look.lutPath.isNotBlank()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         TextButton(
-                            onClick = onClearLut,
-                            contentPadding = PaddingValues(horizontal = 10.dp),
+                            onClick = onPickLut,
+                            contentPadding = PaddingValues(horizontal = 16.dp),
                             modifier = Modifier
-                                .height(40.dp)
-                                .testTag("look_editor_lut_clear")
+                                .weight(1f)
+                                .height(48.dp)
+                                .testTag("look_editor_lut_choose")
                         ) {
                             Text(
-                                text = stringResource(R.string.look_editor_lut_clear),
-                                color = MaterialTheme.colorScheme.error,
-                                fontSize = 12.sp
+                                text = stringResource(R.string.look_editor_lut_choose),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold
                             )
+                        }
+                        // Only offered when there is something to clear: an empty
+                        // "Remove" next to an empty LUT invites a pointless tap.
+                        if (look.lutPath.isNotBlank()) {
+                            TextButton(
+                                onClick = onClearLut,
+                                contentPadding = PaddingValues(horizontal = 16.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(48.dp)
+                                    .testTag("look_editor_lut_clear")
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.look_editor_lut_clear),
+                                    color = MaterialTheme.colorScheme.error,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
                         }
                     }
                 }
@@ -308,10 +303,44 @@ internal fun LookEditorPanel(
                     Text(
                         text = stringResource(R.string.look_editor_lut_error),
                         color = MaterialTheme.colorScheme.error,
-                        fontSize = 11.sp,
+                        fontSize = 12.sp,
                         modifier = Modifier
-                            .padding(top = 2.dp)
+                            .padding(top = 4.dp)
                             .testTag("look_editor_lut_error")
+                    )
+                }
+
+                // Tabs regroup the 20+ sliders by photographic intent so the
+                // first impression is ~6 rows, not ~23. Every slider keeps its
+                // testTag and grading param — tabs only filter which sections
+                // are composed, never the math.
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp)
+                        .testTag("look_editor_tabs"),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    LookEditorTab(
+                        label = stringResource(R.string.look_editor_tab_look),
+                        selected = selectedTab == 0,
+                        testTag = "look_editor_tab_look",
+                        onClick = { selectedTab = 0 },
+                        modifier = Modifier.weight(1f)
+                    )
+                    LookEditorTab(
+                        label = stringResource(R.string.look_editor_tab_color),
+                        selected = selectedTab == 1,
+                        testTag = "look_editor_tab_color",
+                        onClick = { selectedTab = 1 },
+                        modifier = Modifier.weight(1f)
+                    )
+                    LookEditorTab(
+                        label = stringResource(R.string.look_editor_tab_texture),
+                        selected = selectedTab == 2,
+                        testTag = "look_editor_tab_texture",
+                        onClick = { selectedTab = 2 },
+                        modifier = Modifier.weight(1f)
                     )
                 }
 
@@ -321,6 +350,8 @@ internal fun LookEditorPanel(
                         .weight(1f)
                         .verticalScroll(rememberScrollState())
                 ) {
+                    when (selectedTab) {
+                        0 ->
                     LookSection(
                         title = stringResource(R.string.look_editor_section_tone),
                         testTag = "look_section_tone"
@@ -368,10 +399,11 @@ internal fun LookEditorPanel(
                             onValueChange = { onLookChange(look.copy(vignette = it)) }
                         )
                     }
-
+                        1 -> {
+                    // Tabs already scope the deck, so the grouped sections stay
+                    // expanded while their tab is showing — no nested collapse.
                     LookSection(
                         title = stringResource(R.string.look_editor_section_color),
-                        initiallyExpanded = false,
                         testTag = "look_section_color"
                     ) {
                         LookSliderRow(
@@ -406,7 +438,6 @@ internal fun LookEditorPanel(
 
                     LookSection(
                         title = stringResource(R.string.look_editor_section_split),
-                        initiallyExpanded = false,
                         testTag = "look_section_split"
                     ) {
                         LookSliderRow(
@@ -466,10 +497,10 @@ internal fun LookEditorPanel(
                             onValueChange = { onLookChange(look.copy(highlightTintB = it)) }
                         )
                     }
-
+                        }
+                        else ->
                     LookSection(
                         title = stringResource(R.string.look_editor_section_artifacts),
-                        initiallyExpanded = false,
                         testTag = "look_section_artifacts"
                     ) {
                         LookSliderRow(
@@ -508,18 +539,22 @@ internal fun LookEditorPanel(
                             onValueChange = { onLookChange(look.copy(lightLeak = it)) }
                         )
                     }
+                    }
 
                     if (onDelete != null) {
                         TextButton(
                             onClick = onDelete,
                             modifier = Modifier
-                                .padding(top = 4.dp, bottom = 16.dp)
+                                .fillMaxWidth()
+                                .padding(top = 8.dp, bottom = 20.dp)
+                                .height(52.dp)
                                 .testTag("look_editor_delete")
                         ) {
                             Text(
                                 text = stringResource(R.string.look_editor_delete),
                                 color = Color(0xFFEF4444),
-                                fontSize = 12.sp
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
                     } else if (onRestoreFactory != null) {
@@ -529,13 +564,16 @@ internal fun LookEditorPanel(
                         TextButton(
                             onClick = onRestoreFactory,
                             modifier = Modifier
-                                .padding(top = 4.dp, bottom = 16.dp)
+                                .fillMaxWidth()
+                                .padding(top = 8.dp, bottom = 20.dp)
+                                .height(52.dp)
                                 .testTag("look_editor_restore_factory")
                         ) {
                             Text(
                                 text = stringResource(R.string.look_editor_restore),
                                 color = Color(0xFFEF4444),
-                                fontSize = 12.sp
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
                     } else {
@@ -556,12 +594,55 @@ private fun CaptionText(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text,
         color = Color.White.copy(alpha = 0.5f),
-        fontSize = 11.sp,
+        fontSize = 12.sp,
         fontWeight = FontWeight.Bold,
         letterSpacing = 0.8.sp,
         maxLines = 1,
         modifier = modifier
     )
+}
+
+/**
+ * One tab in the editor's tab row. A text button with a selected underline
+ * rather than M3 `TabRow`: the deck already speaks in text buttons (Reset,
+ * Load .cube), and this keeps the 48dp target and testTag conventions of the
+ * surrounding rows without pulling indicator plumbing into the stateless panel.
+ */
+@Composable
+private fun LookEditorTab(
+    label: String,
+    selected: Boolean,
+    testTag: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    TextButton(
+        onClick = onClick,
+        contentPadding = PaddingValues(horizontal = 12.dp),
+        modifier = modifier
+            .height(48.dp)
+            .testTag(testTag)
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = label,
+                color = if (selected) Color.White else Color.White.copy(alpha = 0.55f),
+                fontSize = 14.sp,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold
+            )
+            Box(
+                modifier = Modifier
+                    .padding(top = 2.dp)
+                    .width(24.dp)
+                    .height(2.dp)
+                    .background(
+                        if (selected) MaterialTheme.colorScheme.primary
+                        else Color.Transparent,
+                        RoundedCornerShape(1.dp)
+                    )
+            )
+        }
+    }
 }
 
 /**
@@ -599,7 +680,8 @@ private fun LookSection(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 6.dp)
+                .heightIn(min = 56.dp)
+                .padding(vertical = 4.dp)
                 .testTag(testTag)
                 .clickable { expanded = !expanded },
             verticalAlignment = Alignment.CenterVertically
@@ -607,22 +689,22 @@ private fun LookSection(
             Text(
                 text = title,
                 color = Color.White.copy(alpha = 0.9f),
-                fontSize = 12.sp,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 0.8.sp,
                 modifier = Modifier.weight(1f)
             )
-            // Fixed-size slot: `+` and `−` are different widths, and letting
-            // each sit hard against the right edge made the glyph jump as a
-            // group opened and closed.
+            // Full-height slot so the whole header is one 56dp target: the
+            // glyph used to sit in a 20dp box, which invited taps that landed
+            // on the row's padding and did nothing.
             Box(
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(48.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = if (expanded) "−" else "+",
-                    color = Color.White.copy(alpha = 0.55f),
-                    fontSize = 14.sp,
+                    color = Color.White.copy(alpha = 0.75f),
+                    fontSize = 22.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -632,12 +714,16 @@ private fun LookSection(
 }
 
 /**
- * A labeled slider with a numeric readout.
+ * A labeled slider with a numeric readout and fine-step buttons.
  *
  * The readout is rounded and rendered with `Float.toString` deliberately: a
  * `String.format` with the default locale inside a composable is exactly the
  * pattern Compose warns about (`NonObservableLocale`), and this value is a
  * neutral coefficient, not a localized quantity.
+ *
+ * The −/+ buttons move one slider step (0.01) per tap: dragging a 28dp track
+ * with a fingertip is a coin toss between neighbours, while tapping is exact.
+ * The slider itself stays the coarse control for big moves.
  */
 @Composable
 private fun LookSliderRow(
@@ -647,38 +733,84 @@ private fun LookSliderRow(
     testTag: String,
     onValueChange: (Float) -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
+    fun stepped(raw: Float): Float {
+        // 1/100 steps: fine enough for every stage, coarse enough that
+        // a drag does not write a different float on every frame.
+        return ((raw * 100f).roundToInt() / 100f).coerceIn(range.start, range.endInclusive)
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp)
+    ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = label,
-                color = Color.White.copy(alpha = 0.75f),
-                fontSize = 11.sp
+                color = Color.White.copy(alpha = 0.8f),
+                fontSize = 13.sp
             )
             Text(
                 text = formatLookValue(value),
                 color = Color.White,
-                fontSize = 11.sp,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.Bold
             )
         }
-        Slider(
-            value = value.coerceIn(range.start, range.endInclusive),
-            onValueChange = { raw ->
-                // 1/100 steps: fine enough for every stage, coarse enough that
-                // a drag does not write a different float on every frame.
-                val stepped = (raw * 100f).roundToInt() / 100f
-                if (stepped != value) onValueChange(stepped)
-            },
-            valueRange = range,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(28.dp)
-                .testTag(testTag)
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(
+                onClick = {
+                    val next = stepped(value - 0.01f)
+                    if (next != value) onValueChange(next)
+                },
+                modifier = Modifier
+                    .size(48.dp)
+                    .testTag(testTag + "_dec")
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Remove,
+                    contentDescription = stringResource(R.string.look_slider_decrease_desc, label),
+                    tint = Color.White.copy(alpha = 0.85f),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Slider(
+                value = value.coerceIn(range.start, range.endInclusive),
+                onValueChange = { raw ->
+                    val next = stepped(raw)
+                    if (next != value) onValueChange(next)
+                },
+                valueRange = range,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(36.dp)
+                    .testTag(testTag)
+            )
+            IconButton(
+                onClick = {
+                    val next = stepped(value + 0.01f)
+                    if (next != value) onValueChange(next)
+                },
+                modifier = Modifier
+                    .size(48.dp)
+                    .testTag(testTag + "_inc")
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Add,
+                    contentDescription = stringResource(R.string.look_slider_increase_desc, label),
+                    tint = Color.White.copy(alpha = 0.85f),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
     }
 }
 
@@ -730,51 +862,58 @@ internal fun LookEditorPanelHost(
     // on what "defaults" means for this draft.
     val factory = current.factoryLook
 
-    LookEditorPanel(
-        draft = current,
-        onNameChange = viewModel::updateLookDraftName,
-        onLookChange = viewModel::updateLookDraft,
-        onSave = { viewModel.saveLookDraft() },
-        onCancel = viewModel::cancelLookDraft,
-        onPickLut = {
-            lutError = false
-            // "*/*" deliberately: `.cube` files are routinely typed
-            // application/octet-stream, or left untyped by file managers and
-            // cloud providers, so any narrower filter hides the very file the
-            // user tapped "Load .cube" for.
-            lutPicker.launch(arrayOf("*/*"))
-        },
-        onClearLut = {
-            lutError = false
-            viewModel.clearDraftLut()
-        },
-        onDelete = if (current.id != null && factory == null) {
-            { confirmDelete = true }
-        } else null,
-        lutError = lutError,
-        onReset = {
-            // A reset restores the source LUT, so a stale import error must
-            // not linger under the restored row.
-            lutError = false
-            // Dirty means unsaved slider moves: undo those back to the saved
-            // grade. Clean with a factory restore pending means the draft
-            // already shows the saved edit, so Reset is the way back to the
-            // factory defaults — same confirm as the row at the deck's foot.
-            if (current.isDirty) viewModel.resetLookDraft()
-            else if (factory != null && current.look != factory) {
-                confirmRestore = true
-            }
-        },
-        // Enabled while slider moves can be undone, and while a clean draft
-        // still has factory defaults to return to. Without the second half
-        // a saved edit could never be reset again: reopening lands clean on
-        // the saved grade, so dirty-only Reset would sit disabled forever.
-        resetEnabled = current.isDirty || (factory != null && current.look != factory),
-        onRestoreFactory = if (current.id != null && factory != null) {
-            { confirmRestore = true }
-        } else null,
-        modifier = modifier
-    )
+    // Back closes the deck, like tapping outside it: both are "I am done
+    // looking at this", not a save. Disabled while a confirm dialog is up so
+    // back dismisses the dialog first, not the editor behind it.
+    BackHandler(enabled = !confirmDelete && !confirmRestore) {
+        viewModel.cancelLookDraft()
+    }
+
+    // Full-screen overlay: a transparent scrim catches taps outside the deck
+    // and cancels the draft, so the editor behaves like the bottom sheet it
+    // looks like. The scrim stays un-tinted on purpose — the live viewfinder
+    // above the deck is the preview the sliders are grading, and dimming it
+    // would hide what the user is editing. Drawn first so the deck taps first.
+    Box(modifier = modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .testTag("look_editor_scrim")
+                .clickable(
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() },
+                    onClickLabel = stringResource(R.string.cancel)
+                ) { viewModel.cancelLookDraft() }
+        )
+
+        LookEditorPanel(
+            draft = current,
+            onNameChange = viewModel::updateLookDraftName,
+            onLookChange = viewModel::updateLookDraft,
+            onSave = { viewModel.saveLookDraft() },
+            onCancel = viewModel::cancelLookDraft,
+            onPickLut = {
+                lutError = false
+                // "*/*" deliberately: `.cube` files are routinely typed
+                // application/octet-stream, or left untyped by file managers and
+                // cloud providers, so any narrower filter hides the very file the
+                // user tapped "Load .cube" for.
+                lutPicker.launch(arrayOf("*/*"))
+            },
+            onClearLut = {
+                lutError = false
+                viewModel.clearDraftLut()
+            },
+            onDelete = if (current.id != null && factory == null) {
+                { confirmDelete = true }
+            } else null,
+            lutError = lutError,
+            onRestoreFactory = if (current.id != null && factory != null) {
+                { confirmRestore = true }
+            } else null,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
+    }
 
     if (confirmDelete) {
         val id = current.id

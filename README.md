@@ -72,6 +72,19 @@
 
 ---
 
+##  Tested Devices
+
+Real-hardware checks (preview + JPEG capture + lens switching):
+
+| Device             | Android version | Main camera | Ultra-wide / Tele |
+|--------------------|-----------------|-------------|-------------------|
+| Google Pixel 7 Pro | 17              | ✅          | ✅                |
+| Xiaomi Poco 7 pro  | 16              | ✅          | ❌                |
+| Oneplus nord ce 3  | -               | ❌          | ❌                |
+> Only verified device so far. Tested something else? Please open an [issue](https://github.com/Indukto/zoom-box/issues) with your device + Android version and what works.
+
+---
+
 ##  Film Looks
 
 Each look combines a `.cube` 3D LUT — the thirteen below ship in `app/src/main/assets/luts/`; a look you author may point at a `.cube` you imported instead (`filesDir/luts/<name>.cube`) — with per-look defaults — grain strength/chroma, film S-curve, contrast, saturation, bloom, split toning, fringing, soft focus, milky haze, highlight roll-off, fade, vignette, dust, scratches, and light leak — all expressed in the look's JSON profile.

@@ -178,7 +178,6 @@
     <string name="look_editor_title_edit">Edit Look</string>
     <string name="look_editor_name_label">Name</string>
     <string name="look_editor_save">Save</string>
-    <string name="look_editor_reset">Reset</string>
     <string name="look_editor_name_hint">My Look</string>
     <string name="look_editor_based_on">Based on %1$s</string>
     <string name="look_editor_based_on_none">Starting from scratch</string>
@@ -200,6 +199,9 @@
     <string name="look_editor_section_color">Color</string>
     <string name="look_editor_section_split">Split Toning</string>
     <string name="look_editor_section_artifacts">Grain &amp; Artifacts</string>
+    <string name="look_editor_tab_look">Look</string>
+    <string name="look_editor_tab_color">Color</string>
+    <string name="look_editor_tab_texture">Texture</string>
     <string name="look_slider_film_curve">Film curve</string>
     <string name="look_slider_contrast">Contrast</string>
     <string name="look_slider_saturation">Saturation</string>
@@ -220,4 +222,6 @@
     <string name="look_slider_dust">Dust</string>
     <string name="look_slider_scratch">Scratches</string>
     <string name="look_slider_light_leak">Light leak</string>
+    <string name="look_slider_decrease_desc">Decrease %1$s</string>
+    <string name="look_slider_increase_desc">Increase %1$s</string>
 </resources>

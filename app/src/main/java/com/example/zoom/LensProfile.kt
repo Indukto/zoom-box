@@ -22,6 +22,10 @@ enum class LensRole {
  * @property nativeMegapixels The full-resolution megapixel count of the sensor
  * @property maxApertureF The maximum aperture (e.g. 1.85, 2.2, 3.5)
  * @property hasOIS Whether this lens has optical image stabilisation
+ * @property hasVariableFocus Whether the lens reports a non-zero
+ *           LENS_INFO_MINIMUM_FOCUS_DISTANCE. Fixed-focus auxiliaries (macro,
+ *           depth) are almost never the main camera, so the catalog prefers
+ *           variable-focus lenses when several share the PRIMARY band.
  * @property supportsRaw Whether this lens can capture RAW (RAW_SENSOR). Generally
  *           true on the main rear sensors of flagship devices; rarely on front
  *           or ultra-wide/tele. Used to gate the "RAW" capture mode per lens.
@@ -35,5 +39,6 @@ data class LensProfile(
     val nativeMegapixels: Int,
     val maxApertureF: Float,
     val hasOIS: Boolean,
+    val hasVariableFocus: Boolean = true,
     val supportsRaw: Boolean = false
 )

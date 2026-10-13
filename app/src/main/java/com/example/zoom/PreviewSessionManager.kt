@@ -132,6 +132,14 @@ class PreviewSessionManager(
     private var currentImageCapture: ImageCapture? = null
     private var currentLogicalCameraId: String? = null
     /**
+     * Physical camera IDs whose bind exhausted every retry this process
+     * lifetime (e.g. an auxiliary lens the HAL won't stream). Later taps
+     * route straight to the logical camera instead of failing visibly again.
+     * Same main-thread-only contract as the fields above; cleared never
+     * (a HAL that fails once won't heal without a process restart).
+     */
+    private val unhealthyPhysicalIds = mutableSetOf<String>()
+    /**
      * Tracks the front/back orientation of the last successful bind. Used
      * by the recovery branches to pick the right `CameraSelector` when the
      * previous binding came from [bindDefaultCamera] (which doesn't set
@@ -233,8 +241,16 @@ class PreviewSessionManager(
         // surface config, which on virtualised stacks can intermittently
         // lead to an async `onConfigureFailed`. Letting the logical-camera
         // path bind clean here is strictly safer.
+        //
+        // Lenses in [unhealthyPhysicalIds] take the same logical path: they
+        // exhausted every retry earlier this process lifetime, so re-attempting
+        // the physical bind would only fail visibly again.
         val usePhysicalLens = extension == CaptureExtension.NONE &&
-            physicalCameraId != logicalCameraId
+            physicalCameraId != logicalCameraId &&
+            physicalCameraId !in unhealthyPhysicalIds
+        if (!usePhysicalLens && physicalCameraId in unhealthyPhysicalIds) {
+            Log.i("LensSwitch", "bind SKIP unhealthy | physical=$physicalCameraId logical=$logicalCameraId (logical fallback)")
+        }
 
         val preview = Preview.Builder()
             .apply {
@@ -341,6 +357,16 @@ class PreviewSessionManager(
                     e
                 )
             }
+        }
+
+        // All retries exhausted. Remember the physical ID so later taps skip
+        // straight to the logical fallback instead of failing visibly again.
+        // Only when the physical route was actually attempted: extension binds
+        // (usePhysicalLens == false) fail for device-wide reasons, never for
+        // this lens, so they must not poison it.
+        if (usePhysicalLens) {
+            unhealthyPhysicalIds.add(physicalCameraId)
+            Log.w(TAG, "Marking physical=$physicalCameraId unhealthy; future binds use the logical camera")
         }
 
         // All retries exhausted. Try to restore the previous binding.
