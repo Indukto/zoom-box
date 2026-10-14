@@ -16,6 +16,18 @@
 
 </div>
 
+<div align="center">
+
+  <h2>🧪 Join Closed Testing</h2>
+
+  <a href="https://play.google.com/store/apps/details?id=eu.indukto.zoombox">
+    <img alt="Get it on Google Play" src="https://img.shields.io/badge/Get_it_on-Google_Play-414141?style=for-the-badge&logo=google-play&logoColor=white"/>
+  </a>
+
+  <p><strong>1.</strong> Join the <a href="https://groups.google.com/g/zoom-box-camera">Google Group</a> &nbsp;•&nbsp; <strong>2.</strong> Opt in on the <a href="https://play.google.com/apps/testing/eu.indukto.zoombox">web</a> with the same account &nbsp;•&nbsp; <strong>3.</strong> Install on <a href="https://play.google.com/store/apps/details?id=eu.indukto.zoombox">Google Play</a></p>
+
+</div>
+
 ---
 
 **Zoom Box Camera** is a retro-themed Android camera app built with **Jetpack Compose** and **CameraX**. A live *Zoom Box* framing overlay shows the exact crop area before you shoot, paired with vintage film color processing, 3D LUT grading, and full manual controls — the darkroom, back in your pocket.
