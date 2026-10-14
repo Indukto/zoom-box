@@ -224,4 +224,9 @@
     <string name="look_slider_light_leak">Light leak</string>
     <string name="look_slider_decrease_desc">Decrease %1$s</string>
     <string name="look_slider_increase_desc">Increase %1$s</string>
+
+    <!-- Bug report: copies device/camera/settings as Markdown for GitHub issues. -->
+    <string name="bug_report_label">Copy bug report</string>
+    <string name="bug_report_subtitle">Device, camera and settings for GitHub issues</string>
+    <string name="bug_report_copied">Bug report copied — paste it into your GitHub issue</string>
 </resources>

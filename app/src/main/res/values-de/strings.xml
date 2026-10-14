@@ -220,4 +220,9 @@
     <string name="look_slider_light_leak">Lichteinfall</string>
     <string name="look_slider_decrease_desc">%1$s verringern</string>
     <string name="look_slider_increase_desc">%1$s erhöhen</string>
+
+    <!-- Fehlerbericht: kopiert Gerät/Kamera/Einstellungen als Markdown für GitHub-Issues. -->
+    <string name="bug_report_label">Fehlerbericht kopieren</string>
+    <string name="bug_report_subtitle">Gerät, Kamera und Einstellungen für GitHub-Issues</string>
+    <string name="bug_report_copied">Fehlerbericht kopiert – ins GitHub-Issue einfügen</string>
 </resources>

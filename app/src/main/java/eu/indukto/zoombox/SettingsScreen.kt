@@ -1,6 +1,7 @@
 ﻿package eu.indukto.zoombox
 
 import androidx.activity.compose.BackHandler
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +20,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.CameraAlt
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Crop
@@ -57,6 +59,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -113,6 +116,7 @@ private fun SettingsContent(
     onClose: () -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
     val colorScheme = MaterialTheme.colorScheme
     val typography = MaterialTheme.typography
 
@@ -404,6 +408,27 @@ private fun SettingsContent(
                                 )
                             }
                         }
+                        CardDivider()
+                        // One-tap diagnostics for GitHub issues: copies the
+                        // device, lens catalog and current settings as
+                        // Markdown, so a report arrives with the hardware
+                        // context the "tested devices" table needs. The
+                        // report carries no identifiers, location or photo
+                        // content, which is why a plain clipboard copy
+                        // (confirmed by Toast) is sufficient.
+                        SettingsNavRow(
+                            icon = Icons.Rounded.BugReport,
+                            label = stringResource(R.string.bug_report_label),
+                            subtitle = stringResource(R.string.bug_report_subtitle),
+                            testTag = "copy_bug_report_button",
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                val report = formatBugReport(collectBugReportSnapshot(context, viewModel))
+                                if (copyBugReportToClipboard(context, report)) {
+                                    Toast.makeText(context, R.string.bug_report_copied, Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        )
                     }
                 }
 
