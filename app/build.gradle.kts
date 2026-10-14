@@ -16,9 +16,9 @@ android {
     versionName = "1.3.3"
   }
 
-  // Release keystore credentials come from environment variables so that
-  // F-Droid (and any CI without keys) can still `assembleRelease` unsigned:
-  // F-Droid signs the APK itself. Only wire the signing config when a
+  // Release keystore credentials come from environment variables.
+  // Without them `assembleRelease` stays unsigned for local testing only:
+  // Play Store uploads need a signed AAB. Only wire the signing config when a
   // keystore file plus both passwords are actually present.
   signingConfigs {
     create("release") {

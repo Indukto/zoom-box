@@ -1,7 +1,6 @@
 # Commit LF to the repository regardless of the developer's OS.
 #
-# core.autocrlf=true on Windows was silently committing CRLF blobs: that is
-# what corrupted the fdroiddata metadata (`fdroid lint` rejects CRLF), and it
+# core.autocrlf=true on Windows was silently committing CRLF blobs, and it
 # is why the generic rule alone is not enough — `text=auto` lets git apply its
 # binary sniff and it had cached a `-text` (binary) flag on an otherwise plain
 # Kotlin file. The explicit rules below force text treatment with LF for

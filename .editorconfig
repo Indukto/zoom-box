@@ -1,8 +1,7 @@
 # Editor and AI-agent formatting defaults for this repository.
 # These mirror the existing source style: Kotlin is 4-space indented, Gradle
 # scripts and JSON 2-space, XML resources 4-space. Line endings are LF in the
-# repository (see .gitattributes) because CRLF blobs previously corrupted the
-# F-Droid metadata.
+# repository (see .gitattributes) to keep published sources byte-identical.
 root = true
 
 [*]

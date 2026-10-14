@@ -36,7 +36,7 @@ roborazzi = "1.59.0"
 # org.json is test-scoped only: plain JVM unit tests need a real JSONObject
 # implementation because the mocked android.jar stubs throw. It is never
 # packaged into the release APK (main source uses the Android framework's
-# org.json from android.jar). Kept as testImplementation only for F-Droid.
+# org.json from android.jar). Kept as testImplementation only.
 orgJson = "20240303"
 
 

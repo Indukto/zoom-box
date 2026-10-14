@@ -84,8 +84,8 @@ perf. On a config-cache failure, retry once with `--no-configuration-cache`.
 - Kotlin is 4-space indented with no trailing commas, `kotlin.code.style=official`; Gradle `.kts`
   files and JSON are 2-space; XML resources are 4-space. `.editorconfig` encodes this — keep it
   in sync if the style ever changes.
-- Line endings are LF everywhere: `.gitattributes` forces it because CRLF blobs previously broke
-  the F-Droid metadata. Never rewrite a file with CRLF.
+- Line endings are LF everywhere: `.gitattributes` forces it to keep published
+  sources byte-identical. Never rewrite a file with CRLF.
 - Comment style is a real convention here. KDoc and inline comments explain **why** a choice was
   made (platform quirks, pointer-pipeline caveats, EGL lifecycle, OEM camera behaviour), not what
   the next line does. Match that tone; skip comments that only restate code.
@@ -109,8 +109,8 @@ perf. On a config-cache failure, retry once with `--no-configuration-cache`.
 - Configuration cache, build cache and parallel builds are enabled; if a task misbehaves, retry
   with `--no-configuration-cache`.
 - Release signing reads `KEYSTORE_PATH` / `STORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD` from the
-  environment. Without them `assembleRelease` produces an unsigned APK on purpose — that is how
-  F-Droid consumes the project. Never check in a keystore or credentials.
+  environment. Without them `assembleRelease` stays unsigned for local testing only —
+  Play Store uploads need a signed AAB. Never check in a keystore or credentials.
 - Never commit `local.properties`, `*.jks`, `docs/`, `tools/`, `.freebuff/`, `.artifacts/`,
   `.zcode/`, `.build_tmp/`, `app/debug/` or release APKs (all gitignored). `docs/` and `tools/`
   are maintainer-local: don't reference them from committed files.
