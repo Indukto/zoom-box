@@ -21,7 +21,7 @@
   <h2>🧪 Join Closed Testing</h2>
 
   <a href="https://play.google.com/store/apps/details?id=eu.indukto.zoombox">
-    <img alt="Get it on Google Play" src="https://img.shields.io/badge/Get_it_on-Google_Play-414141?style=for-the-badge&logo=google-play&logoColor=white"/>
+    <img alt="Get it on Google Play" height="80" src="assets/googleplay.png"/>
   </a>
 
   <p><strong>1.</strong> Join the <a href="https://groups.google.com/g/zoom-box-camera">Google Group</a> &nbsp;•&nbsp; <strong>2.</strong> Opt in on the <a href="https://play.google.com/apps/testing/eu.indukto.zoombox">web</a> with the same account &nbsp;•&nbsp; <strong>3.</strong> Install on <a href="https://play.google.com/store/apps/details?id=eu.indukto.zoombox">Google Play</a></p>
@@ -38,13 +38,13 @@
 
 <div align="center">
 
-  <img src="assets/Screenshot_20261005-190238.png" alt="Zoom Box framing overlay at 36 mm" width="220"/>
-  <img src="assets/Screenshot_20261005-190306.png" alt="Sunset capture with temperature control" width="220"/>
+  <img src="assets/Screenshot_20261014-173904.png" alt="Viewfinder with temperature control" width="220"/>
+  <img src="assets/Screenshot_20261014-174013.png" alt="Zoom Box framing overlay at 39 mm with white-balance picker" width="220"/>
 
   <br/>
 
-  <img src="assets/Screenshot_20261005-190422.png" alt="White-balance picker panel" width="220"/>
-  <img src="assets/Screenshot_20261005-190326.png" alt="Settings with photo quality options" width="220"/>
+  <img src="assets/Screenshot_20261014-173929.png" alt="Film-style picker with 13 styles" width="220"/>
+  <img src="assets/03-settings.png" alt="Settings with capture options" width="220"/>
 
 </div>
 
