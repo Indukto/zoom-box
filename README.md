@@ -80,7 +80,7 @@ Real-hardware checks (preview + JPEG capture + lens switching):
 |--------------------|-----------------|-------------|-------------------|
 | Google Pixel 7 Pro | 17              | ✅          | ✅                |
 | Xiaomi Poco 7 pro  | 16              | ✅          | ❌                |
-| Oneplus nord ce 3  | -               | ❌          | ❌                |
+| Oneplus nord ce 3  | -               | ✅            | -                 |
 > Only verified device so far. Tested something else? Please open an [issue](https://github.com/Indukto/zoom-box/issues) with your device + Android version and what works.
 
 ---
