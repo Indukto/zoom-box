@@ -1,15 +1,15 @@
-plugins {
+﻿plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
   alias(libs.plugins.roborazzi)
 }
 
 android {
-  namespace = "com.example"
+  namespace = "eu.indukto.zoombox"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
-    applicationId = "com.indukto.zoomboxcamera"
+    applicationId = "eu.indukto.zoombox"
     minSdk = 29
     targetSdk = 36
     versionCode = 4
@@ -99,3 +99,4 @@ dependencies {
   testImplementation(libs.roborazzi)
   debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
+

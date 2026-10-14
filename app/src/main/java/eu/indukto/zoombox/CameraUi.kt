@@ -1,0 +1,3480 @@
+﻿@file:Suppress(
+    "unused",
+    "UnusedImport",
+    "UnusedImports",
+    "RedundantQualifierName",
+    "RemoveRedundantQualifierName",
+    "RedundantSuppression"
+)
+
+package eu.indukto.zoombox
+
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+import android.util.Log
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import androidx.camera.core.ImageCapture
+import androidx.core.content.ContextCompat
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.EaseInOutCubic
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.displayCutoutPadding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.CameraAlt
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Cloud
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.FlashAuto
+import androidx.compose.material.icons.rounded.FlashOff
+import androidx.compose.material.icons.rounded.FlashOn
+import androidx.compose.material.icons.rounded.FlipCameraAndroid
+import androidx.compose.material.icons.rounded.PhotoLibrary
+import androidx.compose.material.icons.rounded.Thermostat
+import androidx.compose.material.icons.rounded.WbSunny
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Lightbulb
+import androidx.compose.material.icons.rounded.Crop
+import androidx.compose.material.icons.rounded.GridOn
+import androidx.compose.material.icons.rounded.GridOff
+import androidx.compose.material.icons.rounded.Layers
+import androidx.compose.material.icons.rounded.PrivacyTip
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Timer
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.ClipOp
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.changedToDown
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
+import eu.indukto.zoombox.ui.theme.Inter
+import kotlin.time.Duration.Companion.milliseconds
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.rememberAsyncImagePainter
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.TransformOrigin
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
+import java.util.Locale
+import eu.indukto.zoombox.zoom.AspectRatio
+import eu.indukto.zoombox.zoom.CaptureExtension
+import eu.indukto.zoombox.zoom.focalLabelAnchor
+import eu.indukto.zoombox.color.CubeLut
+import eu.indukto.zoombox.color.LOOK_CROSSFADE_DURATION_MS
+import eu.indukto.zoombox.color.LookEntry
+import eu.indukto.zoombox.color.LookSwatch
+import eu.indukto.zoombox.color.profileId
+import eu.indukto.zoombox.zoom.LensRole
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.isGranted
+import com.google.accompanist.permissions.rememberPermissionState
+import com.google.accompanist.permissions.shouldShowRationale
+import java.io.File
+
+private const val FLASH_BURST_DURATION_MS = 120L
+
+/**
+ * Per-pointer state kept by the passive full-screen swipe overlay.
+ */
+private class TrackedPointer(
+    val start: Offset,
+    val initialExposure: Float,
+    val initialTemp: Float,
+    val initialTint: Float,
+    var moved: Boolean = false
+)
+
+/**
+ * Frosted-glass style for the floating control bubble: the Figma
+ * `bubble-surface` black-20% tint plus a subtle live blur of the video
+ * underneath. Works on every preset because both preview paths (CameraX
+ * PreviewView and the LUT TextureView) composite in-window.
+ */
+private val BubbleHazeStyle = HazeStyle(
+    backgroundColor = Color.Black.copy(alpha = 0.20f),
+    tints = emptyList(),
+    blurRadius = 16.dp,
+    noiseFactor = 0f
+)
+
+/**
+ * Frosted-glass style for the expanded color/exposure panels: same blur as
+ * the control bubble (16 dp) over the Figma `color balance` black-20% fill.
+ */
+private val PanelHazeStyle = HazeStyle(
+    backgroundColor = Color.Black.copy(alpha = 0.20f),
+    tints = emptyList(),
+    blurRadius = 16.dp,
+    noiseFactor = 0f
+)
+
+/** Top-left-lit glass rim shared by the panel card and the color plot. */
+private val PanelGlassRim: Brush = Brush.linearGradient(
+    colors = listOf(
+        Color.White.copy(alpha = 0.40f),
+        Color.White.copy(alpha = 0.05f),
+        Color.White.copy(alpha = 0.06f)
+    ),
+    start = Offset.Infinite,
+    end = Offset.Zero
+)
+
+/**
+ * Liquid-glass fill for the round aux buttons, lit from the bottom-right: a
+ * tight specular hotspot in the bottom-right corner over an otherwise clear
+ * face, fading into dark translucent chrome — real glass keeps the middle
+ * clean and puts the light on the edge, not a wash across the whole button.
+ */
+private fun auxGlassBackground(active: Boolean = false): Brush = Brush.linearGradient(
+    colorStops = arrayOf(
+        0.0f to Color.White.copy(alpha = 0.18f),
+        0.30f to Color.White.copy(alpha = 0.0f),
+        1.0f to if (active) Color(0xFFFBBF24).copy(alpha = 0.14f)
+        else Color(0xFF1C1C1E).copy(alpha = 0.55f)
+    ),
+    start = Offset.Infinite,
+    end = Offset.Zero
+)
+
+private fun auxGlassBorder(active: Boolean = false): Brush = Brush.linearGradient(
+    colorStops = arrayOf(
+        0.0f to if (active) Color(0xFFFBBF24).copy(alpha = 0.60f) else Color.White.copy(alpha = 0.40f),
+        0.40f to if (active) Color(0xFFFBBF24).copy(alpha = 0.12f) else Color.White.copy(alpha = 0.05f),
+        1.0f to if (active) Color(0xFFFBBF24).copy(alpha = 0.12f) else Color.White.copy(alpha = 0.06f)
+    ),
+    start = Offset.Infinite,
+    end = Offset.Zero
+)
+
+/** Shared glass-chrome modifier for the 45dp round aux buttons. */
+private fun Modifier.auxGlass(active: Boolean = false): Modifier = this
+    .clip(CircleShape)
+    .background(auxGlassBackground(active), CircleShape)
+    .liquidGlassRim(
+        cornerRadius = null,
+        rimColor = if (active) Color(0xFFFBBF24) else Color.White,
+        fallbackBorder = auxGlassBorder(active)
+    )
+
+/** Same liquid-glass chrome for the 14dp rounded bottom-deck tiles. */
+private fun Modifier.deckGlass(active: Boolean = false): Modifier = this
+    .clip(RoundedCornerShape(14.dp))
+    .background(deckGlassBackground(active), RoundedCornerShape(14.dp))
+    .liquidGlassRim(
+        cornerRadius = 14.dp,
+        rimColor = if (active) Color(0xFFFBBF24) else Color.White,
+        fallbackBorder = deckGlassBorder(active),
+        fallbackWidth = 1.25.dp
+    )
+
+/**
+ * Deck-tile glass fill, lit from the bottom-right like [auxGlassBackground]: the
+ * specular lives on the bottom-right corner and falls off toward the
+ * top-left, so every tile shares one light direction.
+ */
+private fun deckGlassBackground(active: Boolean = false): Brush = Brush.linearGradient(
+    colorStops = arrayOf(
+        0.0f to Color.White.copy(alpha = 0.22f),
+        0.35f to Color.White.copy(alpha = 0.0f),
+        1.0f to if (active) Color(0xFFFBBF24).copy(alpha = 0.14f)
+        else Color(0xFF1C1C1E).copy(alpha = 0.55f)
+    ),
+    start = Offset.Infinite,
+    end = Offset.Zero
+)
+
+/**
+ * Deck-tile glass rim, brightest on the bottom-right (0.0) stop and quiet at the
+ * top-left (1.0) — matching a bottom-right key light.
+ */
+private fun deckGlassBorder(active: Boolean = false): Brush = Brush.linearGradient(
+    colorStops = arrayOf(
+        0.0f to if (active) Color(0xFFFBBF24).copy(alpha = 0.60f) else Color.White.copy(alpha = 0.45f),
+        0.40f to if (active) Color(0xFFFBBF24).copy(alpha = 0.14f) else Color.White.copy(alpha = 0.07f),
+        1.0f to if (active) Color(0xFFFBBF24).copy(alpha = 0.14f) else Color.White.copy(alpha = 0.08f)
+    ),
+    start = Offset.Infinite,
+    end = Offset.Zero
+)
+
+/**
+ * ZoomBox Figma spec (393×852 `zoombox-camera-main-screen`).
+ * All fractions are relative to the full screen so the layout scales to
+ * any device while keeping the design's proportions:
+ * - viewfinder: 3.94% side margins, top 13.22%, bottom reserve 30.13%
+ * - zoom-box: sides 19.61%, top 22.85%, bottom reserve 39.76%
+ * - control-bubble: sides ~25.7%, top 61.38%, bottom reserve 31.69%
+ * - bottom-deck: top 72.77%; aux-row height ~45px; primary-row 81.69-91.55%
+ */
+private object ZoomBoxSpec {
+    const val VIEWFINDER_WIDTH_FRACTION = 0.9212f // 100 - 3.94*2
+    const val VIEWFINDER_TOP_FRACTION = 0.1322f
+    const val VIEWFINDER_BOTTOM_RESERVE_FRACTION = 0.3013f
+    const val BUBBLE_BOTTOM_OFFSET_DP = 10 // bubble sits ~10dp above viewfinder bottom
+    // Floor for the 16:9 upward growth (see viewfinderTop) — keeps the box
+    // + its corner settings button clear of the status bar.
+    const val VIEWFINDER_MIN_TOP_DP = 28
+    const val ZOOM_GRID_ALPHA = 0.55f
+    const val ZOOM_OUTLINE_ALPHA = 0.9f
+}
+
+/**
+ * Viewfinder top offset shared by [CameraActiveScreen] and the tutorial
+ * mirror computation in [CameraUi] so both stay in lock-step.
+ *
+ * Fitting ratios are centered in the available band. Overflowing ratios
+ * pin the top and grow downward — except 16:9, which overflows so far
+ * that growing downward would bury its bottom edge (and the control
+ * bubble anchored to it) under the opaque bottom deck. 16:9 therefore
+ * grows upward instead, clamped so its top never enters the status bar.
+ */
+private fun viewfinderTop(
+    topInset: Dp,
+    availableHeight: Dp,
+    vfHeight: Dp,
+    aspectRatio: AspectRatio
+): Dp {
+    if (vfHeight <= availableHeight) return topInset + (availableHeight - vfHeight) / 2f
+    if (aspectRatio == AspectRatio.RATIO_16_9) {
+        return (topInset + availableHeight - vfHeight)
+            .coerceAtLeast(ZoomBoxSpec.VIEWFINDER_MIN_TOP_DP.dp)
+    }
+    return topInset
+}
+
+/**
+ * Draws a rule-of-thirds grid (4 lines at width/height thirds) inside [rect].
+ * Shared between the inner zoom-box grid and the full-viewfinder grid so
+ * their styling stays in lock-step.
+ */
+private fun DrawScope.drawThirdsGrid(
+    rect: Rect,
+    color: Color,
+    strokeWidth: Float
+) {
+    val w = rect.width
+    val h = rect.height
+    val thirdW1 = rect.left + w / 3f
+    val thirdW2 = rect.left + 2f * w / 3f
+    val thirdH1 = rect.top + h / 3f
+    val thirdH2 = rect.top + 2f * h / 3f
+    drawLine(color = color, start = Offset(thirdW1, rect.top), end = Offset(thirdW1, rect.bottom), strokeWidth = strokeWidth)
+    drawLine(color = color, start = Offset(thirdW2, rect.top), end = Offset(thirdW2, rect.bottom), strokeWidth = strokeWidth)
+    drawLine(color = color, start = Offset(rect.left, thirdH1), end = Offset(rect.right, thirdH1), strokeWidth = strokeWidth)
+    drawLine(color = color, start = Offset(rect.left, thirdH2), end = Offset(rect.right, thirdH2), strokeWidth = strokeWidth)
+}
+
+/**
+ * Zoom-box framing overlay, isolated in its own leaf scope for performance.
+ *
+ * Previously the spring (`animateFloatAsState`) and the dim/grid `Canvas`
+ * lived in `CameraActiveScreen`'s root scope, so every animation tick
+ * (~60fps until the spring settles) recomposed the whole screen — viewfinder
+ * wrapper, bottom deck, bubble row — plus re-ran `toPx()` / `Color.copy()` /
+ * `Path()` allocations inside the draw blocks on each frame.
+ *
+ * Now only this leaf subscribes to `boxScaleFlow` and runs the spring, so
+ * animation ticks recompose just this overlay. Geometry pixel values,
+ * colors, radii, alphas and thresholds are identical to the previous inline
+ * implementation (same Figma spec: 20dp corner, 2px 0.9-alpha outline,
+ * 0.65 dim, 0.55 inner grid, 0.40 full-VF grid, 14sp label 30dp above box,
+ * `< 0.99f` mount threshold).
+ *
+ * Spring physics: the box chases the committed zoom on a snappy,
+ * slightly under-damped spring (`spring(350, 0.68)` — settles with a hint
+ * of bounce instead of gliding). Past the 1x/5x limits the gesture feeds a
+ * rubber-band overshoot (zoom-ratio units, 0 when settled) that rides its
+ * own stiffer spring (`spring(550, 0.6)`) and is converted to a box-fraction
+ * delta off the *target* scale (box = 1/zoom on primary). Releasing past a
+ * limit snaps the overshoot target to 0, so the box visibly over-shrinks
+ * then bounces back. The overshoot never reaches the capture path: the
+ * reported crop fraction is the clamped base animation only. At 1x the box
+ * already fills the frame, so downward overshoot is absorbed there (felt
+ * as gesture resistance + settle rather than pixels).
+ */
+@Composable
+private fun BoxScope.ZoomBoxOverlay(
+    boxScaleFlow: StateFlow<Float>,
+    overshootZoomFlow: StateFlow<Float>,
+    selectedLensRole: LensRole,
+    effectiveFocalLength: Int,
+    vfX: Dp,
+    vfTop: Dp,
+    vfWidth: Dp,
+    vfHeight: Dp,
+    aspectRatio: AspectRatio,
+    gridAlpha: Float,
+    parentWidth: Dp,
+    parentHeight: Dp,
+    controlAngle: Float = 0f,
+    onAnimatedFraction: (Float) -> Unit
+) {
+    val boxScale by boxScaleFlow.collectAsState()
+    val animatedBoxWidthFraction by animateFloatAsState(
+        targetValue = boxScale,
+        animationSpec = spring(stiffness = 350f, dampingRatio = 0.68f),
+        label = "box_width_fraction"
+    )
+    val overshootZoom by overshootZoomFlow.collectAsState()
+    val animatedOvershootZoom by animateFloatAsState(
+        targetValue = overshootZoom,
+        animationSpec = spring(stiffness = 550f, dampingRatio = 0.6f),
+        label = "zoom_overshoot"
+    )
+    // Box-domain stretch for the current overshoot. Derived from the target
+    // (unanimated) scale so it composes cleanly with the base spring above;
+    // exactly 0 when settled. Clamped to full-frame: at 1x there is nowhere
+    // for the box to grow, so that end's band is gesture resistance only.
+    val targetZoom = 1f / boxScale.coerceAtLeast(0.05f)
+    val renderedBoxWidthFraction = (animatedBoxWidthFraction +
+        (1f / (targetZoom + animatedOvershootZoom).coerceAtLeast(0.05f) -
+            1f / targetZoom)).coerceIn(0f, 1f)
+    // Report the clamped base animation (WITHOUT overshoot) for the capture
+    // crop path. The root's `captureBoxFraction` ref has no composition
+    // readers, so this write never schedules a recomposition outside this
+    // leaf.
+    SideEffect { onAnimatedFraction(animatedBoxWidthFraction) }
+
+    val showZoomBox = selectedLensRole == LensRole.PRIMARY && animatedBoxWidthFraction < 0.99f
+
+    // Hoisted out of the draw blocks: density lookups and Color allocations
+    // run once per input change instead of on every animation frame.
+    val density = LocalDensity.current
+    val cornerPx = remember(density) { with(density) { 20.dp.toPx() } }
+    val thinStrokePx = remember(density) { with(density) { 1.dp.toPx() } }
+    val dimColor = remember { Color.Black.copy(alpha = 0.65f) }
+    val outlineColor = remember { Color.White.copy(alpha = ZoomBoxSpec.ZOOM_OUTLINE_ALPHA) }
+    val fullGridColor = remember(gridAlpha) { Color.White.copy(alpha = 0.40f * gridAlpha) }
+    val boxGridColor = remember(gridAlpha) {
+        Color.White.copy(alpha = ZoomBoxSpec.ZOOM_GRID_ALPHA * gridAlpha)
+    }
+    // Viewfinder rect in px, cached across animation frames (same density →
+    // same numeric result as calling `toPx()` inside the DrawScope).
+    val vfLeftPx = remember(vfX, density) { with(density) { vfX.toPx() } }
+    val vfTopPx = remember(vfTop, density) { with(density) { vfTop.toPx() } }
+    val vfWPx = remember(vfWidth, density) { with(density) { vfWidth.toPx() } }
+    val vfHPx = remember(vfHeight, density) { with(density) { vfHeight.toPx() } }
+
+    // Coarse 3x3 grid over the full viewfinder when no zoom box is active
+    // (e.g. ultra-wide / tele lens).
+    if (gridAlpha > 0f && !showZoomBox) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            drawThirdsGrid(
+                rect = Rect(vfLeftPx, vfTopPx, vfLeftPx + vfWPx, vfTopPx + vfHPx),
+                color = fullGridColor,
+                strokeWidth = thinStrokePx
+            )
+        }
+    }
+
+    if (showZoomBox) {
+        // Aspect-ratio-aware box dimensions: box height = box width × heightToWidth.
+        // When the natural box height exceeds the viewfinder height (e.g. 3:2
+        // portrait at full boxFraction), clamp height to vfHeight and re-derive
+        // width so the selected ratio is preserved within the available space.
+        val ratioFraction = aspectRatio.heightToWidth
+        val naturalBoxW = vfWidth * renderedBoxWidthFraction
+        val naturalBoxH = naturalBoxW * ratioFraction
+        val (boxWf, boxHf) = if (naturalBoxH > vfHeight) {
+            (vfHeight / ratioFraction) to vfHeight
+        } else {
+            naturalBoxW to naturalBoxH
+        }
+        val zoomBoxTop = vfTop + (vfHeight - boxHf) / 2f
+        // Left edge of the zoom box; the outline Box below is a TopStart
+        // offset child, so this is NOT the centre.
+        val boxLeft = vfX + (vfWidth - boxWf) / 2f
+
+        // Box rect in px, cached per size step instead of converted per frame.
+        val boxW = remember(boxWf, density) { with(density) { boxWf.toPx() } }
+        val boxH = remember(boxHf, density) { with(density) { boxHf.toPx() } }
+
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val left = vfLeftPx + (vfWPx - boxW) / 2f
+            val top = vfTopPx + (vfHPx - boxH) / 2f
+
+            val rect = Rect(left, top, left + boxW, top + boxH)
+            val path = Path().apply {
+                addRoundRect(RoundRect(rect = rect, cornerRadius = CornerRadius(cornerPx)))
+            }
+            clipPath(path = path, clipOp = ClipOp.Difference) {
+                drawRect(color = dimColor)
+            }
+
+            if (gridAlpha > 0f) {
+                // Rule-of-thirds grid lines, clipped to the zoom box rounded rect
+                clipPath(path = path, clipOp = ClipOp.Intersect) {
+                    drawThirdsGrid(
+                        rect = rect,
+                        color = boxGridColor,
+                        strokeWidth = thinStrokePx
+                    )
+                }
+            }
+        }
+
+        // Focal-length label (spec `focal-length-label`: Inter 700 14px
+        // white, 30dp above the zoom box). The anchor keeps the number
+        // hugging the ZOOM BOX itself in the VIEWER'S frame at any device
+        // angle — see [focalLabelAnchor] for the geometry.
+        var labelHeightPx by remember { mutableIntStateOf(0) }
+        val labelHalfHeight = with(density) { (labelHeightPx / 2).toDp() }
+        val labelAnchor = focalLabelAnchor(
+            boxLeft = boxLeft,
+            boxTop = zoomBoxTop,
+            boxWidth = boxWf,
+            boxHeight = boxHf,
+            labelHalfHeight = labelHalfHeight,
+            controlAngle = controlAngle,
+            screenWidth = parentWidth,
+            screenHeight = parentHeight
+        )
+        val labelX = labelAnchor.x
+        val labelY = labelAnchor.y
+        Text(
+            text = stringResource(R.string.focal_length_mm, effectiveFocalLength),
+            color = Color.White,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            fontFamily = Inter,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                // Centre-anchored (not TopCenter) so one offset can express
+                // both anchors; the offset is measured from the screen
+                // centre, which equals the viewfinder's centre line.
+                .align(Alignment.Center)
+                .offset(
+                    x = labelX - parentWidth / 2f,
+                    y = labelY - parentHeight / 2f
+                )
+                .rotate(controlAngle)
+                .onSizeChanged { labelHeightPx = it.height }
+        )
+
+        // Zoom box outline (spec `zoom-box-outline`:
+        // 2px rgba(255,255,255,0.9), grid rgba(255,255,255,0.55)).
+        Box(
+            modifier = Modifier
+                .offset(
+                    x = boxLeft,
+                    y = zoomBoxTop
+                )
+                .width(boxWf)
+                .height(boxHf)
+                .border(2.dp, outlineColor, RoundedCornerShape(20.dp))
+        )
+    }
+}
+
+/**
+ * Swatch for a look id. The hand-tuned colors live in [LookSwatch] next to
+ * the look catalog so the picker, the preset button and the swipe toast all
+ * read one table; looks without a hand-tuned entry get a stable derived hue.
+ */
+private fun filmPresetColor(lookId: String): Color = Color(LookSwatch.colorFor(lookId))
+
+/** Glyph for a look id, with the same hand-tuned / derived split as the swatch. */
+private fun filmPresetEmoji(lookId: String): String = LookSwatch.emojiFor(lookId)
+
+/** Display name for a look id, resolved through the registry catalog. */
+private fun lookDisplayName(viewModel: CameraViewModel, lookId: String): String =
+    viewModel.lookDisplayName(lookId)
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Color-temperature & exposure controls
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Material 3 centered exposure slider: the amber band grows outward from the
+ * 0 detent in both directions over a dim track, with a glass thumb that
+ * gains an amber ring whenever the value leaves center. 61 snapped stops
+ * (-3..3 EV in 1/10 steps); M3 handles tap-to-set, drag, ripple, and
+ * accessibility. Double-tapping the thumb circle resets to 0 EV. Reported
+ * values are re-quantized to kill float drift (0.30000004) and keep the
+ * exact center reading exactly 0.
+ */
+@Composable
+private fun CenteredEvSlider(
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val amber = Color(0xFFFBBF24)
+    Box(
+        modifier = modifier.fillMaxWidth().height(40.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Slider(
+            value = value,
+            onValueChange = {
+                val clean = (kotlin.math.round(it * 10f) / 10f).coerceIn(-3f, 3f)
+                if (clean != value) onValueChange(clean)
+            },
+            valueRange = -3f..3f,
+            steps = 59,
+            modifier = Modifier.fillMaxWidth(),
+            thumb = {
+                Box(
+                    modifier = Modifier
+                        .size(22.dp)
+                        .pointerInput(value) {
+                            detectTapGestures(
+                                onDoubleTap = {
+                                    if (value != 0f) onValueChange(0f)
+                                }
+                            )
+                        }
+                        .background(Color.White, CircleShape)
+                        .border(
+                            2.dp,
+                            if (value != 0f) amber else Color.White.copy(alpha = 0.4f),
+                            CircleShape
+                        )
+                )
+            },
+            track = { sliderState ->
+                val fraction = ((sliderState.value + 3f) / 6f).coerceIn(0f, 1f)
+                BoxWithConstraints(
+                    modifier = Modifier.fillMaxWidth().height(10.dp)
+                ) {
+                    // Dim base track
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Color.White.copy(alpha = 0.14f),
+                                RoundedCornerShape(5.dp)
+                            )
+                    )
+                    // Amber band from the center detent out to the thumb
+                    val bandStart = minOf(0.5f, fraction)
+                    val bandEnd = maxOf(0.5f, fraction)
+                    if (bandEnd - bandStart > 0.001f) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.CenterStart)
+                                .offset(x = maxWidth * bandStart)
+                                .width(maxWidth * (bandEnd - bandStart))
+                                .fillMaxHeight()
+                                .background(
+                                    Brush.horizontalGradient(
+                                        listOf(amber, Color(0xFFD97706))
+                                    ),
+                                    RoundedCornerShape(5.dp)
+                                )
+                        )
+                    }
+                    // Center (0 EV) detent
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .size(width = 2.dp, height = 14.dp)
+                            .background(
+                                Color.White.copy(alpha = 0.5f),
+                                RoundedCornerShape(1.dp)
+                            )
+                    )
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun PresetButton(
+    onClick: () -> Unit,
+    isSelected: Boolean,
+    modifier: Modifier = Modifier,
+    content: @Composable BoxScope.() -> Unit
+) {
+    // Liquid-glass circle reusing the aux-button chrome: diagonal sheen +
+    // rim, amber glass when selected. 40 dp per the Figma preset ellipses.
+    Box(
+        modifier = modifier
+            .size(40.dp)
+            .auxGlass(active = isSelected)
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center,
+        content = content
+    )
+}
+
+@Composable
+private fun ColorPlot(
+    temperature: Float,
+    tint: Float,
+    onValueChange: (Float, Float) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var size by remember { mutableStateOf(IntSize.Zero) }
+
+    val xFraction = ((temperature + 2f) / 4f).coerceIn(0f, 1f)
+    val yFraction = (1f - (tint + 2f) / 4f).coerceIn(0f, 1f)
+
+    // pointerInput(Unit) launches its coroutine once and outlives a single
+    // composition. Reading xFraction / yFraction directly inside the
+    // awaitEachGesture block would freeze them at the values from the first
+    // launch and reset the cursor to (0, 0) on every re-press. rememberUpdatedState
+    // exposes the latest parameter values to the long-running coroutine without
+    // restarting it on each state change (which would kill ongoing gestures).
+    val currentXFraction by rememberUpdatedState(xFraction)
+    val currentYFraction by rememberUpdatedState(yFraction)
+    val currentOnValueChange by rememberUpdatedState(onValueChange)
+
+    // Snap-to-grid step for both axes. Picked so the 9x9 stop grid lines up
+    // with the presets below (Auto = 0/0, Daylight = 0.5/0, Tungsten = -1.5/-0.5)
+    // and gives 81 discrete positions inside the -2..+2 design space.
+    val colorStep = 0.5f
+    fun snap(value: Float): Float =
+        (kotlin.math.round(value / colorStep) * colorStep).coerceIn(-2f, 2f)
+
+    // Map a box-pixel coordinate to (temperature, tint). Each gesture
+    // anchors the cursor at its current box position with a finger-based
+    // offset, so consecutive touches don't teleport the selector.
+    fun emitAtPosition(position: Offset) {
+        if (size.width > 0 && size.height > 0) {
+            val currentX = position.x.coerceIn(0f, size.width.toFloat())
+            val currentY = position.y.coerceIn(0f, size.height.toFloat())
+            val newTemp = snap((currentX / size.width.toFloat()) * 4f - 2f)
+            val newTint = snap((1f - currentY / size.height.toFloat()) * 4f - 2f)
+            currentOnValueChange(newTemp, newTint)
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .onSizeChanged { size = it }
+            .pointerInput(Unit) {                // Unified press-then-drag handler:
+                //   1. Touch-down snaps the cursor instantly to the clicked
+                //      cell (no touch-slop wait -- fires on awaitFirstDown).
+                //   2. Each subsequent pointer event tracks the finger
+                //      across cells, emitting a snapped position per step.
+                //   3. On release the cursor stays where the finger lifted.
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    // Unconditional consume: prevent sibling gesture detectors
+                    // from receiving events even before size has been laid out.
+                    down.consume()
+                    // Capture the cursor's current box position plus the
+                    // offset from where the finger pressed. The selector
+                    // never resets between gestures -- only finger movement
+                    // walks the cursor, by an amount equal to the finger's
+                    // path. Repeat touches just re-anchor the offset.
+                    val cursorStartX = currentXFraction * size.width.toFloat()
+                    val cursorStartY = currentYFraction * size.height.toFloat()
+                    val pressOffsetX = down.position.x - cursorStartX
+                    val pressOffsetY = down.position.y - cursorStartY
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                        if (!change.pressed) break
+                        emitAtPosition(Offset(
+                            change.position.x - pressOffsetX,
+                            change.position.y - pressOffsetY
+                        ))
+                        change.consume()
+                    }
+                }
+            }
+            .clip(RoundedCornerShape(7.dp))
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val horizontalBrush = Brush.linearGradient(
+                colors = listOf(
+                    Color(0xFF87CEEB), // cool cyan/blue
+                    Color(0xFFF8FAFC), // neutral white
+                    Color(0xFFFBBF24)  // warm amber/orange
+                ),
+                start = Offset(0f, 0f),
+                end = Offset(size.width.toFloat(), 0f)
+            )
+
+            val verticalBrush = Brush.linearGradient(
+                colors = listOf(
+                    Color(0xFFEC4899), // magenta/pink
+                    Color.Transparent,
+                    Color(0xFF22C55E)  // green
+                ),
+                start = Offset(0f, 0f),
+                end = Offset(0f, size.height.toFloat())
+            )
+
+            drawRect(brush = horizontalBrush)
+            drawRect(brush = verticalBrush, alpha = 0.65f)
+
+            // Snap grid: 8 faint internal lines per axis so the 0.5-step
+            // cadence is visually discoverable. Drawn before the crosshair
+            // and thumb so the cursor sits on top.
+            val cellColor = Color.White.copy(alpha = 0.10f)
+            val cellStroke = 0.5f
+            val cells = 15 // 9 stops -> 8 internal lines
+            for (i in 1 until cells) {
+                val x = size.width.toFloat() * i / cells
+                drawLine(
+                    color = cellColor,
+                    start = Offset(x, 0f),
+                    end = Offset(x, size.height.toFloat()),
+                    strokeWidth = cellStroke
+                )
+            }
+            for (i in 1 until cells) {
+                val y = size.height.toFloat() * i / cells
+                drawLine(
+                    color = cellColor,
+                    start = Offset(0f, y),
+                    end = Offset(size.width.toFloat(), y),
+                    strokeWidth = cellStroke
+                )
+            }
+
+            val xPos = xFraction * size.width
+            val yPos = yFraction * size.height
+
+            val pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f), 0f)
+            // Horizontal dashed line
+            drawLine(
+                color = Color.Black.copy(alpha = 0.45f),
+                start = Offset(0f, yPos),
+                end = Offset(size.width.toFloat(), yPos),
+                strokeWidth = 1f,
+                pathEffect = pathEffect
+            )
+            // Vertical dashed line
+            drawLine(
+                color = Color.Black.copy(alpha = 0.45f),
+                start = Offset(xPos, 0f),
+                end = Offset(xPos, size.height.toFloat()),
+                strokeWidth = 1f,
+                pathEffect = pathEffect
+            )
+
+            // Draw selection thumb (black circle with white border)
+            drawCircle(
+                color = Color.White,
+                radius = 8.dp.toPx(),
+                center = Offset(xPos, yPos)
+            )
+            drawCircle(
+                color = Color.Black,
+                radius = 6.dp.toPx(),
+                center = Offset(xPos, yPos)
+            )
+        }
+    }
+}
+
+/**
+ * White balance (color temperature & tint) panel. Shows a live Kelvin/tint readout and a
+ * 2D color-plot space with preset buttons.
+ */
+@Composable
+internal fun WhiteBalancePanel(
+    temperature: Float,
+    tint: Float,
+    onValueChange: (Float, Float) -> Unit,
+    headerActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {}
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // Title row: "Color Balance" Inter Bold 14 white left, X right.
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = stringResource(R.string.color_balance_title),
+                color = Color.White,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = Inter
+            )
+            headerActions()
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        // Content row (Figma `color balance` 295×125): 166×83 color field
+        // left, 2×2 preset grid right (40 px circles → 10 dp gap keeps the
+        // 166 + 88 row inside the 264 dp content slot).
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            ColorPlot(
+                temperature = temperature,
+                tint = tint,
+                onValueChange = onValueChange,
+                modifier = Modifier
+                    .width(166.dp)
+                    .height(83.dp)
+                    .liquidGlassRim(cornerRadius = 7.dp, fallbackBorder = PanelGlassRim)
+            )
+
+            // 2×2 preset grid: Auto / Daylight / Tungsten / Shade.
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Auto preset (A)
+                    PresetButton(
+                        onClick = { onValueChange(0f, 0f) },
+                        isSelected = temperature == 0f && tint == 0f
+                    ) {
+                        Text(
+                            text = stringResource(R.string.wb_auto_label),
+                            color = if (temperature == 0f && tint == 0f) Color(0xFFFBBF24) else Color.White,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+
+                    // Daylight preset (Sun)
+                    PresetButton(
+                        onClick = { onValueChange(0.5f, 0.5f) },
+                        isSelected = temperature == 0.5f && tint == 0.5f
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.WbSunny,
+                            contentDescription = stringResource(R.string.wb_preset_daylight),
+                            tint = if (temperature == 0.5f && tint == 0.5f) Color(0xFFFBBF24) else Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Tungsten preset (Bulb)
+                    PresetButton(
+                        onClick = { onValueChange(-1.5f, -0.5f) },
+                        isSelected = temperature == -1.5f && tint == -0.5f
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Lightbulb,
+                            contentDescription = stringResource(R.string.wb_preset_incandescent),
+                            tint = if (temperature == -1.5f && tint == -0.5f) Color(0xFFFBBF24) else Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+
+                    // Shade preset (Cloud)
+                    PresetButton(
+                        onClick = { onValueChange(1f, 0.5f) },
+                        isSelected = temperature == 1f && tint == 0.5f
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Cloud,
+                            contentDescription = stringResource(R.string.wb_preset_shade),
+                            tint = if (temperature == 1f && tint == 0.5f) Color(0xFFFBBF24) else Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Exposure compensation panel. Shows a live EV readout and a Material 3
+ * centered slider whose amber band grows outward from the 0 detent.
+ */
+@Composable
+internal fun ExposurePanel(
+    exposure: Float,
+    onValueChange: (Float) -> Unit,
+    headerActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {}
+) {
+    // Locale-aware so a German locale sees "1,5" rather than "1.5".
+    val evLabel = if (exposure >= 0) "+${String.format(Locale.getDefault(), "%.1f", exposure)}" else String.format(Locale.getDefault(), "%.1f", exposure)
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = stringResource(R.string.exposure_title),
+                color = Color.White.copy(alpha = 0.85f),
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.ev_readout, evLabel),
+                    color = Color.White,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = Inter
+                )
+                headerActions()
+            }
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        CenteredEvSlider(
+            value = exposure,
+            onValueChange = onValueChange
+        )
+        // Tick labels
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(text = "-3", color = Color.White.copy(alpha = 0.55f), fontSize = 9.sp)
+            Text(text = "0", color = Color.White.copy(alpha = 0.75f), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+            Text(text = "+3", color = Color.White.copy(alpha = 0.55f), fontSize = 9.sp)
+        }
+    }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Floating control surface (Morph)
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Three discrete visual modes the floating control surface can occupy.
+ * [BUBBLE] is the compact 3-button row (temperature + lens + exposure).
+ * [COLOR] / [EXPOSURE] replace it with the expanded settings panel; both
+ * anchored at the same bottom edge so the bubble doesn't get shoved
+ * downward when the panel opens.
+ */
+/**
+ * Leaf scopes for the high-frequency color/exposure state. `temperature`,
+ * `tint` and `exposure` change on every drag tick; collecting them in
+ * `CameraActiveScreen` recomposed the whole screen per tick (~20 ms
+ * whole-screen recomposes in the system trace). Each wrapper below collects
+ * only what its panel needs, so drag ticks recompose just the panel.
+ * Existing panel signatures are untouched (screenshot tests use them).
+ */
+@Composable
+private fun LiveBubbleRow(
+    viewModel: CameraViewModel,
+    hazeState: HazeState,
+    effectiveFocalLength: Int,
+    isFrontCamera: Boolean,
+    controlAngle: Float
+) {
+    val haptic = LocalHapticFeedback.current
+    val temperature by viewModel.temperature.collectAsState()
+    val tint by viewModel.tint.collectAsState()
+    val exposure by viewModel.exposure.collectAsState()
+    val catalogReady by viewModel.lensCatalogReady.collectAsState()
+    // Front camera is single-lens; the back bubble also stays inert until the
+    // first enumeration lands, suppressing the "buzz-and-nothing" dead tap on
+    // slow CameraX init. Visuals are untouched (no golden churn).
+    val lensEnabled = !isFrontCamera && catalogReady
+    FloatingBubbleRow(
+        effectiveFocalLength = effectiveFocalLength,
+        temperature = temperature,
+        tint = tint,
+        exposure = exposure,
+        hazeState = hazeState,
+        isFrontCamera = isFrontCamera,
+        isLensSwitchEnabled = lensEnabled,
+        controlAngle = controlAngle,
+        onTemperatureClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            viewModel.toggleTemperatureSlider()
+        },
+        onLensClick = {
+            // Guarded here too (cycleLens no-ops internally): suppresses
+            // the "buzz-and-nothing" feel of the dead click on front camera
+            // or before the catalog arrives.
+            if (lensEnabled) {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                viewModel.cycleLens()
+            }
+        },
+        onExposureClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            viewModel.toggleExposureSlider()
+        }
+    )
+}
+
+@Composable
+private fun LiveColorPanel(viewModel: CameraViewModel, hazeState: HazeState) {
+    val haptic = LocalHapticFeedback.current
+    val temperature by viewModel.temperature.collectAsState()
+    val tint by viewModel.tint.collectAsState()
+    MorphedPanelChrome(hazeState = hazeState) {
+        WhiteBalancePanel(
+            temperature = temperature,
+            tint = tint,
+            onValueChange = { tempVal, tintVal ->
+                viewModel.setTemperature(tempVal)
+                viewModel.setTint(tintVal)
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            },
+            headerActions = {
+                MorphedPanelHeaderButton(
+                    icon = Icons.Rounded.Close,
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        viewModel.closeSliders()
+                    }
+                )
+            }
+        )
+    }
+}
+
+@Composable
+private fun LiveExposurePanel(viewModel: CameraViewModel, hazeState: HazeState) {
+    val haptic = LocalHapticFeedback.current
+    val exposure by viewModel.exposure.collectAsState()
+    MorphedPanelChrome(hazeState = hazeState) {
+        ExposurePanel(
+            exposure = exposure,
+            onValueChange = { value ->
+                viewModel.setExposure(value)
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            },
+            headerActions = {
+                MorphedPanelHeaderButton(
+                    icon = Icons.Rounded.Close,
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        viewModel.closeSliders()
+                    }
+                )
+            }
+        )
+    }
+}
+
+private enum class MorphMode { BUBBLE, COLOR, EXPOSURE }
+
+/**
+ * Shared liquid-glass chrome (live-blurred fill + diagonal rim + padded
+ * 300 dp slot) wrapped around both expanded panels. Keeping both panels
+ * inside the same wrapper makes their visual weight match exactly so the
+ * morph between them stays symmetric.
+ */
+@Composable
+internal fun MorphedPanelChrome(
+    hazeState: HazeState,
+    content: @Composable () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(18.dp))
+            .hazeEffect(state = hazeState, style = PanelHazeStyle)
+            .liquidGlassRim(cornerRadius = 18.dp, fallbackBorder = PanelGlassRim)
+            .padding(horizontal = 18.dp, vertical = 14.dp)
+            .width(300.dp)
+    ) {
+        content()
+    }
+}
+
+/**
+ * Icon button shown in a panel's title row. The glyph stays a compact
+ * 20 dp so the title stays legible when two of these sit next to the EV
+ * readout in the ExposurePanel header, but the tap target is the full
+ * 48 dp accessibility minimum.
+ */
+@Composable
+private fun MorphedPanelHeaderButton(
+    icon: ImageVector,
+    onClick: () -> Unit
+) {
+    IconButton(onClick = onClick, modifier = Modifier.size(48.dp)) {
+        Icon(
+            imageVector = icon,
+            contentDescription = stringResource(R.string.close_label),
+            tint = Color.White,
+            modifier = Modifier.size(20.dp)
+        )
+    }
+}
+
+/**
+ * The compact 3-button bubble row. Identical visual to the inline row that
+ * lived at the bottom of the viewfinder before the morph refactor; extracted
+ * so it can be swapped in/out of the same composable slot as the expanded
+ * settings panels.
+ */
+@Composable
+private fun FloatingBubbleRow(
+    effectiveFocalLength: Int,
+    temperature: Float,
+    tint: Float,
+    exposure: Float,
+    hazeState: HazeState,
+    isFrontCamera: Boolean = false,
+    isLensSwitchEnabled: Boolean = true,
+    controlAngle: Float = 0f,
+    onTemperatureClick: () -> Unit,
+    onLensClick: () -> Unit,
+    onExposureClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            // True backdrop blur over the live video (spec `bubble-surface`:
+            // black 20% + blur). Both preview paths composite in-window, so
+            // Haze samples the actual video frame. The hairline glass rim
+            // shares the bottom-right key light: hot bottom-right corner,
+            // quiet top-left.
+            .clip(RoundedCornerShape(26.dp))
+            .hazeEffect(state = hazeState, style = BubbleHazeStyle)
+            .liquidGlassRim(
+                cornerRadius = 26.dp,
+                fallbackBorder = Brush.linearGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = 0.40f),
+                        Color.White.copy(alpha = 0.05f),
+                        Color.White.copy(alpha = 0.08f)
+                    ),
+                    start = Offset.Infinite,
+                    end = Offset.Zero
+                )
+            )
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        IconButton(
+            onClick = onTemperatureClick,
+            modifier = Modifier.size(48.dp).testTag("bubble_temperature_button")
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Thermostat,
+                contentDescription = stringResource(R.string.temperature_label),
+                tint = if (temperature != 0f || tint != 0f) Color(0xFFFBBF24) else Color.White,
+                modifier = Modifier.size(22.dp).rotate(controlAngle)
+            )
+        }
+        Box(
+            modifier = Modifier
+                // Spec `Rectangle 3`: 52.68px tall, full-pill radius 26px.
+                // Liquid glass: bottom-right sheen over the grey tint, falling
+                // off toward the top-left — same key light as the rest
+                // of the chrome. Subtle on purpose — the pill already floats
+                // on the blurred bubble, so it only needs an edge to read
+                // as glass.
+                .height(52.dp)
+                .clip(RoundedCornerShape(26.dp))
+                .background(
+                    brush = Brush.linearGradient(
+                        colorStops = arrayOf(
+                            0.0f to Color.White.copy(alpha = 0.16f),
+                            0.35f to if (isFrontCamera) Color.White.copy(alpha = 0.03f)
+                            else Color(0xFFB1B1B1).copy(alpha = 0.10f),
+                            1.0f to if (isFrontCamera) Color.White.copy(alpha = 0.02f)
+                            else Color(0xFFB1B1B1).copy(alpha = 0.04f)
+                        ),
+                        start = Offset.Infinite,
+                        end = Offset.Zero
+                    ),
+                    shape = RoundedCornerShape(26.dp)
+                )
+                .liquidGlassRim(
+                    cornerRadius = 26.dp,
+                    fallbackBorder = Brush.linearGradient(
+                        colorStops = arrayOf(
+                            0.0f to Color.White.copy(alpha = 0.36f),
+                            0.40f to Color.White.copy(alpha = 0.05f),
+                            1.0f to Color.White.copy(alpha = 0.07f)
+                        ),
+                        start = Offset.Infinite,
+                        end = Offset.Zero
+                    )
+                )
+                .clickable(enabled = isLensSwitchEnabled) { onLensClick() }
+                .padding(horizontal = 16.dp)
+                .testTag("bubble_lens_button"),
+            contentAlignment = Alignment.Center
+        ) {
+            if (isFrontCamera) {
+                // Selfie camera has only one lens — show a fixed indicator
+                // instead of one of the back-camera focal lengths. If we
+                // left `effectiveFocalLength.toString()` here the user
+                // would still see the 13/24/116 cycle when tapping a stale
+                // recomposition path. cycleLens() also short-circuits
+                // when isFrontCamera so the click is a no-op either way.
+                Text(
+                    text = stringResource(R.string.front_lens_label),
+                    color = Color.White.copy(alpha = 0.55f),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace,
+                    letterSpacing = 1.sp,
+                    modifier = Modifier.rotate(controlAngle)
+                )
+            } else {
+                Text(
+                    text = effectiveFocalLength.toString(),
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier.rotate(controlAngle)
+                )
+            }
+        }
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(14.dp))
+                .clickable { onExposureClick() }
+                .padding(horizontal = 10.dp, vertical = 14.dp)
+                .testTag("bubble_exposure_button"),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.WbSunny,
+                contentDescription = stringResource(R.string.exposure_label),
+                tint = if (exposure != 0f) Color(0xFFFBBF24) else Color.White,
+                modifier = Modifier.size(20.dp).rotate(controlAngle)
+            )
+            Text(
+                text = exposure.toInt().toString(),
+                color = if (exposure != 0f) Color(0xFFFBBF24) else Color.White,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = Inter,
+                modifier = Modifier.rotate(controlAngle)
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalPermissionsApi::class)
+@Composable
+fun CameraUi(
+    viewModel: CameraViewModel = viewModel()
+) {
+    val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+
+    var showSettingsPage by remember { mutableStateOf(false) }
+
+    // Two-step gesture tutorial, sequential (ZoomBox first,
+    // swipe-to-change-style second). Only shown on the very first app
+    // launch — after the user completes or skips it, a flag is persisted
+    // in SharedPreferences so it never appears again. `null` means "no
+    // tutorial visible" (settled state after both gestures are
+    // completed or the user taps skip).
+    val prefs = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+    val isFirstLaunch = remember { prefs.getBoolean("is_first_launch", true) }
+    var tutorialStep by remember { mutableStateOf<TutorialStep?>(if (isFirstLaunch) TutorialStep.Zoom else null) }
+
+    // Once the tutorial is dismissed (completed or skipped), persist the
+    // flag so it never shows again on subsequent launches.
+    LaunchedEffect(tutorialStep) {
+        if (tutorialStep == null) {
+            prefs.edit().putBoolean("is_first_launch", false).apply()
+        }
+    }
+
+    // Tutorial zoom bump, read on demand (NOT collected): subscribing the
+    // CameraUi root to digitalZoomRatio recomposed the ENTIRE screen on
+    // every pinch-zoom tick (~20 ms whole-screen recomposes in the system
+    // trace). The value is only needed at tutorial-gesture time, where a
+    // direct .value read is fresher anyway.
+    // (No `by collectAsState` here on purpose — see above.)
+
+    // Aspect ratio drives the viewfinder box geometry (mirrored in
+    // the tutorial section below) so the tutorial arrow's base can be
+    // pinned to the actual bottom edge of the live viewfinder.
+    val aspectRatio by viewModel.aspectRatio.collectAsState()
+
+    val cameraPermissionState = rememberPermissionState(android.Manifest.permission.CAMERA)
+
+    // The gallery reads only photos this installation created (app-owned
+    // MediaStore rows plus the private working copies), so no media-library
+    // permission is requested. Keyed on the camera grant so the first scan
+    // happens once the camera UI is actually up.
+    LaunchedEffect(cameraPermissionState.status.isGranted) {
+        viewModel.loadPhotos(context)
+    }
+
+    LaunchedEffect(Unit) {
+        // Small delay so gallery I/O doesn't compete with camera init
+        kotlinx.coroutines.delay(100.milliseconds)
+        viewModel.loadPhotos(context)
+    }
+
+    // Refresh the gallery whenever the activity returns to the foreground.
+    // Most external-gallery changes are already covered by the MediaStore
+    // ContentObserver installed in CameraViewModel, but this is a cheap
+    // belt-and-braces fallback: photos added to Pictures/ZoomBoxCamera/ by a
+    // non-MediaStore path (USB MTP, ADB `cp`, OEM auto-backup restorers, etc.)
+    // wouldn't fire a MediaStore notify and the filmstrip would stay stale
+    // until the next capture or relaunch.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        viewModel.loadPhotos(context)
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        // Root letterbox behind the live viewfinder follows the system palette
+        // (dynamic color on Android 12+; the film-chrome fallback below it).
+        color = MaterialTheme.colorScheme.background
+    ) {
+        if (cameraPermissionState.status.isGranted) {
+            // FIX: Black viewfinder after returning from settings. Previously this
+            // branch sibling-swapped SettingsScreen ↔ CameraActiveScreen via an
+            // `if (showSettingsPage)` conditional. Swapping un-mounted
+            // CameraPreviewView, which disposed its LutPreviewView AndroidView,
+            // its `remember`-ed PreviewSessionManager, and its CameraX
+            // bindings. CameraX `bindToLifecycle` was registered against the
+            // activity's LifecycleOwner (still RESUMED across settings nav),
+            // so the implicit unbind was not clean — the HAL reported
+            // `cancelRepeatingRequest() call failed: ILLEGAL_ARGUMENT`,
+            // `ConsumerBase abandoned`, and `CameraService::connect evicting
+            // conflicting client for camera ID 1` (logged in the bug report).
+            // On re-mount the new CameraPreviewView created a fresh
+            // PreviewSessionManager whose `currentPreview/currentImageCapture/
+            // currentLogicalCameraId` were null, so the recovery branch inside
+            // PreviewSessionManager.bindPreview() had nothing to restore from.
+            // The first rebind raced against the HAL's still-tearing-down
+            // device nodes, lost, and left the viewfinder black. The lens-switch
+            // workaround succeeded because by the next user-triggered bind
+            // (~hundreds of ms later) the HAL had finished settling.
+            //
+            // Keeping CameraActiveScreen perpetually mounted under the
+            // overlay means the camera session is never torn down across the
+            // settings navigation — there's no disposal/race to recover
+            // from, and the viewfinder is live the instant the overlay
+            // closes.
+            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                // Viewfinder-bottom fraction, mirrored from the exact
+                // geometry CameraActiveScreen computes internally
+                // (92% width fixed across ratios, aspect-ratio height,
+                // 56.dp top inset, 200.dp bottom-deck reserve). Width stays
+                // identical for 4:3 and 3:2 — 3:2 just extends vertically.
+                val vfWidthRaw = maxWidth * ZoomBoxSpec.VIEWFINDER_WIDTH_FRACTION
+                val vfHeightRaw = vfWidthRaw * aspectRatio.heightToWidth
+                val specTop = maxHeight * ZoomBoxSpec.VIEWFINDER_TOP_FRACTION
+                val specReserve = maxHeight * ZoomBoxSpec.VIEWFINDER_BOTTOM_RESERVE_FRACTION
+                val availableHeight =
+                    (maxHeight - specTop - specReserve).coerceAtLeast(120.dp)
+                // Keep width fixed (no side black bars on 3:2); height grows
+                // with the ratio. When the tall box overflows the available
+                // band, pin the top so 3:2 starts where 4:3 starts and only
+                // the bottom edge extends downward (16:9 grows upward instead
+                // — see viewfinderTop).
+                val vfWidth: Dp = vfWidthRaw
+                val vfHeight: Dp = vfHeightRaw
+                val vfTop = viewfinderTop(
+                    topInset = specTop,
+                    availableHeight = availableHeight,
+                    vfHeight = vfHeight,
+                    aspectRatio = aspectRatio
+                )
+                val viewfinderBottomFraction =
+                    (vfTop + vfHeight).value / maxHeight.value
+
+                CameraActiveScreen(
+                    viewModel = viewModel,
+                    onOpenSettings = { showSettingsPage = true },
+                    // Keep the camera bound while settings is open. Releasing
+                    // here (previewPaused = showSettingsPage) ran unbindAll()
+                    // on the main thread in the same frame as the enter
+                    // animation + SettingsScreen first composition, which read
+                    // as a ~1s open stall, and the rebind on close (80ms+
+                    // HAL bind) read as a black flash before the preview
+                    // resumed. Photo-viewer and RAW still pause via
+                    // CameraActiveScreen's internal
+                    // `selectedPhoto / isRawCapturing` handling.
+                    previewPaused = false
+                )
+
+                // AnimatedVisibility REMOVES SettingsScreen from composition
+                // only after the exit animation completes; CameraActiveScreen
+                // sits in the Box OUTSIDE AnimatedVisibility so its lifecycle
+                // is never tied to `showSettingsPage`. The camera session
+                // stays bound under the opaque overlay so open/close is just
+                // a compose + animation cost with no HAL teardown/rebind.
+                // Slide-from-right + a short fade matches the conventional
+                // Android "new screen entering" idiom; the camera underneath
+                // reads as a steady surface rather than a blink because the
+                // overlay is opaque.
+                AnimatedVisibility(
+                    visible = showSettingsPage,
+                    enter = fadeIn(tween(durationMillis = 150)) +
+                            slideInHorizontally(
+                                animationSpec = tween(durationMillis = 200),
+                                initialOffsetX = { it }
+                            ),
+                    exit = fadeOut(tween(durationMillis = 150)) +
+                           slideOutHorizontally(
+                                animationSpec = tween(durationMillis = 180),
+                                targetOffsetX = { it }
+                            )
+                ) {
+                    SettingsScreen(
+                        viewModel = viewModel,
+                        onClose = { showSettingsPage = false }
+                    )
+                }
+
+                // Sequential gesture tutorial. Each step is a thin
+                // coach-mark that floats above the live viewfinder
+                // WITHOUT dimming it, advances on the matching gesture,
+                // and disappears completely (no second step rendered)
+                // once both steps have been completed or the user taps
+                // skip. TutorialStep.Zoom must be detected before
+                // TutorialStep.Swipe becomes visible.
+                AnimatedVisibility(
+                    visible = tutorialStep != null,
+                    enter = fadeIn(tween(durationMillis = 240)),
+                    exit = fadeOut(tween(durationMillis = 200))
+                ) {
+                    val step = tutorialStep ?: return@AnimatedVisibility
+                    TutorialOverlay(
+                        step = step,
+                        // Anchor the demo arrow's base to the bottom
+                        // edge of the live viewfinder (see the mirror
+                        // computation at the top of this Box).
+                        viewfinderBottomFraction = viewfinderBottomFraction,
+                        // When a step completes, advance along the
+                        // fixed Zoom → Swipe → none sequence. We do
+                        // NOT honor the user's preferred "next" — the
+                        // order is canonical so the onboarding always
+                        // teaches zoom first.
+                        onAdvance = {
+                            tutorialStep = when (step) {
+                                TutorialStep.Zoom -> TutorialStep.Swipe
+                                TutorialStep.Swipe -> null
+                            }
+                        },
+                        // Force a +20% zoom-in step on the camera so
+                        // the gesture demonstrably does something
+                        // even if Compose's pointer-pipeline drops
+                        // the rest of the motion after the overlay
+                        // unmounts. Bounded against the camera's own
+                        // MIN/MAX so we never push past the hardware.
+                        // Via the ViewModel rather than direct
+                        // CameraControl so the box-scale derivation in
+                        // `recalculateState()` (the chain that snaps
+                        // the on-screen zoom-box rect) stays in sync.
+                        onZoomAction = {
+                            viewModel.setZoom(viewModel.digitalZoomRatio.value * 1.20f)
+                        },
+                        // Cycle the active look directly. Direction
+                        // convention matches the camera's own
+                        // `detectHorizontalDragGestures` block so
+                        // LEFT → next, RIGHT → prev.
+                        onSwipeAction = { direction ->
+                            viewModel.cycleLook(direction)
+                        },
+                        // Either skip button drops the user straight
+                        // into the camera. Power users shouldn't be
+                        // forced through two animations.
+                        onSkipAll = { tutorialStep = null }
+                    )
+                }
+            }
+        } else {
+            CameraPermissionOnboarding(
+                showRationale = cameraPermissionState.status.shouldShowRationale,
+                onRequestPermission = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    cameraPermissionState.launchPermissionRequest()
+                },
+                onOpenSettings = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    try {
+                        context.startActivity(
+                            Intent(
+                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                Uri.fromParts("package", context.packageName, null)
+                            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        )
+                    } catch (_: Exception) {
+                        cameraPermissionState.launchPermissionRequest()
+                    }
+                }
+            )
+        }
+    }
+}
+
+@Composable
+fun CameraPermissionOnboarding(
+    showRationale: Boolean = false,
+    onRequestPermission: () -> Unit,
+    onOpenSettings: () -> Unit = {}
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    val typography = MaterialTheme.typography
+
+    // ── Staggered entrance animation ──────────────────────────────────────
+    val infiniteTransition = rememberInfiniteTransition(label = "splash_pulse")
+    val iconPulse by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.06f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1800, easing = EaseInOutCubic),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "icon_pulse"
+    )
+
+    // Track whether each element has entered for staggered reveal
+    var revealIcon by remember { mutableStateOf(false) }
+    var revealTitle by remember { mutableStateOf(false) }
+    var revealTagline by remember { mutableStateOf(false) }
+    var revealDesc by remember { mutableStateOf(false) }
+    var revealFeatures by remember { mutableStateOf(false) }
+    var revealButton by remember { mutableStateOf(false) }
+    var revealFooter by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        revealIcon = true
+        kotlinx.coroutines.delay(180.milliseconds)
+        revealTitle = true
+        kotlinx.coroutines.delay(160.milliseconds)
+        revealTagline = true
+        kotlinx.coroutines.delay(160.milliseconds)
+        revealDesc = true
+        kotlinx.coroutines.delay(160.milliseconds)
+        revealFeatures = true
+        kotlinx.coroutines.delay(200.milliseconds)
+        revealButton = true
+        kotlinx.coroutines.delay(200.milliseconds)
+        revealFooter = true
+    }
+
+    val enterSpec =
+        fadeIn(tween(500, easing = EaseInOutCubic)) +
+            slideInVertically(tween(500, easing = EaseInOutCubic)) { it / 2 }
+
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = colorScheme.background
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            // ── Subtle radial gradient overlay ────────────────────────────
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            colorScheme.primary.copy(alpha = 0.08f),
+                            Color.Transparent
+                        ),
+                        center = Offset(size.width / 2f, size.height * 0.42f),
+                        radius = size.maxDimension * 0.7f
+                    )
+                )
+            }
+
+            OnboardingFilmEdge(
+                alignment = Alignment.TopCenter,
+                accent = colorScheme.primary
+            )
+            OnboardingFilmEdge(
+                alignment = Alignment.BottomCenter,
+                accent = colorScheme.primary
+            )
+
+            // ── Main content column ───────────────────────────────────────
+            // Scrollable + inset-aware so small screens / landscape /
+            // large fonts never clip the CTA behind the film edges.
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .displayCutoutPadding()
+                    .navigationBarsPadding()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp, vertical = 28.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // ── Icon ──────────────────────────────────────────────────
+                AnimatedVisibility(visible = revealIcon, enter = enterSpec) {
+                    Box(
+                        modifier = Modifier
+                            .size(88.dp)
+                            .scale(iconPulse)
+                            .background(colorScheme.surfaceContainerHigh, CircleShape)
+                            .border(2.dp, colorScheme.primary, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.CameraAlt,
+                            contentDescription = stringResource(R.string.retro_camera_icon_desc),
+                            tint = colorScheme.primary,
+                            modifier = Modifier.size(44.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(28.dp))
+
+                // ── Title ─────────────────────────────────────────────────
+                AnimatedVisibility(visible = revealTitle, enter = enterSpec) {
+                    Text(
+                        text = stringResource(R.string.splash_title),
+                        style = typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = colorScheme.onBackground,
+                        letterSpacing = 3.sp,
+                        fontFamily = Inter,
+                        textAlign = TextAlign.Center
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // ── Tagline ───────────────────────────────────────────────
+                AnimatedVisibility(visible = revealTagline, enter = enterSpec) {
+                    Text(
+                        text = stringResource(R.string.splash_tagline),
+                        style = typography.labelMedium,
+                        color = colorScheme.primary.copy(alpha = 0.8f),
+                        letterSpacing = 4.sp,
+                        fontFamily = Inter,
+                        textAlign = TextAlign.Center
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // ── Description ───────────────────────────────────────────
+                AnimatedVisibility(
+                    visible = revealDesc,
+                    enter = fadeIn(tween(600, easing = EaseInOutCubic)) +
+                        slideInVertically(tween(600, easing = EaseInOutCubic)) { it / 2 }
+                ) {
+                    Text(
+                        text = stringResource(
+                            if (showRationale) R.string.splash_rationale_description
+                            else R.string.splash_description
+                        ),
+                        style = typography.bodyMedium,
+                        color = colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 24.sp,
+                        modifier = Modifier.padding(horizontal = 12.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // ── Feature trio + privacy pill ───────────────────────────
+                AnimatedVisibility(
+                    visible = revealFeatures,
+                    enter = fadeIn(tween(600, easing = EaseInOutCubic)) +
+                        slideInVertically(tween(600, easing = EaseInOutCubic)) { it / 2 }
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            OnboardingFeature(
+                                icon = Icons.Rounded.Crop,
+                                label = stringResource(R.string.splash_feature_zoom)
+                            )
+                            OnboardingFeature(
+                                icon = Icons.Rounded.Layers,
+                                label = stringResource(R.string.splash_feature_film)
+                            )
+                            OnboardingFeature(
+                                icon = Icons.Rounded.PrivacyTip,
+                                label = stringResource(R.string.splash_feature_offline)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Surface(
+                            color = colorScheme.secondaryContainer,
+                            shape = RoundedCornerShape(999.dp)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.splash_privacy_note),
+                                style = typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = colorScheme.onSecondaryContainer,
+                                modifier = Modifier.padding(
+                                    horizontal = 12.dp,
+                                    vertical = 6.dp
+                                ),
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // ── Button ────────────────────────────────────────────────
+                AnimatedVisibility(
+                    visible = revealButton,
+                    enter = fadeIn(tween(600, easing = EaseInOutCubic)) +
+                        slideInVertically(tween(600, easing = EaseInOutCubic)) { it / 2 }
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Button(
+                            onClick = onRequestPermission,
+                            modifier = Modifier
+                                .fillMaxWidth(0.75f)
+                                .height(56.dp)
+                                .testTag("enable_camera_button"),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = colorScheme.primary,
+                                contentColor = colorScheme.onPrimary
+                            )
+                        ) {
+                            Text(
+                                text = stringResource(R.string.enable_camera),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                                letterSpacing = 1.5.sp
+                            )
+                        }
+                        if (showRationale) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            TextButton(
+                                onClick = onOpenSettings,
+                                modifier = Modifier.testTag("open_settings_button")
+                            ) {
+                                Text(text = stringResource(R.string.splash_open_settings))
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // ── Version footer ────────────────────────────────────────
+                AnimatedVisibility(
+                    visible = revealFooter,
+                    enter = fadeIn(tween(800))
+                ) {
+                    Text(
+                        // Sourced from `versionName` in app/build.gradle.kts via
+                        // BuildConfig.VERSION_NAME. Bump the gradle line and the
+                        // splash footer reacts — see AppVersion.kt for the single
+                        // source-of-truth story.
+                        text = stringResource(R.string.splash_footer, AppVersion.display),
+                        color = colorScheme.primary.copy(alpha = 0.4f),
+                        fontSize = 10.sp,
+                        letterSpacing = 2.sp,
+                        fontFamily = Inter,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Decorative film-strip edge pinned to the top or bottom of the onboarding
+ * surface.
+ *
+ * Only the BOTTOM edge carries the row of sprocket dots — the top edge is
+ * reduced to the bare frame line so the header area reads clean and the
+ * focal point stays on the icon/title. Both edges keep the same gradient
+ * frame line so the surface still reads as a film frame.
+ */
+@Composable
+private fun BoxScope.OnboardingFilmEdge(
+    alignment: Alignment,
+    accent: Color
+) {
+    val isTop = alignment == Alignment.TopCenter
+    Column(
+        modifier = Modifier
+            .align(alignment)
+            .fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        if (!isTop) {
+            Row(
+                modifier = Modifier
+                    .padding(bottom = 10.dp)
+                    .fillMaxWidth(0.85f),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                repeat(12) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp, 4.dp)
+                            .background(accent.copy(alpha = 0.15f), RoundedCornerShape(1.dp))
+                    )
+                }
+            }
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(3.dp)
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(
+                            Color.Transparent,
+                            accent.copy(alpha = 0.3f),
+                            accent.copy(alpha = 0.5f),
+                            accent.copy(alpha = 0.3f),
+                            Color.Transparent
+                        )
+                    )
+                )
+        )
+    }
+}
+
+/**
+ * Single onboarding feature cell: small icon over a two-line-safe label.
+ * Fixed width keeps the trio evenly spaced on narrow screens.
+ */
+@Composable
+private fun OnboardingFeature(
+    icon: ImageVector,
+    label: String
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    Column(
+        modifier = Modifier.width(96.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = colorScheme.primary,
+            modifier = Modifier.size(22.dp)
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            maxLines = 2
+        )
+    }
+}
+
+/**
+ * Viewfinder leaf scope. Collects the high-frequency color/exposure state
+ * here (instead of `CameraActiveScreen`) so slider ticks recompose only
+ * this preview call: the GL params are pushed via `LaunchedEffect` and the
+ * bind keys don't include exposure, so no CameraX rebind happens per tick.
+ * Rare state (lens, flash, look, viewer open) arrives as plain params.
+ */
+@Composable
+private fun LiveViewfinderPreview(
+    viewModel: CameraViewModel,
+    activeLookId: String,
+    selectedLensRole: LensRole,
+    flashMode: Int,
+    isFrontCamera: Boolean,
+    activeExtension: CaptureExtension,
+    isRawCapturing: Boolean,
+    previewPausedBase: Boolean,
+    photoViewerOpen: Boolean,
+    flingEnabled: Boolean,
+    zoomEnabled: Boolean,
+    activeLut: CubeLut?,
+    onImageCapture: (ImageCapture) -> Unit,
+    onFlingFired: (direction: Int) -> Unit,
+    onZoomTick: () -> Unit,
+    onZoomOvershoot: (Float) -> Unit
+) {
+    val exposure by viewModel.exposure.collectAsState()
+    val temperature by viewModel.temperature.collectAsState()
+    val tint by viewModel.tint.collectAsState()
+
+    // One immutable render snapshot for the GL viewfinder, built from the
+    // same CameraProfileRegistry the capture pipeline uses. Computed with
+    // `remember` keyed on the same inputs the capture path reads, so a JSON
+    // profile tweak changes preview and JPEG together instead of letting
+    // them drift (preview used to flatten the FilmPreset enum directly).
+    // Look switches crossfade inside CameraPreviewView (~250 ms dual-LUT
+    // blend); slider ticks snap through — see the driver there.
+    //
+    // Deliberately not `remember`-ed on (look, WB, exposure): the snapshot also
+    // depends on the look's *own* parameters, which change when the editor
+    // previews a draft or when a user look is saved under the same id. Keying
+    // on those three would hand back a stale grade in exactly those cases, and
+    // the call itself is a map lookup plus a copy on a leaf that already
+    // recomposes per slider tick.
+    val previewRenderParams =
+        viewModel.previewRenderParams(activeLookId, temperature, tint, exposure)
+
+    // The preview binds immediately, without waiting for persisted
+    // settings (cold-start): the pass-through start route is a stable
+    // CameraX surface, so the viewfinder is live in <1 s. When a graded
+    // persisted look arrives, useFilteredPreview flips and
+    // CameraPreviewView rebinds in place to the GL surface — the same
+    // path a manual pass-through ↔ graded look switch already uses.
+    //
+    // Graded → pass-through keeps the GL surface mounted for one crossfade
+    // window first, so the LUT mix can dissolve to ungraded on the GPU
+    // instead of snapping; only then does the route drop to the stable
+    // CameraX path. A look change inside the window cancels the drop.
+    // While the editor is open the *draft* decides whether the GL surface is
+    // needed: a params-only draft grades nothing but still has to be rendered
+    // by the shader, and on the plain CameraX surface every slider would look
+    // dead. distinctUntilChanged keeps this to one recomposition per crossing
+    // instead of one per slider tick.
+    val draftGradedFlow = remember(viewModel) {
+        viewModel.lookDraft
+            .map { draft -> draft?.let { !it.look.isPassThrough } }
+            .distinctUntilChanged()
+    }
+    val draftGraded by draftGradedFlow.collectAsState(initial = null)
+    val settledFiltered = draftGraded ?: !viewModel.isPassThroughLook(activeLookId)
+    var routeFiltered by remember { mutableStateOf(settledFiltered) }
+    val currentSettled by rememberUpdatedState(settledFiltered)
+    LaunchedEffect(settledFiltered) {
+        if (settledFiltered) {
+            routeFiltered = true
+        } else {
+            delay(LOOK_CROSSFADE_DURATION_MS.toLong() + 50)
+            if (!currentSettled) routeFiltered = false
+        }
+    }
+    CameraPreviewView(
+        modifier = Modifier
+            .fillMaxSize()
+            // Horizontal-fling preset cycler, chained onto the SAME
+            // modifier path as `CameraPreviewView`'s internal zoom
+            // pointerInput. Hitting on a sibling Box layered over the
+            // viewfinder (the previous approach) made the top Box win
+            // hit-testing and starved both `CameraPreviewView`'s zoom
+            // `pointerInput` AND its underlying native `AndroidView`
+            // of touches for the entire viewfinder rect — the user's
+            // report was that vertical-swipe zoom stopped working once
+            // the cycler landed. Putting the detector on this modifier
+            // chain puts both gestures on the same hit path so neither
+            // shadows the other, and matches the
+            // `awaitFirstDown(requireUnconsumed = false) +
+            // awaitPointerEvent(PointerEventPass.Main)` pattern that
+            // `CameraPreviewView` uses for its pan/zoom handler — so
+            // neither consume-semantic nor pass-order conflicts arise.
+            // Keying on the gating flags tears down / restarts the
+            // gesture coroutine cleanly when sliders open/close or the
+            // photo viewer state flips, matching the prior guard set.
+            .pointerInput(
+                flingEnabled
+            ) {
+                // Compose's `detectHorizontalDragGestures` uses
+                // `awaitTouchSlopOrCancellation` internally with
+                // `Orientation.Horizontal`: it only activates when the
+                // user crosses the slop (~24 dp via
+                // `ViewConfiguration.touchSlop`) in a HORIZONTAL
+                // direction FIRST. If vertical motion reaches touch
+                // slop first (i.e. the user intends to zoom), the
+                // gesture cancels and `CameraPreviewView`'s
+                // `awaitFirstDown + calculatePan().y` loop owns the
+                // gesture. Conversely, a clear horizontal swipe
+                // claims here; `CameraPreviewView` then sees
+                // `change.isConsumed = true` on subsequent moves — even
+                // though it does not break on consume, its
+                // `calculatePan().y` returns the Y delta since the
+                // previous event which is near zero during a horizontal
+                // sweep, so the zoom branch short-circuits via
+                // `if (dragPx == 0f) null` and zoom stays put. Net
+                // effect: cleanly separated horizontal vs vertical
+                // swipe intent at the framework level, with no
+                // percentage-based drift or jitter sensitivity bugs.
+                var totalDrag = 0f
+                var firedThisGesture = false
+                detectHorizontalDragGestures(
+                    onDragStart = {
+                        totalDrag = 0f
+                        firedThisGesture = false
+                    },
+                    onDragEnd = { totalDrag = 0f },
+                    onDragCancel = { totalDrag = 0f },
+                    onHorizontalDrag = { change, dragAmount ->
+                        // Guard: once we fire one cycle on a given
+                        // gesture, do not fire another even if the
+                        // user keeps swiping. One gesture = one cycle.
+                        // Keeps a single finger-flick from jumping two
+                        // presets in a row.
+                        if (!firedThisGesture) {
+                            totalDrag += dragAmount
+                            val threshold = size.width.toFloat() * 0.22f
+                            // 0.22 instead of 0.18 + a real touch-slop
+                            // gate from Compose means the user has to
+                            // commit clearly to a horizontal sweep.
+                            // Slight bump from 0.18 because the slop
+                            // gate already filters short accidental
+                            // brushes; the wider threshold makes a
+                            // success feel more deliberate.
+                            if (kotlin.math.abs(totalDrag) > threshold) {
+                                firedThisGesture = true
+                                // Convention: swipe LEFT reveals the
+                                // next preset; swipe RIGHT returns to
+                                // the previous one.
+                                val direction = if (totalDrag < 0f) 1 else -1
+                                onFlingFired(direction)
+                                change.consume()
+                            }
+                        }
+                    }
+                )
+            },
+        selectedLensRole = selectedLensRole,
+        digitalZoomRatioFlow = viewModel.digitalZoomRatio,
+        exposure = exposure,
+        flashMode = flashMode,
+        isFrontCamera = isFrontCamera,
+        activeExtension = activeExtension,
+        isRawCapturing = isRawCapturing,
+        previewPaused = previewPausedBase || photoViewerOpen,
+        zoomEnabled = zoomEnabled,
+        renderParams = previewRenderParams,
+        activeLut = activeLut,
+        useFilteredPreview = routeFiltered,
+        onZoomChanged = { viewModel.setZoom(it) },
+        onZoomTick = onZoomTick,
+        onZoomOvershoot = onZoomOvershoot,
+        onAvailableFocalLengths = { viewModel.setAvailableFocalLengths(it) },
+        imageCaptureProvider = onImageCapture,
+        onLensCatalogReady = { result -> viewModel.setLensCatalogResult(result) }
+    )
+}
+
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
+fun CameraActiveScreen(
+    viewModel: CameraViewModel,
+    onOpenSettings: () -> Unit,
+    previewPaused: Boolean = false
+) {
+    val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+
+    val selectedLensRole by viewModel.selectedLensRole.collectAsState()
+    val effectiveFocalLength by viewModel.effectiveFocalLength.collectAsState()
+    // NOTE: exposure / temperature / tint are intentionally NOT collected
+    // here: they tick every drag frame, and subscribing this root scope
+    // recomposed the whole screen per tick. They are collected in the
+    // LiveViewfinderPreview + LiveBubbleRow/LiveColorPanel/LiveExposurePanel
+    // leaf scopes instead (gesture code reads live .value, no subscription).
+    val flashMode by viewModel.flashMode.collectAsState()
+    val isFrontCamera by viewModel.isFrontCamera.collectAsState()
+    val capturedPhotos by viewModel.capturedPhotos.collectAsState()
+    val selectedPhoto by viewModel.selectedPhoto.collectAsState()
+    val showGridLines by viewModel.showGridLines.collectAsState()
+    val aspectRatio by viewModel.aspectRatio.collectAsState()
+
+    // Cross-fade the grid in/out so flipping the aux toggle never reads as a hard snap.
+    val gridAlpha by animateFloatAsState(
+        targetValue = if (showGridLines) 1f else 0f,
+        animationSpec = tween(durationMillis = 220),
+        label = "grid_alpha"
+    )
+
+    // Backdrop-blur source for the floating control bubble. The root Box
+    // below registers as the capture source, so the bubble samples the live
+    // preview (both TextureView paths composite in-window) plus the dim/grid
+    // chrome drawn over it.
+    val hazeState = rememberHazeState()
+
+    // Every control icon (three-point menu, film style, gallery, and the four
+    // auxiliary rail icons) rotates with the physical device: +90° in regular
+    // landscape, -90° in reverse landscape, 0° in portrait. The activity is
+    // locked to portrait, so LocalConfiguration never reports landscape — this
+    // comes from the sensor-based OrientationEventListener (same source the
+    // capture pipeline uses for photo orientation). A soft spring keeps the
+    // rotation a smooth glide instead of a hard snap.
+    val physicalRotation by viewModel.physicalRotation.collectAsState()
+    val controlAngle = when (physicalRotation) {
+        android.view.Surface.ROTATION_90 -> 90f
+        android.view.Surface.ROTATION_270 -> -90f
+        else -> 0f
+    }
+    val animatedControlAngle by animateFloatAsState(
+        targetValue = controlAngle,
+        animationSpec = spring(dampingRatio = 0.9f, stiffness = 200f),
+        label = "control_rail_angle"
+    )
+
+    val showTempSlider by viewModel.showTemperatureSlider.collectAsState()
+    val showExpSlider by viewModel.showExposureSlider.collectAsState()
+    val isCapturing by viewModel.isCapturing.collectAsState()
+    // Drives ONLY the shutter button's visual scale and click-debounce.
+    // Distinct from `isCapturing` which covers the entire
+    // bitmap-decode → EXIF → crop → LUT → encode → save window — that's
+    // why the previous implementation felt "stuck down for 1–3 seconds
+    // after the click". `captureInFlight` flips back to false the moment
+    // the camera hardware hands back the image (synchronously, inside
+    // `processAndSavePhoto.top` for the JPEG path and inside the
+    // Camera2 callbacks for the RAW path), so the button releases the
+    // instant the picture is captured while the heavy work continues in
+    // the background.
+    val captureInFlight by viewModel.captureInFlight.collectAsState()
+
+    val rawModeEnabled by viewModel.rawModeEnabled.collectAsState()
+    val activeExtension by viewModel.activeExtension.collectAsState()
+    val activeLookId by viewModel.activeLookId.collectAsState()
+    // (settingsLoaded no longer gates the preview — the viewfinder binds
+    // immediately for a sub-second cold start; the flag remains a VM-level
+    // diagnostic/test seam.)
+    // NOTE: Film-Style picker scroll position is intentionally NOT
+    // collected via `collectAsState`. Doing so would subscribe this whole
+    // composable to a StateFlow that mutates on every scroll tick, which
+    // would re-launch the LazyRow on each frame of an inertia fling.
+    // The seed value is captured once per sheet open (see below) and the
+    // save path operates through `snapshotFlow`.
+
+    // Load the active look's LUT for the live viewfinder GL shader.
+    // Goes through the JSON profile registry (loadPreviewLut) so a profile's
+    // lutPath — not just the enum's — drives the preview, matching capture.
+    var previewLut by remember { mutableStateOf<CubeLut?>(null) }
+    // The LUT's *path* is part of the key, not just the look id: a draft
+    // of a bundled look grades through that look's `.cube` before
+    // anything is saved, so the path can change while the active look stays
+    // put. Null means "no draft open — use the active look's LUT".
+    val draftLutPathFlow = remember(viewModel) {
+        viewModel.lookDraft
+            .map { draft -> draft?.look?.lutPath }
+            .distinctUntilChanged()
+    }
+    val draftLutPath by draftLutPathFlow.collectAsState(initial = null)
+    LaunchedEffect(activeLookId, draftLutPath) {
+        previewLut = withContext(Dispatchers.IO) {
+            val path = draftLutPath
+            if (path == null) viewModel.loadPreviewLut(context, activeLookId)
+            else viewModel.previewLutForPath(context, path)
+        }
+    }
+
+    // (previewRenderParams lives in LiveViewfinderPreview's leaf scope —
+    // see the NOTE on the removed exposure/temperature/tint collects above.)
+
+    val mainExecutor = ContextCompat.getMainExecutor(context)
+    var activeImageCapture by remember { mutableStateOf<ImageCapture?>(null) }
+    val coroutineScope = rememberCoroutineScope()
+    var timerCountdown by remember { mutableStateOf(-1) }
+
+    // Probe OEM extension availability whenever the lens switches (or on first
+    // entry). Extensions are per-logical-camera, so re-query on every rebinding.
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    LaunchedEffect(selectedLensRole, isFrontCamera) {
+        if (isFrontCamera) return@LaunchedEffect
+        // Use the already-cached lens catalog instead of re-enumerating
+        val catalog = viewModel.lensCatalogResult ?: return@LaunchedEffect
+        val targetProfile = when (selectedLensRole) {
+            LensRole.ULTRA_WIDE -> catalog.ultraWide
+            LensRole.PRIMARY -> catalog.primary
+            LensRole.TELE -> catalog.tele
+        } ?: return@LaunchedEffect
+        // Reuse the ViewModel's pre-warmed provider when it's ready (the
+        // normal case — warm-up started in the ViewModel init, this probe
+        // runs after first composition); fall back to fetching the future
+        // on IO otherwise. A bare get() here would block the Main thread
+        // for the whole CameraX init at cold start (the exact case where
+        // the warm-up hasn't finished), freezing zoombox/UI scrolling.
+        val provider = viewModel.cameraProviderForBind()
+            ?: try {
+                withContext(Dispatchers.IO) {
+                    androidx.camera.lifecycle.ProcessCameraProvider.getInstance(context).get()
+                }
+            } catch (e: Exception) { return@LaunchedEffect }
+        viewModel.probeExtensions(context, provider, targetProfile.logicalCameraId, false, lifecycleOwner)
+    }
+
+    var flashFlashActive by remember { mutableStateOf(false) }
+    LaunchedEffect(flashFlashActive) {
+        if (flashFlashActive) {
+            delay(FLASH_BURST_DURATION_MS.milliseconds)
+            flashFlashActive = false
+        }
+    }
+
+    // The viewfinder Box was previously BoxWithConstraints here so its children's
+    // .width/.height/.offset could read maxWidth/maxHeight synchronously inside
+    // the same measure phase. Compose's lint flags BoxWithConstraints with a
+    // "scope is not used" warning whenever the scope lives inside a single
+    // composition, so instead we cache the measured size in state and read
+    // it back as `totalWidth` / `totalHeight`. The first composition pass uses
+    // a placeholder size and pops into the real layout on the very next frame,
+    // which is imperceptible.
+    val parentSize = remember { mutableStateOf(IntSize.Zero) }
+    val density = LocalDensity.current
+    val totalWidth = with(density) { parentSize.value.width.toDp() }
+    val totalHeight = with(density) { parentSize.value.height.toDp() }
+    Box(
+        modifier = Modifier.fillMaxSize().onSizeChanged { parentSize.value = it }
+    ) {
+
+        // Viewfinder bounds — ZoomBox Figma spec (393×852):
+        // width 92.12% of screen (3.94% side margins) FIXED across ratios,
+        // top 13.22%, bottom reserve 30.13% for the bubble + two-row bottom
+        // deck. Height adapts to the selected aspect ratio
+        // (4:3 → 1.35× width, 3:2 → 1.5×, 16:9 → 1.78×, 1:1 → square): 3:2 keeps the
+        // same width/side margins as 4:3 and just extends vertically.
+        // The zoom-box clamp + Canvas overlay keep working unchanged because
+        // they size themselves from vfWidth / aspectRatio.
+        val topInset = totalHeight * ZoomBoxSpec.VIEWFINDER_TOP_FRACTION
+
+        // Width is never shrunk to fit height — that shrink is what produced
+        // the side black bars on 3:2. Height follows the ratio; a tall box
+        // may extend past the bottom reserve into the deck gap.
+        val vfWidthRaw = totalWidth * ZoomBoxSpec.VIEWFINDER_WIDTH_FRACTION
+        val vfHeightRaw = vfWidthRaw * aspectRatio.heightToWidth
+        // Spec bottom reserve (30.13%) covers the bubble (slider popup may
+        // open upward another ~120 dp) + the two-row bottom deck so they
+        // never overlap the viewfinder in any orientation.
+        val reservedBottom = totalHeight * ZoomBoxSpec.VIEWFINDER_BOTTOM_RESERVE_FRACTION
+        val availableHeight = (totalHeight - topInset - reservedBottom).coerceAtLeast(120.dp)
+        val vfWidth: Dp = vfWidthRaw
+        val vfHeight: Dp = vfHeightRaw
+        val vfX = (totalWidth - vfWidth) / 2f
+
+        // Vertically center the viewfinder between the top inset (settings /
+        // status area) and the bottom UI deck when it fits. When a tall
+        // ratio overflows, 3:2 pins the top so it starts exactly where
+        // 4:3 starts and only grows downward — same width, longer bottom.
+        // 16:9 grows upward instead so its bottom edge (and the anchored
+        // bubble) stays clear of the bottom deck — see viewfinderTop.
+        val vfTop = viewfinderTop(
+            topInset = topInset,
+            availableHeight = availableHeight,
+            vfHeight = vfHeight,
+            aspectRatio = aspectRatio
+        )
+
+        // ─────────────────────────────────────────────────────────────────
+        // Preset-change toast state (declared ahead of the viewfinder Box
+        // because `CameraPreviewView`'s modifier-chain pointerInput below
+        // writes to these on a horizontal-fling fire).
+        // ─────────────────────────────────────────────────────────────────
+        // Invariant: `toastLookIdSnapshot` always names a look (it is seeded with
+        // the default and only ever written from `activeLookId`, itself
+        // rejected when it names nothing). Driving visibility from a separate
+        // Boolean avoids the AnimatedVisibility-exit NPE a nullable + `!!`
+        // design hit earlier. A rapid "next, next, next" sequence bumps
+        // `toastEpoch` each time so the LaunchedEffect below restarts its
+        // 900 ms delay cleanly.
+        var toastLookIdSnapshot by remember { mutableStateOf(FilmPreset.WARM_PORTRAIT.profileId) }
+        var showToast by remember { mutableStateOf(false) }
+        var toastEpoch by remember { mutableStateOf(0) }
+
+        // Latest animated zoom-box width fraction for the capture crop.
+        // The overlay owns the spring animation (see ZoomBoxOverlay) so the
+        // ~60fps animation ticks recompose only that leaf, not this whole
+        // screen. The overlay reports each animated value here; this ref is
+        // read only inside doCapture (non-compositional execution), so the
+        // writes never schedule a recomposition of this scope. Crop math and
+        // pixels are unchanged.
+        val captureBoxFraction = remember { mutableFloatStateOf(1f) }
+
+        // Rubber-band overshoot channel (zoom-ratio units, 0 when settled).
+        // Written per gesture frame by the preview's pointerInput and
+        // collected ONLY by ZoomBoxOverlay, so the writes never recompose
+        // this scope — same isolation as boxScale. The capture crop reads
+        // the clamped base fraction above, never this overshoot.
+        val zoomOvershoot = remember { MutableStateFlow(0f) }
+
+        // Haze blur source: everything the floating bubble floats over
+        // (background + live preview + dim/grid chrome + toast). This must
+        // stay a SIBLING of the bubble — never an ancestor of it — per the
+        // Haze camera pattern: the effect cannot live inside its own source
+        // subtree. Inner box is full-size so all alignment math is unchanged.
+        Box(modifier = Modifier.fillMaxSize().hazeSource(hazeState)) {
+
+        // 1. Black background
+        Box(modifier = Modifier.fillMaxSize().background(Color.Black))
+
+        // 2. Camera Viewfinder — 4:3 box at top with rounded corners
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .offset(y = vfTop)
+                .width(vfWidth)
+                .height(vfHeight)
+                .clip(RoundedCornerShape(16.dp))
+        ) {
+        // Live preview leaf (collects exposure/temperature/tint in its own
+        // scope so slider ticks don't recompose this screen — see NOTE on the
+        // removed collects above).
+        LiveViewfinderPreview(
+            viewModel = viewModel,
+            activeLookId = activeLookId,
+            selectedLensRole = selectedLensRole,
+            flashMode = flashMode,
+            isFrontCamera = isFrontCamera,
+            activeExtension = activeExtension,
+            isRawCapturing = isCapturing && rawModeEnabled,
+            previewPausedBase = previewPaused,
+            photoViewerOpen = selectedPhoto != null,
+            flingEnabled = selectedPhoto == null && !showExpSlider && !showTempSlider,
+            zoomEnabled = !(showExpSlider || showTempSlider),
+            activeLut = previewLut,
+            onImageCapture = { activeImageCapture = it },
+            onFlingFired = { direction ->
+                viewModel.cycleLook(direction)
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                toastLookIdSnapshot = viewModel.activeLookId.value
+                showToast = true
+                toastEpoch++
+            },
+            onZoomTick = {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            },
+            onZoomOvershoot = { zoomOvershoot.value = it }
+        )
+
+        // Countdown timer overlay
+        if (timerCountdown > 0) {
+            Box(
+                modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = stringResource(R.string.timer_countdown, timerCountdown),
+                    color = Color(0xFFFBBF24),
+                    fontSize = 80.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = Inter
+                )
+            }
+        }
+        } // end viewfinder Box
+
+        // ─────────────────────────────────────────────────────────────────
+        // Preset-change toast (display + auto-dismiss timer)
+        // ─────────────────────────────────────────────────────────────────
+        // State vars are hoisted above the viewfinder Box so the
+        // `CameraPreviewView` modifier chain can mutate them on a
+        // horizontal-fling fire. The LaunchedEffect drives `showToast`
+        // back to false after 900 ms and leaves `toastPresetSnapshot`
+        // intact so the AnimatedVisibility exit animation has a stable
+        // value to read while fading out.
+        LaunchedEffect(toastEpoch) {
+            if (toastEpoch == 0) return@LaunchedEffect
+            kotlinx.coroutines.delay(900.milliseconds)
+            showToast = false
+            // Intentionally leaves `toastPresetSnapshot` intact.
+        }
+        AnimatedVisibility(
+            visible = showToast,
+            enter = fadeIn(tween(160)) + scaleIn(tween(220, easing = EaseInOutCubic), initialScale = 0.82f),
+            exit = fadeOut(tween(260)) + scaleOut(tween(260), targetScale = 0.82f),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = vfTop + 14.dp)
+        ) {
+            // Snapshot always names a look (see invariant above), so a plain
+            // read is safe across both enter and exit recompositions.
+            val toastLookId = toastLookIdSnapshot
+            val toastLookDisplayName = lookDisplayName(viewModel, toastLookId)
+            Row(
+                modifier = Modifier
+                    .background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(24.dp))
+                    .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(24.dp))
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(filmPresetColor(toastLookId)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = filmPresetEmoji(toastLookId), fontSize = 16.sp)
+                }
+                Text(
+                    text = toastLookDisplayName,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    fontFamily = Inter
+                )
+            }
+        }
+
+        // Zoom-box framing overlay lives in its own leaf (ZoomBoxOverlay) so
+        // the spring animation ticks (~60fps) and the box/grid Canvas work
+        // recompose only that leaf — not this whole screen. Same spec pixels.
+        ZoomBoxOverlay(
+            boxScaleFlow = viewModel.boxScale,
+            overshootZoomFlow = zoomOvershoot,
+            selectedLensRole = selectedLensRole,
+            effectiveFocalLength = effectiveFocalLength,
+            vfX = vfX,
+            vfTop = vfTop,
+            vfWidth = vfWidth,
+            vfHeight = vfHeight,
+            aspectRatio = aspectRatio,
+            gridAlpha = gridAlpha,
+            parentWidth = totalWidth,
+            parentHeight = totalHeight,
+            controlAngle = animatedControlAngle,
+            onAnimatedFraction = { captureBoxFraction.floatValue = it }
+        )
+        } // end haze blur source (background + preview + chrome)
+
+
+        // Three-point settings menu button in the top-right corner of the viewfinder
+        // Opens a full-screen Settings page; the actual page surface + back navigation
+        // lives in SettingsScreen at the top of CameraUi() (sibling swap, not overlay).
+        // Anchored to the viewfinder's top-right corner so it stays put inside
+        // the corner even as the viewfinder recenters between the top inset
+        // and the bottom deck.
+        Box(
+            modifier = Modifier
+                .offset(x = vfX + vfWidth - 60.dp, y = vfTop + 8.dp)
+        ) {
+            IconButton(
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onOpenSettings()
+                },
+                modifier = Modifier.size(48.dp).testTag("settings_menu_button")
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.MoreVert,                        contentDescription = stringResource(R.string.settings_label),
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp).rotate(animatedControlAngle)
+                )
+            }
+        }
+
+        // Transparent overlay for full-screen swipe when a slider panel is
+        // open. Placed BEFORE the floating control surface so the panel
+        // sits on top and its buttons (presets, close) receive touch events
+        // first without interception. The overlay handles taps outside the
+        // panel area and full-screen swipes over the viewfinder.
+        if (showExpSlider || showTempSlider) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(showExpSlider, showTempSlider) {
+                        awaitEachGesture {
+                            val first = awaitPointerEvent(PointerEventPass.Main)
+                            val down = first.changes.firstOrNull { it.changedToDown() && it.pressed }
+                                    ?: return@awaitEachGesture
+                            val track = TrackedPointer(
+                                start = down.position,
+                                // Read live (NOT the collected composition
+                                // snapshot): pointerInput doesn't restart per
+                                // tick, so the snapshot goes stale after the
+                                // first set and every later comparison
+                                // misfires. .value is always fresh and adds
+                                // no composition subscription.
+                                initialExposure = viewModel.exposure.value,
+                                initialTemp = viewModel.temperature.value,
+                                initialTint = viewModel.tint.value
+                            )
+                            var consumedByChild = false
+                            do {
+                                val event = awaitPointerEvent(PointerEventPass.Final)
+                                val ch = event.changes.firstOrNull { it.id == down.id } ?: break
+                                consumedByChild = consumedByChild || ch.isConsumed
+                                if (!ch.isConsumed && ch.pressed) {
+                                    val dx = ch.position.x - track.start.x
+                                    val dy = ch.position.y - track.start.y
+
+                                    if (showExpSlider && kotlin.math.abs(dx) > 10f) {
+                                        track.moved = true
+                                        val raw = track.initialExposure + (dx / size.width.toFloat()) * 6f
+                                        val s = (kotlin.math.round(raw / 0.1f) * 0.1f).coerceIn(-3f, 3f)
+                                        if (s != viewModel.exposure.value) {
+                                            viewModel.setExposure(s)
+                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        }
+                                        ch.consume()
+                                    }
+
+                                    if (showTempSlider && (kotlin.math.abs(dx) > 10f || kotlin.math.abs(dy) > 10f)) {
+                                        track.moved = true
+                                        val rt = track.initialTemp + (dx / size.width.toFloat()) * 4f
+                                        val rti = track.initialTint - (dy / size.height.toFloat()) * 4f
+                                        val st = (kotlin.math.round(rt / 0.1f) * 0.1f).coerceIn(-2f, 2f)
+                                        val sti = (kotlin.math.round(rti / 0.1f) * 0.1f).coerceIn(-2f, 2f)
+                                        if (st != viewModel.temperature.value || sti != viewModel.tint.value) {
+                                            viewModel.setTemperature(st)
+                                            viewModel.setTint(sti)
+                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        }
+                                        ch.consume()
+                                    }
+                                }
+                            } while (ch.pressed)
+
+                            // Close on tap (no value adjusted)
+                            if (!consumedByChild &&
+                                track.initialExposure == viewModel.exposure.value &&
+                                track.initialTemp == viewModel.temperature.value &&
+                                track.initialTint == viewModel.tint.value
+                            ) {
+                                viewModel.closeSliders()
+                            }
+                        }
+                    }
+            )
+        }
+
+        // Floating Control Surface — the bubble and the color/exposure panels
+        // share the same composable slot at the bottom of the viewfinder and
+        // morph in place via AnimatedContent. Anchor the bottom edge of the
+        // rendered content to (vfTop + vfHeight - spec offset) so the bubble
+        // sits ~10dp above the viewfinder bottom edge per the Figma
+        // `control-bubble` block (top 61.38%, bottom reserve 31.69%).
+        val morphBottomAnchorPx = with(LocalDensity.current) { (vfTop + vfHeight - ZoomBoxSpec.BUBBLE_BOTTOM_OFFSET_DP.dp).roundToPx() }
+        Box(
+            modifier = Modifier
+                // Anchor content at horizontal center + viewfinder bottom so the
+                // morph reads as the bubble staying put while the panel grows
+                // upward, instead of leaving the bubble stuck on the left edge of
+                // the screen. The previous layout block reported placeable.width as
+                // its own bounds and placed at x=0, which overrode any outer
+                // contentAlignment and visually pinned the bubble to the screen's
+                // left edge during the morph. We now return constraints.maxWidth
+                // (= boxWidth from BoxWithConstraints) and place the placeable at
+                // the layout's horizontal center.
+                .layout { measurable, constraints ->
+                    val placeable = measurable.measure(constraints)
+                    layout(constraints.maxWidth, placeable.height) {
+                        val centerX = (constraints.maxWidth - placeable.width) / 2
+                        placeable.place(
+                            x = centerX,
+                            y = morphBottomAnchorPx - placeable.height
+                        )
+                    }
+                },
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            val morphMode: MorphMode = when {
+                showTempSlider -> MorphMode.COLOR
+                showExpSlider  -> MorphMode.EXPOSURE
+                else           -> MorphMode.BUBBLE
+            }
+            AnimatedContent(
+                targetState = morphMode,
+                // Drop fillMaxWidth so SizeTransform can actually interpolate
+                // the slot's width during the morph. With fillMaxWidth on both
+                // states, the slot was already screen-wide on both sides and the
+                // size animation had nothing to interpolate — the morph just
+                // snapped. With wrap-content here the slot grows from bubble width
+                // (~180 dp) to panel width (300 dp) and the size animation reads.
+                contentAlignment = Alignment.BottomCenter,
+                transitionSpec = {
+                    // Seamless enlarge: the incoming surface scales up from the
+                    // bubble's bottom-center anchor while fading in, the
+                    // outgoing one shrinks slightly and fades out fast, and
+                    // SizeTransform grows the slot on the same curve — so the
+                    // bubble reads as enlarging into the panel (and melting
+                    // back on close) instead of cross-dissolving. EaseInOutCubic
+                    // matches the splash reveal curve used elsewhere.
+                    val morphEasing = EaseInOutCubic
+                    val pivot = TransformOrigin(0.5f, 1f)
+                    val expanding = targetState != MorphMode.BUBBLE
+                    val enterScale = if (expanding) 0.8f else 0.9f
+                    val enterDuration = if (expanding) 320 else 240
+                    ContentTransform(
+                        targetContentEnter = fadeIn(
+                            tween(enterDuration, easing = morphEasing)
+                        ) + scaleIn(
+                            tween(enterDuration, easing = morphEasing),
+                            initialScale = enterScale,
+                            transformOrigin = pivot
+                        ),
+                        initialContentExit = fadeOut(
+                            tween(180, easing = morphEasing)
+                        ) + scaleOut(
+                            tween(180, easing = morphEasing),
+                            targetScale = 0.88f,
+                            transformOrigin = pivot
+                        ),
+                        sizeTransform = SizeTransform(
+                            clip = false,
+                            sizeAnimationSpec = { _, _ ->
+                                tween<IntSize>(320, easing = morphEasing)
+                            }
+                        )
+                    )
+                },
+                label = "bubble_panel_morph"
+            ) { mode ->
+                when (mode) {
+                    MorphMode.BUBBLE -> LiveBubbleRow(
+                        viewModel = viewModel,
+                        hazeState = hazeState,
+                        effectiveFocalLength = effectiveFocalLength,
+                        isFrontCamera = isFrontCamera,
+                        controlAngle = animatedControlAngle
+                    )
+                    MorphMode.COLOR -> LiveColorPanel(viewModel = viewModel, hazeState = hazeState)
+                    MorphMode.EXPOSURE -> LiveExposurePanel(viewModel = viewModel, hazeState = hazeState)
+                }
+            }
+        }
+
+        // 5. White flash overlay — scoped to the viewfinder rect so only the
+        // captured frame flashes, not the whole screen chrome. Same geometry
+        // (top-center, vfTop offset, vfWidth × vfHeight, 16dp corners) as the
+        // viewfinder box itself.
+        AnimatedVisibility(
+            visible = flashFlashActive,
+            enter = fadeIn(animationSpec = tween(40)),
+            exit = fadeOut(animationSpec = tween(150)),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .offset(y = vfTop)
+                .width(vfWidth)
+                .height(vfHeight)
+                .clip(RoundedCornerShape(16.dp))
+        ) {
+            Box(modifier = Modifier.fillMaxSize().background(Color.White))
+        }
+
+        // 6. Bottom Deck Controls (two-row Dazz-cam style)
+        val activeLookId by viewModel.activeLookId.collectAsState()
+        val lookCatalog by viewModel.lookCatalog.collectAsState()
+        val selfTimerMode by viewModel.selfTimerMode.collectAsState()
+        var showPresetPicker by remember { mutableStateOf(false) }
+        // Rotation-safe pending delete lives in the ViewModel (a local
+        // remember used to drop the dialog on rotation).
+        val pendingDelete by viewModel.pendingDelete.collectAsState()
+
+        // Lambda that executes the actual capture, extracted so timer can call it.
+        // `beginCapture()` is called immediately before the hardware call (NOT
+        // at the top of this lambda) so a missing `captureDevice` or null
+        // `currentLens` doesn't strand `captureInFlight` in the "pressed" state.
+        // `endCapture()` is called in the JPEG `onCaptureError` branch to
+        // release the press if CameraX reports a failure — the capture flow
+        // for the success path is covered by `processAndSavePhoto`'s top,
+        // which calls `endCapture()` the moment OnImageSavedCallback fires.
+        val doCapture: () -> Unit = {
+            viewModel.playShutterSound()
+            flashFlashActive = true
+            val currentLens = viewModel.getCurrentLensProfile()
+            val nativeFocalForCrop = if (selectedLensRole == LensRole.PRIMARY)
+                viewModel.lensCatalogResult?.primary?.equivFocalMm else null
+            if (rawModeEnabled && currentLens != null) {
+                viewModel.beginCapture()
+                viewModel.captureAndSaveRaw(
+                    context = context,
+                    logicalCameraId = currentLens.logicalCameraId,
+                    physicalCameraId = currentLens.physicalCameraId,
+                    focalLengthMm = effectiveFocalLength,
+                    boxWidthFraction = captureBoxFraction.floatValue,
+                    screenWidth = totalWidth.value,
+                    screenHeight = totalHeight.value,
+                    captureLensNativeFocalMm = nativeFocalForCrop
+                )
+            } else {
+                val captureDevice = activeImageCapture
+                if (captureDevice != null) {
+                    viewModel.beginCapture()
+                    triggerImageCapture(
+                        context = context,
+                        imageCapture = captureDevice,
+                        executor = mainExecutor,
+                        // Sensor-tracked physical rotation — under the portrait
+                        // lock Display.getRotation() is pinned to ROTATION_0.
+                        targetRotation = viewModel.physicalRotation.value,
+                        onCaptured = { rawFile ->
+                            viewModel.processAndSavePhoto(
+                                context = context,
+                                rawFile = rawFile,
+                                boxWidthFraction = captureBoxFraction.floatValue,
+                                screenWidth = totalWidth.value,
+                                screenHeight = totalHeight.value,
+                                captureFocalLength = effectiveFocalLength,
+                                captureLensNativeFocalMm = nativeFocalForCrop
+                            )
+                        },
+                        onCaptureError = { exc ->
+                            // Without this, a CameraX failure would leave
+                            // captureInFlight stuck true forever and lock the
+                            // shutter out until the next lens flip. The
+                            // success path doesn't need an explicit reset —
+                            // `processAndSavePhoto` does it as its first
+                            // line so the shutter snaps back the moment the
+                            // hardware delivers the image.
+                            Log.e("CameraActiveScreen", "Capture failed", exc)
+                            viewModel.endCapture()
+                        }
+                    )
+                }
+            }
+        }
+
+        // ── Volume-button shutter ───────────────────────────────────────
+        // The hardware volume keys fire the shutter while the camera is the
+        // active surface — the single most-requested camera-app affordance
+        // and pure muscle memory (same gesture as the system Camera app).
+        // Consuming the events also stops the play/pause-style volume HUD
+        // from popping over the viewfinder mid-shot.
+        //
+        // Only DOWN events trigger, matching the system camera so half-press
+        // semantics could later hook KEYCODE_VOLUME_DOWN without a double
+        // fire. Released/long-press repeats are ignored. Gated on the same
+        // conditions as the on-screen shutter button (capture in flight,
+        // countdown running, gallery open, settings open) so both entry
+        // points can never disagree about when a shot is allowed.
+        // `currentDoCapture` is a rememberUpdatedState-stable read of the
+        // latest capture lambda: the Interceptor's lambda is created once per
+        // composition of the `View` — WITHOUT the stable reference it would
+        // capture a stale `doCapture` closure (and stale flash/RAW state).
+        // ── Volume-button shutter wiring ────────────────────────────────
+        // The interceptor lambda is registered on the Activity (see
+        // MainActivity.installVolumeShutterDispatcher) and consults LIVE
+        // state at key-time via rememberUpdatedState: a stale closure would
+        // capture an old `doCapture` (and stale flash/RAW mode). Gated on the
+        // same conditions as the on-screen shutter button so both entry
+        // points can never disagree about when a shot is allowed.
+        val currentDoCapture by rememberUpdatedState(doCapture)
+        DisposableEffect(Unit) {
+            val activity = context as? MainActivity
+            if (activity != null) {
+                activity.installVolumeShutterDispatcher { _ ->
+                    val cameraInteractive = selectedPhoto == null &&
+                            !showExpSlider && !showTempSlider &&
+                            timerCountdown < 0
+                    if (cameraInteractive && !captureInFlight) {
+                        currentDoCapture()
+                    }
+                    true // Consume volume keys while the camera is foreground.
+                }
+            }
+            onDispose { activity?.uninstallVolumeShutterDispatcher() }
+        }
+
+        // Bottom-deck Column anchored to the bottom of the screen, full width,
+        // opaque black background + 40 dp bottom padding for the gesture area.
+        // Spec `bottom-deck`: top 72.77%; `deck-surface` top 78.4% (both black).
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .background(Color.Black)
+                .padding(bottom = 40.dp, top = 0.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(0.dp)
+        ) {
+            // ── Row 1: Auxiliary Controls ──────────────────────────────
+            // Outer 56dp buttons centered above the 60dp gallery / 62dp
+            // preset tiles below (24/30 and 21/31 insets) → 26/24dp here.
+            // Tighter side insets also widen the inner gaps (SpaceBetween).
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 26.dp, end = 24.dp, top = 6.dp, bottom = 14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Grid overlay toggle (liquid glass; amber glass when active)
+                IconButton(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        viewModel.toggleGridLines()
+                    },
+                    colors = IconButtonDefaults.iconButtonColors(
+                        containerColor = Color.Transparent
+                    ),
+                    modifier = Modifier.size(56.dp).auxGlass(active = showGridLines).testTag("grid_overlay_button")
+                ) {
+                    Icon(
+                        imageVector = if (showGridLines) Icons.Rounded.GridOn else Icons.Rounded.GridOff,
+                        contentDescription = stringResource(R.string.grid_label),
+                        tint = if (showGridLines) Color(0xFFFBBF24) else Color.White,
+                        modifier = Modifier.size(22.dp).rotate(animatedControlAngle)
+                    )
+                }
+
+                // Self-timer cycle button (liquid glass; amber glass on countdown)
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .auxGlass(active = selfTimerMode != 0)
+                        .clickable {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            viewModel.cycleSelfTimer()
+                        }
+                        .testTag("self_timer_button"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (selfTimerMode == 0) {
+                        Icon(
+                            imageVector = Icons.Rounded.Timer,
+                            contentDescription = stringResource(R.string.timer_off_label),
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp).rotate(animatedControlAngle)
+                        )
+                    } else {
+                        Text(
+                            text = stringResource(R.string.self_timer_seconds, selfTimerMode),
+                            color = Color(0xFFFBBF24),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                // Flash toggle (liquid glass; amber glass unless switched off).
+                // Auto uses the FlashAuto glyph which already carries its own
+                // "A" — no extra badge overlay.
+                IconButton(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        viewModel.toggleFlash()
+                    },
+                    colors = IconButtonDefaults.iconButtonColors(containerColor = Color.Transparent),
+                    modifier = Modifier.size(56.dp).auxGlass(active = flashMode != 2).testTag("flash_toggle_button")
+                ) {
+                    Icon(
+                        imageVector = when (flashMode) {
+                            0 -> Icons.Rounded.FlashAuto
+                            1 -> Icons.Rounded.FlashOn
+                            else -> Icons.Rounded.FlashOff
+                        },
+                        contentDescription = stringResource(R.string.flash_label),
+                        tint = if (flashMode == 2) Color.White else Color(0xFFFBBF24),
+                        modifier = Modifier.size(22.dp).rotate(animatedControlAngle)
+                    )
+                }
+
+                // Camera flip (liquid glass)
+                IconButton(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        viewModel.toggleCamera()
+                    },
+                    colors = IconButtonDefaults.iconButtonColors(containerColor = Color.Transparent),
+                    modifier = Modifier.size(56.dp).auxGlass().testTag("camera_flip_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.FlipCameraAndroid,
+                        contentDescription = stringResource(R.string.flip_camera_label),
+                        tint = Color.White,
+                        modifier = Modifier.size(22.dp).rotate(animatedControlAngle)
+                    )
+                }
+            }
+
+            // ── Row 2: Primary Actions ─────────────────────────────────
+            // Spec `primary-row`: sides 6.11%/5.34% (~24dp/21dp on 393px).
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 24.dp, end = 21.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                // Left: last-captured thumbnail card with liquid-glass chrome.
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .size(60.dp)
+                        .deckGlass()
+                        .clickable {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            if (capturedPhotos.isNotEmpty()) viewModel.setSelectedPhoto(capturedPhotos.first())
+                        }
+                        .testTag("gallery_button"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (capturedPhotos.isNotEmpty()) {
+                        Image(
+                            painter = rememberAsyncImagePainter(model = capturedPhotos.first()),
+                            contentDescription = stringResource(R.string.last_photo_label),
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                                .padding(6.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .rotate(animatedControlAngle)
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Rounded.PhotoLibrary,
+                            contentDescription = stringResource(R.string.no_photos_label),
+                            tint = Color.Gray,
+                            modifier = Modifier.size(22.dp).rotate(animatedControlAngle)
+                        )
+                    }
+                }
+
+                // Center: Shutter button (spec `shutter-button`: ~84px circle,
+                // black outer, #EF4444 fill with 4px white ring).
+                Box(
+                    modifier = Modifier
+                        .size(84.dp)
+                        .background(Color.Black, CircleShape)
+                        .border(4.dp, Color.White, CircleShape)
+                        .padding(5.dp)
+                        .testTag("shutter_button")
+                        .clickable(enabled = !captureInFlight && timerCountdown < 0) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            if (selfTimerMode == 0) {
+                                doCapture()
+                            } else {
+                                // Start countdown
+                                coroutineScope.launch {
+                                    timerCountdown = selfTimerMode
+                                    repeat(selfTimerMode) {
+                                        kotlinx.coroutines.delay(1000.milliseconds)
+                                        timerCountdown--
+                                    }
+                                    doCapture()
+                                }
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    val s by animateFloatAsState(
+                        // drive off the press-not-processing signal so the
+                        // button snaps back the instant the camera hands
+                        // back the image, not after the bitmap decode /
+                        // LUT pipeline finishes. See `captureInFlight` /
+                        // `viewModel.beginCapture()` for timing.
+                        targetValue = if (captureInFlight) 0.82f else 1.0f,
+                        // Snappier than the previous spring(dampingRatio
+                        // = 0.55f) which had a long settle that read as
+                        // "mushy press". A 120 ms tween (default easing
+                        // = FastOutSlowInEasing) feels closer to a real
+                        // shutter button: fast down, fast back.
+                        animationSpec = tween(durationMillis = 120),
+                        label = "shutter_scale"
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .scale(s)
+                            .background(Color(0xFFEF4444), CircleShape)
+                    )
+                }
+
+                // Right: Retro camera preset picker button with liquid-glass
+                // chrome, live swatch.
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .size(62.dp)
+                        .deckGlass()
+                        .clickable {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            showPresetPicker = true
+                        }
+                        .testTag("preset_picker_button"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(filmPresetColor(activeLookId))
+                                .rotate(animatedControlAngle),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = filmPresetEmoji(activeLookId),
+                                fontSize = 18.sp
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Preset Picker Bottom Sheet — 3-column liquid-glass grid.
+        // Tap applies instantly and closes; the active style carries a
+        // white top-left-lit rim + check badge. No scroll bookkeeping:
+        // the whole catalog fits in a short scrollable grid.
+        if (showPresetPicker) {
+            ModalBottomSheet(
+                onDismissRequest = { showPresetPicker = false },
+                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                containerColor = Color(0xFF141416).copy(alpha = 0.94f),
+                contentColor = Color.White
+            ) {
+                FilmLooksPickerSheet(
+                    looks = lookCatalog,
+                    activeLookId = activeLookId,
+                    onSelectLook = { lookId ->
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        viewModel.setLook(lookId)
+                        showPresetPicker = false
+                    },
+                    // Both editor entries close the sheet before changing state:
+                    // the deck renders on the camera screen, and leaving the
+                    // sheet up would park its scrim over the deck it just
+                    // opened. beginLookDraft(null) starts blank; a look id
+                    // opens that look in place under its own id.
+                    onNewLook = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        showPresetPicker = false
+                        viewModel.beginLookDraft(null)
+                    },
+                    onEditLook = { lookId ->
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        showPresetPicker = false
+                        viewModel.beginLookDraft(lookId)
+                    }
+                )
+            }
+        }
+
+        // Delete confirmation dialog. Intercepted before the PhotoViewerOverlay
+        // callback reaches viewModel.deletePhoto() so an accidental tap on the
+        // trash icon doesn't nuke the file. The dialog lives at this scope
+        // (above the photo viewer) so back-press / scrim tap dismisses the
+        // dialog first, not the viewer underneath.
+        pendingDelete?.let { fileToDelete ->
+            AlertDialog(
+                onDismissRequest = { viewModel.cancelDelete() },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Rounded.Delete,
+                            contentDescription = null,
+                            tint = Color(0xFFEF4444),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            stringResource(R.string.delete_photo_title),
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp
+                        )
+                    }
+                },
+                text = {
+                    Text(
+                        stringResource(R.string.delete_photo_message),
+                        color = Color(0xFF9CA3AF),
+                        fontSize = 14.sp
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            // Order matters: kick off the (async, IO-bound) delete
+                            // first, then close the dialog. Flipping these two
+                            // would dismiss the dialog before the file is gone
+                            // and leave the user wondering if the tap registered.
+                            // Bytes are staged for undo inside the ViewModel.
+                            viewModel.confirmDelete(context, fileToDelete)
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFEF4444),
+                            contentColor = Color.White
+                        ),
+                        modifier = Modifier.testTag("confirm_delete_button")
+                    ) {
+                        Text(stringResource(R.string.delete), fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { viewModel.cancelDelete() }) {
+                        Text(stringResource(R.string.cancel), color = Color.White)
+                    }
+                },
+                containerColor = Color(0xFF1E1E1E),
+                tonalElevation = 0.dp
+            )
+        }
+
+
+        // 6b. Look editor deck. Rendered after the control deck so it floats
+        // above it, and outside the viewfinder so the live grade stays visible
+        // while the sliders move. It renders nothing while no draft is open.
+        // Full-size so its scrim catches taps outside the deck to close it.
+        LookEditorPanelHost(
+            viewModel = viewModel,
+            modifier = Modifier.fillMaxSize()
+        )
+
+        // 7. Photo Viewer Overlay
+        AnimatedVisibility(
+            visible = selectedPhoto != null,
+            enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
+            exit = fadeOut() + slideOutVertically(targetOffsetY = { it })
+        ) {
+            val activePhoto = selectedPhoto
+            if (activePhoto != null) {
+                PhotoViewerOverlay(
+                    initialPhotoIndex = capturedPhotos.indexOf(activePhoto).coerceAtLeast(0),
+                    allPhotos = capturedPhotos,
+                    viewModel = viewModel,
+                    onClose = { viewModel.setSelectedPhoto(null) },
+                    onDelete = { file -> viewModel.requestDelete(file) },
+                    onSelectPhoto = { viewModel.setSelectedPhoto(it) }
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The film-look picker's body: the grid you pick a grade from, plus the tiles
+ * that start or reopen an edit.
+ *
+ * It is the whole look surface now: the manager page it used to hand off to is
+ * gone, because this grid already lists every look and the editor deck already
+ * owns deleting one.
+ *
+ * Creating and editing live here, not in Settings, because this is the only
+ * screen where the looks themselves are on display; a Settings row made users
+ * leave the thing they were choosing between to go edit one. The full-width
+ * button below the grid reopens the active look in place — bundled edits save
+ * as a user override shadowing the shipped grade, and the editor offers
+ * a restore-to-original instead of a delete — and the
+ * create tile closes the grid.
+ *
+ * Separate from the [ModalBottomSheet] that hosts it — and reports taps instead
+ * of applying them — so the grid, the active-look rim and the edit targets can
+ * be driven headlessly, with no camera session behind them.
+ */
+@Composable
+internal fun FilmLooksPickerSheet(
+    looks: List<LookEntry>,
+    activeLookId: String,
+    onSelectLook: (String) -> Unit,
+    onNewLook: () -> Unit,
+    onEditLook: (String) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = stringResource(R.string.film_style),
+            color = Color.White,
+            fontWeight = FontWeight.Bold,
+            fontSize = 18.sp,
+            modifier = Modifier.padding(bottom = 2.dp)
+        )
+        Text(
+            text = stringResource(R.string.film_style_count, looks.size),
+            color = Color.White.copy(alpha = 0.55f),
+            fontSize = 13.sp,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(3),
+            modifier = Modifier
+                .fillMaxWidth()
+                // Capped so the sheet never covers the whole viewfinder. With
+                // fourteen tiles (thirteen looks + the create tile) the grid
+                // scrolls, and the cap is what keeps that scroll inside a band
+                // the live preview stays visible above.
+                .heightIn(max = 430.dp)
+                .testTag("film_style_grid"),
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(looks, key = { it.id }) { look ->
+                val selected = look.id == activeLookId
+                val base = filmPresetColor(look.id)
+                val dark = Color(
+                    red = base.red * 0.45f,
+                    green = base.green * 0.45f,
+                    blue = base.blue * 0.45f
+                )
+                Box(
+                    modifier = Modifier
+                        .aspectRatio(0.86f)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(
+                            brush = Brush.linearGradient(
+                                colors = listOf(
+                                    base,
+                                    dark
+                                ),
+                                start = Offset.Zero,
+                                end = Offset.Infinite
+                            ),
+                            shape = RoundedCornerShape(16.dp)
+                        )
+                        .border(
+                            if (selected) 2.dp else 1.dp,
+                            if (selected) SolidColor(Color.White)
+                            else deckGlassBorder(),
+                            RoundedCornerShape(16.dp)
+                        )
+                        .clickable { onSelectLook(look.id) }
+                        .testTag("film_style_card_${look.id}"),
+                    contentAlignment = Alignment.BottomStart
+                ) {
+                    // Bottom scrim so the name stays legible on
+                    // the lightest styles (Golden, Sunlit Spill, …).
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        Color.Black.copy(alpha = 0.45f)
+                                    )
+                                )
+                            )
+                    )
+                    if (selected) {
+                        // Top-start: non-interactive, so it stays clear of the
+                        // tile tap that applies the look.
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(6.dp)
+                                .size(22.dp)
+                                .background(Color.White, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Check,
+                                contentDescription = null,
+                                tint = Color.Black,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    }
+                    // Tiles only apply looks now: editing lives in the
+                    // full-width button below the grid, so no tile carries a
+                    // second tap target in its corner that a thumb can miss.
+                    Text(
+                        text = look.displayName,
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
+                        maxLines = 2,
+                        lineHeight = 16.sp,
+                        modifier = Modifier.padding(12.dp)
+                    )
+                }
+            }
+
+            // The create tile closes the grid rather than leading it: the
+            // catalog keeps the order it ships in, and "add" reads as the step
+            // after the last look. It is reached by scrolling, which is the
+            // price of not shifting every existing tile one cell along.
+            item(key = "new_look_tile") {
+                Box(
+                    modifier = Modifier
+                        .aspectRatio(0.86f)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color.White.copy(alpha = 0.07f))
+                        .border(1.dp, deckGlassBorder(), RoundedCornerShape(16.dp))
+                        .clickable { onNewLook() }
+                        .testTag("film_style_card_new"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(
+                            modifier = Modifier
+                                .size(30.dp)
+                                .background(Color.White.copy(alpha = 0.14f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Add,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = stringResource(R.string.film_style_new),
+                            color = Color.White,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+        }
+        // The one way into the editor: a thumb-sized full-width row, 54dp
+        // tall and far from any tile that would apply a look instead.
+        val activeLook = looks.firstOrNull { it.id == activeLookId }
+        if (activeLook != null) {
+            Button(
+                onClick = { onEditLook(activeLook.id) },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.White.copy(alpha = 0.12f),
+                    contentColor = Color.White
+                ),
+                contentPadding = PaddingValues(horizontal = 20.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, top = 12.dp)
+                    .height(54.dp)
+                    .testTag("film_style_edit_active")
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Settings,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.85f),
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = stringResource(
+                        R.string.film_style_edit_desc,
+                        activeLook.displayName
+                    ),
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun PhotoViewerOverlay(
+    initialPhotoIndex: Int,
+    allPhotos: List<File>,
+    viewModel: CameraViewModel,
+    onClose: () -> Unit,
+    onDelete: (File) -> Unit,
+    onSelectPhoto: (File) -> Unit
+) {
+    // Redesigned gallery lives in GalleryScreen.kt (counter/date header,
+    // EXIF chip, pinch-zoom + swipe-dismiss, grid overview, multi-select,
+    // MIME-correct share, undo). The legacy callbacks are kept so existing
+    // call sites keep compiling; delete + selection route through the
+    // ViewModel inside GalleryViewer now.
+    GalleryViewer(
+        photos = allPhotos,
+        initialIndex = initialPhotoIndex,
+        viewModel = viewModel,
+        onClose = onClose
+    )
+}
+
+

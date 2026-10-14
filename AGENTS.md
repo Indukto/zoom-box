@@ -15,7 +15,7 @@ Pick the smallest tier that covers your edit and stop there.
 | Tier | When | Run |
 |---|---|---|
 | 0 — skip | docs (`*.md`), comments only, `NOTICE.txt` | nothing |
-| 1 — fast | one Kotlin file, one `strings.xml`, one asset JSON/`.cube` | `./gradlew :app:compileDebugKotlin` (~45 s warm), plus one focused suite, e.g. `./gradlew :app:testDebugUnitTest --tests "com.example.color.*"` |
+| 1 — fast | one Kotlin file, one `strings.xml`, one asset JSON/`.cube` | `./gradlew :app:compileDebugKotlin` (~45 s warm), plus one focused suite, e.g. `./gradlew :app:testDebugUnitTest --tests "eu.indukto.zoombox.color.*"` |
 | 2 — full | `color/`, `zoom/`, `CameraViewModel.kt`, store/gallery, multi-file, grading math | `./gradlew :app:testDebugUnitTest` (~1 min, 137 tests) |
 | UI | Compose layout change (`CameraUi.kt`, panels, Settings/Gallery) | Tier 2 + `./gradlew :app:verifyRoborazziDebug`; run `:app:recordRoborazziDebug` only for an intentional golden change and state why |
 

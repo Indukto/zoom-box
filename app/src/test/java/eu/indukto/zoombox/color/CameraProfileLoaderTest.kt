@@ -1,0 +1,207 @@
+﻿package eu.indukto.zoombox.color
+
+import eu.indukto.zoombox.FilmPreset
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+/**
+ * JVM tests for [CameraProfileLoader] and the [FilmPreset.toCameraProfile]
+ * adapter. `org.json` is provided by a test-scoped dependency, so no Android
+ * framework is involved.
+ *
+ * The key guarantee is migration parity: the bundled `warm_portrait.json`
+ * profile must produce the exact same [RetroRenderParams] as the existing
+ * [FilmPreset.WARM_PORTRAIT] enum, so adopting the JSON registry changes no
+ * pixel in the current app.
+ */
+class CameraProfileLoaderTest {
+
+    private val warmPortraitJson = """
+        {
+          "id": "warm_portrait",
+          "displayName": "Warm Portrait",
+          "category": "color-negative",
+          "look": {
+            "lutPath": "luts/warm_portrait.cube",
+            "filmCurve": 0.20,
+            "contrast": 1.05,
+            "saturation": 1.0,
+            "bloom": 0.18,
+            "fringing": 0.0,
+            "shadowTintR": 0.0,
+            "shadowTintG": 0.0,
+            "shadowTintB": 0.025,
+            "shadowTintStrength": 0.06,
+            "highlightTintR": 0.04,
+            "highlightTintG": 0.02,
+            "highlightTintB": 0.0,
+            "highlightTintStrength": 0.08,
+            "softFocus": 0.0,
+            "milkyMix": 0.0,
+            "grainStrength": 0.05,
+            "grainChroma": 0.3,
+            "highlightRolloff": 0.0,
+            "fade": 0.0
+          }
+        }
+    """.trimIndent()
+
+    @Test
+    fun `parses a complete profile document`() {
+        val profile = CameraProfileLoader.parse(warmPortraitJson)
+
+        assertEquals("warm_portrait", profile.id)
+        assertEquals("Warm Portrait", profile.displayName)
+        assertEquals("color-negative", profile.category)
+        assertEquals("luts/warm_portrait.cube", profile.look.lutPath)
+        assertEquals(0.20f, profile.look.filmCurve, 0f)
+        assertEquals(1.05f, profile.look.contrast, 0f)
+        assertEquals(0.18f, profile.look.bloom, 0f)
+        assertEquals(0.025f, profile.look.shadowTintB, 0f)
+        assertEquals(0.06f, profile.look.shadowTintStrength, 0f)
+        assertEquals(0.05f, profile.look.grainStrength, 0f)
+        assertEquals(0.3f, profile.look.grainChroma, 0f)
+    }
+
+    @Test
+    fun `bundled warm portrait profile matches the FilmPreset adapter`() {
+        val fromJson = CameraProfileLoader.parse(warmPortraitJson).look
+        val fromEnum = FilmPreset.WARM_PORTRAIT.toRetroRenderParams()
+        assertEquals(fromEnum, fromJson)
+    }
+
+    @Test
+    fun `missing look defaults to a neutral profile`() {
+        val profile = CameraProfileLoader.parse(
+            """{"id": "normal", "displayName": "Normal"}"""
+        )
+        assertEquals(RetroRenderParams(), profile.look)
+        assertEquals("normal", profile.id)
+        assertEquals("Normal", profile.displayName)
+        assertEquals("", profile.category)
+    }
+
+    @Test
+    fun `unknown keys are ignored`() {
+        val profile = CameraProfileLoader.parse(
+            """
+            {
+              "id": "future_camera",
+              "displayName": "Future Camera",
+              "look": { "contrast": 1.2, "futureField": { "nested": true } },
+              "frames": [{ "id": "frame_1" }]
+            }
+            """.trimIndent()
+        )
+        assertEquals("future_camera", profile.id)
+        assertEquals(1.2f, profile.look.contrast, 0f)
+    }
+
+    @Test
+    fun `adapter derives a stable profile id from the enum`() {
+        assertEquals("warm_portrait", FilmPreset.WARM_PORTRAIT.profileId)
+        assertEquals("normal", FilmPreset.NORMAL.profileId)
+        assertEquals(
+            "Warm Portrait",
+            FilmPreset.WARM_PORTRAIT.toCameraProfile().displayName
+        )
+    }
+
+    @Test
+    fun `user wb and exposure are layered over the profile look`() {
+        val base = FilmPreset.NORMAL.toCameraProfile().look
+        val adjusted = base.copy(temperature = 0.5f, tint = -0.25f, exposure = 1f)
+        assertEquals(0.5f, adjusted.temperature, 0f)
+        assertEquals(-0.25f, adjusted.tint, 0f)
+        assertEquals(1f, adjusted.exposure, 0f)
+        // Everything else stays neutral.
+        assertEquals(1.0f, adjusted.contrast, 0f)
+        assertEquals("", adjusted.lutPath)
+    }
+
+    @Test
+    fun `artifact fields parse and match the enum adapter`() {
+        val json = """
+            {
+              "id": "ccd_digicam",
+              "displayName": "CCD Digicam",
+              "category": "digital",
+              "look": {
+                "lutPath": "luts/ccd_digicam.cube",
+                "filmCurve": 0.30,
+                "contrast": 1.10,
+                "saturation": 0.85,
+                "bloom": 0.02,
+                "shadowTintG": 0.01,
+                "shadowTintB": 0.02,
+                "shadowTintStrength": 0.06,
+                "highlightTintR": 0.02,
+                "highlightTintG": 0.03,
+                "highlightTintB": 0.04,
+                "highlightTintStrength": 0.05,
+                "grainStrength": 0.04,
+                "grainChroma": 0.35,
+                "vignette": 1.12,
+                "dust": 0.20,
+                "scratch": 0.0,
+                "lightLeak": 0.08
+              }
+            }
+        """.trimIndent()
+        val fromJson = CameraProfileLoader.parse(json).look
+        val fromEnum = FilmPreset.CCD_DIGICAM.toRetroRenderParams()
+
+        assertEquals(fromEnum, fromJson)
+        assertEquals(1.12f, fromJson.vignette, 0f)
+        assertEquals(0.20f, fromJson.dust, 0f)
+        assertEquals(0.08f, fromJson.lightLeak, 0f)
+    }
+
+    /**
+     * The enum half of the registry catalog, built without asset I/O so the
+     * picker can be seeded synchronously at startup. Its ids must match the
+     * enum's profileIds exactly: that string is what gets persisted.
+     */
+    @Test
+    fun `enum entries expose one catalog slot per preset in order`() {
+        val entries = CameraProfileRegistry.enumEntries()
+
+        assertEquals(FilmPreset.entries.map { it.profileId }, entries.map { it.id })
+        assertEquals(entries.size, entries.map { it.id }.toSet().size)
+        for (entry in entries) {
+            assertEquals(entry.id, entry.profile.id)
+            assertNotNull(entry.preset)
+        }
+    }
+
+    /** Only the pass-through look may skip both the LUT and the render chain. */
+    @Test
+    fun `only the normal look is pass-through`() {
+        val passThrough = CameraProfileRegistry.enumEntries()
+            .filter { it.isPassThrough }
+            .map { it.id }
+
+        assertEquals(listOf(FilmPreset.NORMAL.profileId), passThrough)
+    }
+
+    /** A JSON-defined look grades even with no render stage switched on. */
+    @Test
+    fun `a bundled lut makes a look non-pass-through`() {
+        val jsonOnly = CameraProfileLoader.parse(
+            """{"id": "lut_only", "displayName": "Lut Only",
+               "look": {"lutPath": "luts/moody.cube"}}"""
+        )
+        val entry = LookEntry(
+            id = jsonOnly.id,
+            displayName = jsonOnly.displayName,
+            category = jsonOnly.category,
+            preset = null,
+            profile = jsonOnly
+        )
+
+        assertTrue(!entry.isPassThrough)
+    }
+}
+

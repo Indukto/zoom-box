@@ -118,7 +118,7 @@ The four newest looks (Golden 200, Street Mono 400, Vivid Cool 400, CCD Digicam)
 | Arch | MVVM (ViewModel + StateFlow) |
 | Async | Kotlin Coroutines & Flow |
 | Effects | GLES fragment shaders, CPU pixel filter, EGL offscreen capture, Adobe `.cube` 3D LUT |
-| Look profiles | JSON in `assets/cameras/`, plus user looks and imported LUTs under `filesDir/` (model + loader + registry + stores in `com.example.color`) |
+| Look profiles | JSON in `assets/cameras/`, plus user looks and imported LUTs under `filesDir/` (model + loader + registry + stores in `eu.indukto.zoombox.color`) |
 | Persistence | Jetpack DataStore |
 | Build | Gradle + Kotlin DSL (Kotlin 2.2, AGP 9) |
 
@@ -145,16 +145,16 @@ Compile the app:
 ./gradlew :app:compileDebugKotlin
 ```
 
-Run the JVM tests for the color pipeline (preset → params mapping, JSON profile parsing, JSON ↔ enum parity, catalog/picker lookups, the CPU filter's behavior locks and the double-exposure blend), which live in `app/src/test/java/com/example/color/`:
+Run the JVM tests for the color pipeline (preset → params mapping, JSON profile parsing, JSON ↔ enum parity, catalog/picker lookups, the CPU filter's behavior locks and the double-exposure blend), which live in `app/src/test/java/eu/indukto/zoombox/color/`:
 
 ```bash
-./gradlew :app:testDebugUnitTest --tests "com.example.color.*"
+./gradlew :app:testDebugUnitTest --tests "eu.indukto.zoombox.color.*"
 ```
 
 The CPU filter also ships an opt-in benchmark (1 warm-up + 5 timed runs over a 4000x3000 frame, printing median/min ms plus an output checksum):
 
 ```bash
-RETRO_BENCH=1 ./gradlew :app:testDebugUnitTest --tests "com.example.color.RetroFilterBenchmark"
+RETRO_BENCH=1 ./gradlew :app:testDebugUnitTest --tests "eu.indukto.zoombox.color.RetroFilterBenchmark"
 ```
 
 The full suite compiles and passes with `./gradlew :app:testDebugUnitTest`.

@@ -1,4 +1,4 @@
-# Preserve attributes needed by Compose and Kotlin at runtime.
+﻿# Preserve attributes needed by Compose and Kotlin at runtime.
 # Removing any of these causes silent runtime failures in reflection-based libraries.
 -keepattributes *Annotation*
 -keepattributes Signature
@@ -22,15 +22,15 @@
 
 # Keep app data classes — Robolectric reflection + DataStore serialisation targets.
 # Removing any of these can break test reflection or runtime deserialisation.
--keep class com.example.zoom.LensProfile { *; }
--keep class com.example.zoom.LensRole { *; }
--keep class com.example.zoom.CaptureExtension { *; }
--keep class com.example.zoom.BindResult { *; }
--keep class com.example.zoom.AspectRatio { *; }
--keep class com.example.ExifData { *; }
--keep class com.example.FilmPreset { *; }
--keep class com.example.color.CubeLut { *; }
--keep class com.example.zoom.LensCatalog$CatalogResult { *; }
+-keep class eu.indukto.zoombox.zoom.LensProfile { *; }
+-keep class eu.indukto.zoombox.zoom.LensRole { *; }
+-keep class eu.indukto.zoombox.zoom.CaptureExtension { *; }
+-keep class eu.indukto.zoombox.zoom.BindResult { *; }
+-keep class eu.indukto.zoombox.zoom.AspectRatio { *; }
+-keep class eu.indukto.zoombox.ExifData { *; }
+-keep class eu.indukto.zoombox.FilmPreset { *; }
+-keep class eu.indukto.zoombox.color.CubeLut { *; }
+-keep class eu.indukto.zoombox.zoom.LensCatalog$CatalogResult { *; }
 
 # Keep Compose runtime (reflection-heavy)
 -keep class androidx.compose.runtime.** { *; }
@@ -52,3 +52,4 @@
     public static int d(...);
     public static int i(...);
 }
+
