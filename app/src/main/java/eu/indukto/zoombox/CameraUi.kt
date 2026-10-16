@@ -183,6 +183,7 @@ import dev.chrisbanes.haze.rememberHazeState
 import java.util.Locale
 import eu.indukto.zoombox.zoom.AspectRatio
 import eu.indukto.zoombox.zoom.CaptureExtension
+import eu.indukto.zoombox.zoom.edgeLabelAnchor
 import eu.indukto.zoombox.zoom.focalLabelAnchor
 import eu.indukto.zoombox.color.CubeLut
 import eu.indukto.zoombox.color.LOOK_CROSSFADE_DURATION_MS
@@ -2489,44 +2490,11 @@ fun CameraActiveScreen(
             showToast = false
             // Intentionally leaves `toastPresetSnapshot` intact.
         }
-        AnimatedVisibility(
-            visible = showToast,
-            enter = fadeIn(tween(160)) + scaleIn(tween(220, easing = EaseInOutCubic), initialScale = 0.82f),
-            exit = fadeOut(tween(260)) + scaleOut(tween(260), targetScale = 0.82f),
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = vfTop + 14.dp)
-        ) {
-            // Snapshot always names a look (see invariant above), so a plain
-            // read is safe across both enter and exit recompositions.
-            val toastLookId = toastLookIdSnapshot
-            val toastLookDisplayName = lookDisplayName(viewModel, toastLookId)
-            Row(
-                modifier = Modifier
-                    .background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(24.dp))
-                    .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(24.dp))
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(filmPresetColor(toastLookId)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(text = filmPresetEmoji(toastLookId), fontSize = 16.sp)
-                }
-                Text(
-                    text = toastLookDisplayName,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    fontFamily = Inter
-                )
-            }
-        }
+        // NOTE: the toast itself is declared BELOW `ZoomBoxOverlay`. Box
+        // children paint in declaration order, so while it lived here the
+        // overlay's dim mask (a full-screen `drawRect` clipped to
+        // Difference) painted straight over the name whenever the zoom box was
+        // zoomed in far enough to cover the viewfinder's top band.
 
         // Zoom-box framing overlay lives in its own leaf (ZoomBoxOverlay) so
         // the spring animation ticks (~60fps) and the box/grid Canvas work
@@ -2547,6 +2515,89 @@ fun CameraActiveScreen(
             controlAngle = animatedControlAngle,
             onAnimatedFraction = { captureBoxFraction.floatValue = it }
         )
+
+        // Preset-change toast, anchored to the VIEWFINDER (not the zoom box):
+        // it is a camera-wide status chip, so it tracks the viewfinder's frame
+        // while the zoom box grows and shrinks underneath it. Declared after
+        // `ZoomBoxOverlay` so it paints over the dim mask rather than under it.
+        //
+        // Same rotation treatment as the focal-length label — [edgeLabelAnchor]
+        // pushes the chip along the viewer's up vector and `.rotate` keeps the
+        // name upright — so a sideways-held phone sees it at the top of the
+        // viewfinder, exactly where it sits in portrait. At θ = 0 the anchor
+        // degenerates to the old `align(TopCenter)` + `vfTop + 14.dp` slot.
+        //
+        // The offset lives on an outer Box rather than on the
+        // `AnimatedVisibility` itself: `scaleIn`/`scaleOut` scale around their
+        // own node's centre, so animating a node that already carries a large
+        // offset would scale the chip *toward the screen centre* instead of
+        // toward its final resting place.
+        var toastHeightPx by remember { mutableIntStateOf(0) }
+        val toastHalfHeight = with(density) { (toastHeightPx / 2).toDp() }
+        val toastAnchor = edgeLabelAnchor(
+            rectLeft = vfX,
+            rectTop = vfTop,
+            rectWidth = vfWidth,
+            rectHeight = vfHeight,
+            labelHalfHeight = toastHalfHeight,
+            controlAngle = animatedControlAngle,
+            screenWidth = totalWidth,
+            screenHeight = totalHeight,
+            // Negative gap: the chip's outer edge lands 14dp INSIDE the
+            // viewfinder boundary, reproducing the portrait position this
+            // replaced. Expressed as a signed gap so portrait stays the θ = 0
+            // degenerate of the shared formula.
+            gap = (-14).dp
+        )
+        Box(
+            modifier = Modifier
+                // Centre-anchored (not TopCenter) so one offset can express
+                // both anchors; measured from the screen centre, as in
+                // ZoomBoxOverlay.
+                .align(Alignment.Center)
+                .offset(
+                    x = toastAnchor.x - totalWidth / 2f,
+                    y = toastAnchor.y - totalHeight / 2f
+                )
+                .rotate(animatedControlAngle)
+                .onSizeChanged { toastHeightPx = it.height }
+        ) {
+            AnimatedVisibility(
+                visible = showToast,
+                enter = fadeIn(tween(160)) + scaleIn(tween(220, easing = EaseInOutCubic), initialScale = 0.82f),
+                exit = fadeOut(tween(260)) + scaleOut(tween(260), targetScale = 0.82f)
+            ) {
+                // Snapshot always names a look (see invariant above), so a plain
+                // read is safe across both enter and exit recompositions.
+                val toastLookId = toastLookIdSnapshot
+                val toastLookDisplayName = lookDisplayName(viewModel, toastLookId)
+                Row(
+                    modifier = Modifier
+                        .background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(24.dp))
+                        .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(24.dp))
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(filmPresetColor(toastLookId)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = filmPresetEmoji(toastLookId), fontSize = 16.sp)
+                    }
+                    Text(
+                        text = toastLookDisplayName,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        fontFamily = Inter
+                    )
+                }
+            }
+        }
         } // end haze blur source (background + preview + chrome)
 
 
