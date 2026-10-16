@@ -291,17 +291,23 @@ class CameraProfileRegistry(
             .getOrDefault(emptyArray())
         for (name in names) {
             if (!name.endsWith(".json")) continue
-            val id = name.removeSuffix(".json")
+            val fileId = name.removeSuffix(".json")
             val profile = runCatching {
                 val json = context.assets.open("cameras/$name")
                     .bufferedReader(Charsets.UTF_8).use { it.readText() }
                 CameraProfileLoader.parse(json)
             }.getOrNull() ?: continue
-            result[id] = profile
-            // A file whose declared `id` disagrees with its file name stays
-            // selectable under both keys, so a typo in either place can never
-            // make a look disappear from the picker.
-            if (profile.id != id) result[profile.id] = profile
+            // The declared id is the identity the catalog addresses. A file
+            // whose name disagrees used to be indexed under both keys, which
+            // built two picker entries for one look. Keep the canonical id
+            // so the catalog stays duplicate-free; the mismatch is logged.
+            if (profile.id != fileId) {
+                android.util.Log.w(
+                    "CameraProfileRegistry",
+                    "cameras/$name declares id '${profile.id}', expected '$fileId'; using declared id"
+                )
+            }
+            result[profile.id] = profile
         }
         return result
     }

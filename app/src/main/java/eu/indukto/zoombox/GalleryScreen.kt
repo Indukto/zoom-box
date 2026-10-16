@@ -31,8 +31,10 @@ import androidx.compose.foundation.layout.displayCutoutPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -65,6 +67,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -72,8 +75,10 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -279,7 +284,10 @@ fun GalleryViewer(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            // Off-black, not pure black: matches the film-chrome
+            // surfaceContainerLowest so the viewer sits in the same
+            // warm-dark family as Settings instead of a sterile void.
+            .background(Color(0xFF0C0C0C))
             // Swipe-down-to-dismiss when unzoomed in pager mode. Coexists with
             // the horizontal pager (vertical slop only) and yields to pinch
             // zoom (disabled while zoomed).
@@ -344,10 +352,11 @@ fun GalleryViewer(
                 onClearSelection = { viewModel.clearGallerySelection() }
             )
 
-            // Photo pager.
+            // Photo pager — clipped so a zoomed/panned photo can never
+            // paint over the header or filmstrip above/below it.
             HorizontalPager(
                 state = pagerState,
-                modifier = Modifier.weight(1f).fillMaxWidth(),
+                modifier = Modifier.weight(1f).fillMaxWidth().clipToBounds(),
                 beyondViewportPageCount = 1
             ) { page ->
                 val photo = photos.getOrNull(page) ?: return@HorizontalPager
@@ -413,6 +422,7 @@ private fun GalleryHeader(
             modifier = Modifier
                 .fillMaxWidth()
                 .displayCutoutPadding()
+                .statusBarsPadding()
                 .padding(top = 16.dp)
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
@@ -442,15 +452,17 @@ private fun GalleryHeader(
                         fontSize = 15.sp,
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp,
-                        fontFamily = Inter,
+                        // Monospace stops the pager counter jittering as digits
+                        // change width; tight tracking keeps it photographic.
+                        letterSpacing = 0.5.sp,
+                        fontFamily = FontFamily.Monospace,
                         modifier = Modifier.testTag("gallery_counter")
                     )
                     if (!inSelectionMode && currentPhoto != null) {
                         Text(
                             text = formatGalleryDate(currentPhoto.lastModified()),
                             fontSize = 12.sp,
-                            color = Color(0xFF9CA3AF),
+                            color = Color(0xFFCBC4B5),
                             fontFamily = Inter,
                             maxLines = 1
                         )
@@ -537,12 +549,32 @@ private fun GalleryZoomablePhoto(
     // horizontal swipes from the HorizontalPager and broke page changes.
     // Here single-finger drags at 1x are never consumed (pager pages), two
     // fingers pinch-zoom, and single-finger drags pan only while zoomed.
+    // clipToBounds keeps the zoomed photo inside the pager viewport so it
+    // can never overlap the header/filmstrip; the pan offset is clamped to
+    // the scaled image bounds so it can't be shoved over the chrome either.
     BoxWithConstraints(
-        modifier = modifier.padding(horizontal = 24.dp),
+        modifier = modifier.padding(horizontal = 24.dp).clipToBounds(),
         contentAlignment = Alignment.Center
     ) {
         val imgWidth = minOf(maxWidth, maxHeight * aspect)
         val imgHeight = imgWidth / aspect
+        val density = LocalDensity.current
+        // Clamp a pan offset so the scaled image edges can't leave the
+        // viewport (when the scaled image is smaller than the viewport
+        // the offset collapses to zero, i.e. stays centered).
+        fun clampOffset(proposed: Offset, zoom: Float): Offset {
+            if (zoom <= 1f) return Offset.Zero
+            val containerW = with(density) { maxWidth.toPx() }
+            val containerH = with(density) { maxHeight.toPx() }
+            val imageW = with(density) { imgWidth.toPx() } * zoom
+            val imageH = with(density) { imgHeight.toPx() } * zoom
+            val maxX = ((imageW - containerW) / 2f).coerceAtLeast(0f)
+            val maxY = ((imageH - containerH) / 2f).coerceAtLeast(0f)
+            return Offset(
+                proposed.x.coerceIn(-maxX, maxX),
+                proposed.y.coerceIn(-maxY, maxY)
+            )
+        }
         Image(
             painter = rememberAsyncImagePainter(model = photo),
             contentDescription = stringResource(R.string.enlarged_capture_desc),
@@ -567,7 +599,7 @@ private fun GalleryZoomablePhoto(
                         }
                     )
                 }
-                .pointerInput(photo) {
+                .pointerInput(photo, imgWidth, imgHeight) {
                     awaitEachGesture {
                         awaitFirstDown(requireUnconsumed = false)
                         do {
@@ -580,7 +612,8 @@ private fun GalleryZoomablePhoto(
                                 if (zoom != 1f || pan != Offset.Zero) {
                                     val newScale = (scale * zoom).coerceIn(1f, 5f)
                                     scale = newScale
-                                    if (newScale > 1f) offset += pan
+                                    offset = if (newScale <= 1f) Offset.Zero
+                                    else clampOffset(offset + pan, newScale)
                                     onZoomChange(newScale)
                                     pressed.forEach { it.consume() }
                                 }
@@ -589,7 +622,7 @@ private fun GalleryZoomablePhoto(
                                 // doesn't steal the gesture mid-pan.
                                 val pan = event.calculatePan()
                                 if (pan != Offset.Zero) {
-                                    offset += pan
+                                    offset = clampOffset(offset + pan, scale)
                                     pressed.forEach { it.consume() }
                                 }
                             }
@@ -621,7 +654,7 @@ private fun GalleryFilmstrip(
         }
     }
     Spacer(modifier = Modifier.height(16.dp))
-    Box(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+    Box(modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 16.dp)) {
         LazyRow(
             state = stripState,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
@@ -637,7 +670,7 @@ private fun GalleryFilmstrip(
                         .clip(RoundedCornerShape(6.dp))
                         .border(
                             width = if (isCurrent || isChecked) 3.dp else 0.dp,
-                            color = if (isCurrent || isChecked) Color(0xFFF59E0B) else Color.Transparent,
+                            color = if (isCurrent || isChecked) Color(0xFFFBBF24) else Color.Transparent,
                             shape = RoundedCornerShape(6.dp)
                         )
                         .combinedClickable(
@@ -721,43 +754,64 @@ private fun GalleryUndoBar(onUndo: () -> Unit) {
 
 @Composable
 private fun GalleryEmptyState(onClose: () -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxSize().background(Color.Black).padding(32.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
+    Box(
+        modifier = Modifier.fillMaxSize().background(Color(0xFF0C0C0C))
     ) {
-        Icon(
-            imageVector = Icons.Rounded.PhotoLibrary,
-            contentDescription = null,
-            tint = Color(0xFF6B7280),
-            modifier = Modifier.size(64.dp)
+        // Warm glow breaks the flat-void feel without any asset: a faint
+        // amber radial behind the icon, same key light as the camera chrome.
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(
+                            Color(0xFFFBBF24).copy(alpha = 0.09f),
+                            Color.Transparent
+                        ),
+                        radius = 520f
+                    )
+                )
         )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = stringResource(R.string.gallery_empty_title),
-            color = Color.White,
-            fontWeight = FontWeight.Bold,
-            fontSize = 18.sp,
-            fontFamily = Inter,
-            textAlign = TextAlign.Center
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = stringResource(R.string.gallery_empty_message),
-            color = Color(0xFF9CA3AF),
-            fontSize = 14.sp,
-            fontFamily = Inter,
-            textAlign = TextAlign.Center
-        )
-        Spacer(modifier = Modifier.height(24.dp))
-        Button(
-            onClick = onClose,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFFF59E0B),
-                contentColor = Color.Black
-            )
+        Column(
+            modifier = Modifier.fillMaxSize().padding(32.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(stringResource(R.string.gallery_empty_cta), fontWeight = FontWeight.Bold)
+            Icon(
+                imageVector = Icons.Rounded.PhotoLibrary,
+                contentDescription = null,
+                tint = Color(0xFF958F81),
+                modifier = Modifier.size(64.dp)
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            Text(
+                text = stringResource(R.string.gallery_empty_title),
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 22.sp,
+                letterSpacing = (-0.5).sp,
+                fontFamily = Inter,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = stringResource(R.string.gallery_empty_message),
+                color = Color(0xFFCBC4B5),
+                fontSize = 14.sp,
+                lineHeight = 20.sp,
+                fontFamily = Inter,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(32.dp))
+            Button(
+                onClick = onClose,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFFBBF24),
+                    contentColor = Color(0xFF2B1D00)
+                )
+            ) {
+                Text(stringResource(R.string.gallery_empty_cta), fontWeight = FontWeight.Bold)
+            }
         }
     }
 }

@@ -85,9 +85,12 @@ object RawCapture {
     ) {
         val directory = context.getExternalFilesDir(android.os.Environment.DIRECTORY_PICTURES)
             ?: context.cacheDir
-        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-        val dngFile = File(directory, "RETRO_RAW_${timeStamp}_${focalLengthMm}mm.dng")
-        val jpegFile = File(directory, "RETRO_JPEG_${timeStamp}_${focalLengthMm}mm.jpg")
+        // Millis resolution plus an existence check: two shutter taps in the
+        // same second (burst, double-exposure sequence) must never overwrite
+        // each other's DNG/JPEG pair.
+        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US).format(Date())
+        val dngFile = uniqueFile(directory, "RETRO_RAW_${timeStamp}_${focalLengthMm}mm", ".dng")
+        val jpegFile = uniqueFile(directory, "RETRO_JPEG_${timeStamp}_${focalLengthMm}mm", ".jpg")
 
         val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
         val cameraThread = HandlerThread("RawCapture").apply { start() }
@@ -535,6 +538,20 @@ object RawCapture {
         val out = ByteArray(remaining())
         get(out)
         return out
+    }
+
+    /**
+     * First free `<stem>[ _n].suffix` in [directory]. Millis timestamps
+     * collide on burst captures; the suffix loop makes overwrites impossible.
+     */
+    private fun uniqueFile(directory: File, stem: String, suffix: String): File {
+        var candidate = File(directory, stem + suffix)
+        var n = 2
+        while (candidate.exists()) {
+            candidate = File(directory, stem + "_$n$suffix")
+            n++
+        }
+        return candidate
     }
 }
 

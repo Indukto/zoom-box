@@ -48,7 +48,7 @@ object DoubleExposure {
     ): Bitmap {
         val percent = strengthPercent(strength)
         if (ghost == null || percent == 0) return base
-        if (ghost.isRecycled || base.width <= 0 || base.height <= 0) return base
+        if (ghost.isRecycled || base.isRecycled || base.width <= 0 || base.height <= 0) return base
 
         val width = base.width
         val height = base.height
@@ -59,29 +59,42 @@ object DoubleExposure {
         val aligned = if (ghost.width == width && ghost.height == height) {
             ghost
         } else {
-            Bitmap.createScaledBitmap(ghost, width, height, true)
+            try {
+                Bitmap.createScaledBitmap(ghost, width, height, true)
+            } catch (_: OutOfMemoryError) {
+                return base
+            } catch (_: Exception) {
+                return base
+            }
         }
 
-        val basePixels = IntArray(width * height)
-        base.getPixels(basePixels, 0, width, 0, 0, width, height)
-        val ghostPixels = IntArray(width * height)
-        aligned.getPixels(ghostPixels, 0, width, 0, 0, width, height)
-        if (aligned !== ghost) aligned.recycle()
+        try {
+            val basePixels = IntArray(width * height)
+            base.getPixels(basePixels, 0, width, 0, 0, width, height)
+            val ghostPixels = IntArray(width * height)
+            aligned.getPixels(ghostPixels, 0, width, 0, 0, width, height)
+            if (aligned !== ghost) aligned.recycle()
 
-        val out = IntArray(width * height)
-        for (i in out.indices) {
-            val b = basePixels[i]
-            val g = ghostPixels[i]
-            val r = mixChannel(channel(b, 16), channel(g, 16), percent)
-            val gr = mixChannel(channel(b, 8), channel(g, 8), percent)
-            val bl = mixChannel(channel(b, 0), channel(g, 0), percent)
-            // Alpha comes from the new frame alone: the ghost is a record of
-            // an earlier *exposure*, not a second layer of the same canvas,
-            // so letting it punch holes in the current frame would show up as
-            // unexplained transparency in the saved file.
-            out[i] = (b and 0xFF000000.toInt()) or (r shl 16) or (gr shl 8) or bl
+            // Blend in place over `basePixels` instead of a third `out`
+            // array: a 12 MP frame is ~48 MB per IntArray, so reusing the
+            // base buffer saves a full copy and halves the transient peak.
+            for (i in basePixels.indices) {
+                val b = basePixels[i]
+                val g = ghostPixels[i]
+                val r = mixChannel(channel(b, 16), channel(g, 16), percent)
+                val gr = mixChannel(channel(b, 8), channel(g, 8), percent)
+                val bl = mixChannel(channel(b, 0), channel(g, 0), percent)
+                // Alpha comes from the new frame alone: the ghost is a record of
+                // an earlier *exposure*, not a second layer of the same canvas,
+                // so letting it punch holes in the current frame would show up as
+                // unexplained transparency in the saved file.
+                basePixels[i] = (b and 0xFF000000.toInt()) or (r shl 16) or (gr shl 8) or bl
+            }
+            return Bitmap.createBitmap(basePixels, width, height, Bitmap.Config.ARGB_8888)
+        } catch (_: OutOfMemoryError) {
+            if (aligned !== ghost) runCatching { aligned.recycle() }
+            return base
         }
-        return Bitmap.createBitmap(out, width, height, Bitmap.Config.ARGB_8888)
     }
 
     /**

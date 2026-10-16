@@ -25,8 +25,8 @@ data class CubeLut(
     val domainMax: FloatArray,
     val data: FloatArray
 ) {
-    /** Returns the linear array offset of the (r, g, b) lattice sample. */
-    fun indexOf(r: Int, g: Int, b: Int): Int = ((b * size) + g) * size + r
+    /** Returns the float-array offset of the (r, g, b) lattice sample. */
+    fun indexOf(r: Int, g: Int, b: Int): Int = (((b * size) + g) * size + r) * 3
 }
 
 /**
@@ -38,6 +38,8 @@ data class CubeLut(
  * three whitespace-separated floats in [0, 1].
  */
 object CubeLutParser {
+
+    private val WHITESPACE = Regex("\\s+")
 
     /**
      * Parses the LUT at the given relative path under `assets/`.
@@ -71,34 +73,35 @@ object CubeLutParser {
             // Header keyword lines begin with a non-numeric token.
             val firstChar = line[0]
             if (!firstChar.isDigit() && firstChar != '.' && firstChar != '-' && firstChar != '+') {
-                val upper = line.uppercase()
+                val upper = line.uppercase(java.util.Locale.ROOT)
                 when {
                     upper.startsWith("LUT_3D_SIZE") -> {
-                        size = line.substringAfter(' ').trim().toIntOrNull() ?: 0
+                        size = headerTail(line, "LUT_3D_SIZE")?.toIntOrNull() ?: 0
                     }
                     upper.startsWith("DOMAIN_MIN") -> {
-                        val parts = line.substringAfter(' ').trim().split(Regex("\\s+"))
-                        if (parts.size >= 3) {
-                            domainMin = floatArrayOf(parts[0].toFloat(), parts[1].toFloat(), parts[2].toFloat())
-                        }
+                        parseTriple(headerTail(line, "DOMAIN_MIN"))?.let { domainMin = it }
                     }
                     upper.startsWith("DOMAIN_MAX") -> {
-                        val parts = line.substringAfter(' ').trim().split(Regex("\\s+"))
-                        if (parts.size >= 3) {
-                            domainMax = floatArrayOf(parts[0].toFloat(), parts[1].toFloat(), parts[2].toFloat())
-                        }
+                        parseTriple(headerTail(line, "DOMAIN_MAX"))?.let { domainMax = it }
                     }
                     // TITLE and any other keywords are ignored.
                 }
                 return@forEachLine
             }
 
-            // Data line: three floats.
-            val parts = line.split(Regex("\\s+"))
+            // Data line: three floats. Malformed numbers are skipped rather
+            // than throwing NumberFormatException mid-file; the trailing
+            // size check still rejects a short document.
+            val parts = line.split(WHITESPACE)
             if (parts.size >= 3) {
-                samples.add(parts[0].toFloat())
-                samples.add(parts[1].toFloat())
-                samples.add(parts[2].toFloat())
+                val r = parts[0].toFloatOrNull()
+                val g = parts[1].toFloatOrNull()
+                val b = parts[2].toFloatOrNull()
+                if (r != null && g != null && b != null) {
+                    samples.add(r)
+                    samples.add(g)
+                    samples.add(b)
+                }
             }
         }
 
@@ -114,6 +117,26 @@ object CubeLutParser {
             domainMax = domainMax,
             data = FloatArray(samples.size) { samples[it] }
         )
+    }
+
+    /**
+     * Text after a header keyword, with surrounding whitespace removed.
+     * Takes everything past the keyword (tabs and repeated spaces included),
+     * where the old `substringAfter(' ')` only handled a single space.
+     */
+    private fun headerTail(line: String, keyword: String): String? {
+        if (line.length <= keyword.length) return null
+        return line.substring(keyword.length).trim().ifEmpty { null }
+    }
+
+    private fun parseTriple(tail: String?): FloatArray? {
+        if (tail == null) return null
+        val parts = tail.split(WHITESPACE)
+        if (parts.size < 3) return null
+        val x = parts[0].toFloatOrNull() ?: return null
+        val y = parts[1].toFloatOrNull() ?: return null
+        val z = parts[2].toFloatOrNull() ?: return null
+        return floatArrayOf(x, y, z)
     }
 }
 

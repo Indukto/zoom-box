@@ -93,6 +93,9 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
 
         /** Cap for delete-undo staging: bigger files delete without undo. */
         const val MAX_UNDO_BYTES = 25 * 1024 * 1024
+
+        /** Parsed-LUT cache bound: 12 bundled LUTs fit, older user imports age out. */
+        const val MAX_CACHED_LUTS = 12
     }
 
     private val _selectedLensRole = MutableStateFlow(LensRole.PRIMARY)
@@ -224,7 +227,16 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
 
     // Lazily-parsed LUTs keyed by asset path. Parsed once on first use and
     // reused for every subsequent capture that selects the same film.
-    private val cachedLuts = mutableMapOf<String, CubeLut>()
+    // Bounded LRU so a long session importing many user LUTs cannot pin
+    // every parsed cube forever; synchronized because preview (main) and
+    // capture (IO) ask concurrently.
+    private val cachedLuts: MutableMap<String, CubeLut> =
+        java.util.Collections.synchronizedMap(object : LinkedHashMap<String, CubeLut>(16, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, CubeLut>?): Boolean {
+                return size > MAX_CACHED_LUTS
+            }
+        })
+
 
     // Backend look profiles (assets/cameras/*.json). JSON wins over the
     // in-code FilmPreset adapter when a matching id exists, so adding a look

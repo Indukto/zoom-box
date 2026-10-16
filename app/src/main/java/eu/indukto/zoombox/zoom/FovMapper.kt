@@ -30,7 +30,7 @@ object FovMapper {
      * @param previewFocalMm The equivalent focal length of the current preview lens
      * @param targetFocalMm The target equivalent focal length the user has selected
      * @return A value in (0, 1] representing the fraction of the frame the box covers.
-     *         Returns 0f if targetFocalMm is 0 (should not happen in practice).
+     *         Returns 1f when either focal length is non-positive (no crop).
      */
     fun boxScale(previewFocalMm: Float, targetFocalMm: Float): Float {
         if (targetFocalMm <= 0f || previewFocalMm <= 0f) return 1f

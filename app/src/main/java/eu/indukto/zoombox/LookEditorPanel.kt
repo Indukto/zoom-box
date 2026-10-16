@@ -53,6 +53,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -588,7 +589,8 @@ internal fun LookEditorPanel(
 
 /**
  * The one caption style in the deck, so the LUT row's label and the section
- * titles cannot drift apart as the panel is edited.
+ * titles cannot drift apart as the panel is edited. Tracking matches the
+ * settings section headers: one small-caps label system app-wide.
  */
 @Composable
 private fun CaptionText(text: String, modifier: Modifier = Modifier) {
@@ -597,7 +599,7 @@ private fun CaptionText(text: String, modifier: Modifier = Modifier) {
         color = Color.White.copy(alpha = 0.5f),
         fontSize = 12.sp,
         fontWeight = FontWeight.Bold,
-        letterSpacing = 0.8.sp,
+        letterSpacing = 1.2.sp,
         maxLines = 1,
         modifier = modifier
     )
@@ -760,7 +762,10 @@ private fun LookSliderRow(
                 text = formatLookValue(value),
                 color = Color.White,
                 fontSize = 13.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                // Tabular: the value ticks through narrow/wide digits on
+                // every drag, and proportional figures make the row jitter.
+                fontFamily = FontFamily.Monospace
             )
         }
         Row(

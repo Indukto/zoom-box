@@ -538,10 +538,13 @@ private fun BoxScope.ZoomBoxOverlay(
             }
         }
 
-        // Focal-length label (spec `focal-length-label`: Inter 700 14px
-        // white, 30dp above the zoom box). The anchor keeps the number
-        // hugging the ZOOM BOX itself in the VIEWER'S frame at any device
-        // angle — see [focalLabelAnchor] for the geometry.
+        // Focal-length label (spec `focal-length-label`: 14px Bold white,
+        // 30dp above the zoom box). Monospace, not the Inter the spec names:
+        // the number changes with every zoom tick and proportional digits
+        // jitter as they swap width — tabular figures keep it pinned.
+        // The anchor keeps the number hugging the ZOOM BOX itself in the
+        // VIEWER'S frame at any device angle — see [focalLabelAnchor] for
+        // the geometry.
         var labelHeightPx by remember { mutableIntStateOf(0) }
         val labelHalfHeight = with(density) { (labelHeightPx / 2).toDp() }
         val labelAnchor = focalLabelAnchor(
@@ -561,7 +564,7 @@ private fun BoxScope.ZoomBoxOverlay(
             color = Color.White,
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
-            fontFamily = Inter,
+            fontFamily = FontFamily.Monospace,
             textAlign = TextAlign.Center,
             modifier = Modifier
                 // Centre-anchored (not TopCenter) so one offset can express
@@ -1033,7 +1036,9 @@ internal fun ExposurePanel(
                     color = Color.White,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    fontFamily = Inter
+                    // Tabular so the readout doesn't breathe as the value
+                    // slides through narrow/wide digits on every drag tick.
+                    fontFamily = FontFamily.Monospace
                 )
                 headerActions()
             }
@@ -1178,6 +1183,9 @@ private enum class MorphMode { BUBBLE, COLOR, EXPOSURE }
  * 300 dp slot) wrapped around both expanded panels. Keeping both panels
  * inside the same wrapper makes their visual weight match exactly so the
  * morph between them stays symmetric.
+ *
+ * 20 dp joins the one radius scale in the app: 28 dp sheets, 20 dp cards
+ * (settings cards, zoom-box outline), 14 dp deck tiles, full pills.
  */
 @Composable
 internal fun MorphedPanelChrome(
@@ -1186,9 +1194,9 @@ internal fun MorphedPanelChrome(
 ) {
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(18.dp))
+            .clip(RoundedCornerShape(20.dp))
             .hazeEffect(state = hazeState, style = PanelHazeStyle)
-            .liquidGlassRim(cornerRadius = 18.dp, fallbackBorder = PanelGlassRim)
+            .liquidGlassRim(cornerRadius = 20.dp, fallbackBorder = PanelGlassRim)
             .padding(horizontal = 18.dp, vertical = 14.dp)
             .width(300.dp)
     ) {
@@ -1361,7 +1369,9 @@ private fun FloatingBubbleRow(
                 color = if (exposure != 0f) Color(0xFFFBBF24) else Color.White,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
-                fontFamily = Inter,
+                // Tabular with the focal pill beside it: both numbers sit in
+                // one row, so both use one numeral face or the row shimmers.
+                fontFamily = FontFamily.Monospace,
                 modifier = Modifier.rotate(controlAngle)
             )
         }
@@ -2456,7 +2466,9 @@ fun CameraActiveScreen(
                     color = Color(0xFFFBBF24),
                     fontSize = 80.sp,
                     fontWeight = FontWeight.Bold,
-                    fontFamily = Inter
+                    // Tabular at display size: proportional 3/2/1 swap width
+                    // and the whole countdown visibly jitters each second.
+                    fontFamily = FontFamily.Monospace
                 )
             }
         }
@@ -2868,12 +2880,16 @@ fun CameraActiveScreen(
 
         // Bottom-deck Column anchored to the bottom of the screen, full width,
         // opaque black background + 40 dp bottom padding for the gesture area.
+        // navigationBarsPadding comes first so the deck clears the 3-button
+        // bar and the gesture pill on edge-to-edge devices (API 35+ enforces
+        // edge-to-edge); it is a no-op where insets are zero.
         // Spec `bottom-deck`: top 72.77%; `deck-surface` top 78.4% (both black).
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .background(Color.Black)
+                .navigationBarsPadding()
                 .padding(bottom = 40.dp, top = 0.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(0.dp)
@@ -3275,6 +3291,7 @@ internal fun FilmLooksPickerSheet(
             color = Color.White,
             fontWeight = FontWeight.Bold,
             fontSize = 18.sp,
+            letterSpacing = (-0.5).sp,
             modifier = Modifier.padding(bottom = 2.dp)
         )
         Text(

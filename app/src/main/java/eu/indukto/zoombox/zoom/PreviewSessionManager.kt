@@ -132,11 +132,12 @@ class PreviewSessionManager(
     private var currentImageCapture: ImageCapture? = null
     private var currentLogicalCameraId: String? = null
     /**
-     * Physical camera IDs whose bind exhausted every retry this process
-     * lifetime (e.g. an auxiliary lens the HAL won't stream). Later taps
-     * route straight to the logical camera instead of failing visibly again.
-     * Same main-thread-only contract as the fields above; cleared never
-     * (a HAL that fails once won't heal without a process restart).
+     * Physical camera IDs whose bind exhausted every retry (e.g. an auxiliary
+     * lens the HAL won't stream). Later taps route straight to the logical
+     * camera instead of failing visibly again. A later successful bind of
+     * that lens, or a full [release] handoff, clears the entry again, so a
+     * transient HAL error is not a permanent blacklist.
+     * Same main-thread-only contract as the fields above.
      */
     private val unhealthyPhysicalIds = mutableSetOf<String>()
     /**
@@ -178,6 +179,10 @@ class PreviewSessionManager(
         currentImageCapture = null
         currentLogicalCameraId = null
         currentIsFrontCamera = null
+        // A fresh ownership handoff (e.g. returning from RAW capture) is a
+        // new chance for previously-failing lenses: a transient HAL error
+        // must not blacklist a lens for the rest of the process.
+        unhealthyPhysicalIds.clear()
     }
 
     /**
@@ -335,6 +340,9 @@ class PreviewSessionManager(
                 currentPreview = preview
                 currentImageCapture = newImageCapture
                 currentLogicalCameraId = logicalCameraId
+                // A lens that binds heals: drop a previous transient
+                // blacklist entry so one HAL hiccup is not permanent.
+                unhealthyPhysicalIds.remove(physicalCameraId)
                 // bindPreview always targets a back-facing logical camera via
                 // its specific id. currentIsFrontCamera is left untouched
                 // here because recoverySelector() short-circuits on the

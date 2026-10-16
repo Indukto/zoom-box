@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.displayCutoutPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -66,6 +67,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import eu.indukto.zoombox.ui.theme.FilmDarkColorScheme
 import eu.indukto.zoombox.zoom.AspectRatio
 import eu.indukto.zoombox.zoom.CaptureExtension
@@ -219,10 +221,12 @@ private fun SettingsContent(
             }
 
             // ── Scrollable body ─────────────────────────────────────────────
+            // navigationBarsPadding keeps the last card clear of the system
+            // bar on edge-to-edge devices; no-op where insets are zero.
             LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                modifier = Modifier.fillMaxSize().navigationBarsPadding(),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // ── CAPTURE ───────────────────────────────────────────────
                 item {
@@ -546,7 +550,8 @@ private fun SettingsNavRow(
 
 /**
  * Material You section header: small primary-colored label, the same pattern
- * system settings use to group related rows.
+ * system settings use to group related rows. Positive tracking keeps the
+ * all-caps strings reading as intentional small-caps labels, not shouting.
  */
 @Composable
 private fun SectionHeader(text: String) {
@@ -554,6 +559,9 @@ private fun SectionHeader(text: String) {
         text = text,
         style = MaterialTheme.typography.labelLarge,
         color = MaterialTheme.colorScheme.primary,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 1.2.sp,
+        fontSize = 12.sp,
         modifier = Modifier.padding(start = 4.dp, top = 20.dp, bottom = 8.dp)
     )
 }
@@ -574,7 +582,7 @@ private fun SettingsCard(content: @Composable () -> Unit) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 6.dp),
+                .padding(vertical = 8.dp),
             content = { content() }
         )
     }

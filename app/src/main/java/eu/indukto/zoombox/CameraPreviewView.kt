@@ -90,8 +90,8 @@ fun captureWithCamera2(
     onError: (Exception) -> Unit
 ) {
     val directory = context.getExternalFilesDir(android.os.Environment.DIRECTORY_PICTURES) ?: context.cacheDir
-    val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-    val photoFile = File(directory, "RETRO_IMG_${timeStamp}_${targetFocalLength}mm.jpg")
+    val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US).format(Date())
+    val photoFile = uniqueCaptureFile(directory, "RETRO_IMG_${timeStamp}_${targetFocalLength}mm", ".jpg")
 
     val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
     val cameraThread = HandlerThread("Camera2Capture").apply { start() }
@@ -538,19 +538,12 @@ fun CameraPreviewView(
         }
     }
 
-    LaunchedEffect(exposure, camera) {
-        camera?.let { c ->
-            val es = c.cameraInfo.exposureState
-            if (es.isExposureCompensationSupported) {
-                val min = es.exposureCompensationRange.lower
-                val max = es.exposureCompensationRange.upper
-                val ratio = (exposure + 3f) / 6f
-                val index = (min + ratio * (max - min)).toInt().coerceIn(min, max)
-                try { c.cameraControl.setExposureCompensationIndex(index) }
-                catch (e: Exception) { Log.e("CameraPreviewView", "Error adjusting exposure", e) }
-            }
-        }
-    }
+    // Exposure is software-only: the slider grades through RetroRenderParams
+    // (preview shader + CPU/GPU capture all read the same snapshot), never
+    // through hardware AE compensation. Driving both stacked the labeled EV
+    // twice on capture (once baked into the frame, once in applyRetroFilter)
+    // and behaved differently per device — unsupported lenses and the RAW
+    // Camera2 path only ever applied it once.
 
     LaunchedEffect(flashMode, camera) {
         // Still-photo flash only: never leave the torch (continuous LED) on.
@@ -787,8 +780,8 @@ fun triggerImageCapture(
     onCaptureError: (ImageCaptureException) -> Unit
 ) {
     val directory = context.getExternalFilesDir(android.os.Environment.DIRECTORY_PICTURES) ?: context.cacheDir
-    val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-    val photoFile = File(directory, "RETRO_IMG_$timeStamp.jpg")
+    val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US).format(Date())
+    val photoFile = uniqueCaptureFile(directory, "RETRO_IMG_$timeStamp", ".jpg")
     // The ImageCapture's target rotation was set at bind time (possibly long
     // ago), so refresh it to the CURRENT physical rotation right before
     // capturing. The rotation comes from an OrientationEventListener (the
@@ -804,6 +797,20 @@ fun triggerImageCapture(
             override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) { onCaptured(photoFile) }
             override fun onError(exception: ImageCaptureException) { onCaptureError(exception) }
         })
+}
+
+/**
+ * First free `<stem>[ _n].suffix` in [directory]. Millis timestamps still
+ * collide on rapid double-taps; the suffix loop makes overwrites impossible.
+ */
+private fun uniqueCaptureFile(directory: File, stem: String, suffix: String): File {
+    var candidate = File(directory, stem + suffix)
+    var n = 2
+    while (candidate.exists()) {
+        candidate = File(directory, stem + "_$n$suffix")
+        n++
+    }
+    return candidate
 }
 
 /**

@@ -59,6 +59,7 @@ class UserLookStore(private val dir: File) : UserLookSource {
      * catalog and the persisted selection address it by.
      */
     override fun load(): List<CameraProfile> {
+        sweepTempFiles()
         val files = dir.listFiles { file -> isLookFile(file) } ?: return emptyList()
         return files.sortedBy { it.name }.mapNotNull { file ->
             val id = file.name.removeSuffix(JSON_SUFFIX)
@@ -71,6 +72,7 @@ class UserLookStore(private val dir: File) : UserLookSource {
 
     /** Ids present on disk, without parsing their contents. */
     fun ids(): Set<String> {
+        sweepTempFiles()
         val files = dir.listFiles { file -> isLookFile(file) } ?: return emptySet()
         return files.mapTo(mutableSetOf()) { it.name.removeSuffix(JSON_SUFFIX) }
     }
@@ -117,6 +119,20 @@ class UserLookStore(private val dir: File) : UserLookSource {
         file.isFile && file.name.endsWith(JSON_SUFFIX)
 
     /**
+     * Drops crashed-save leftovers (`<id>.json.tmp`). A kill between the
+     * temp write and the atomic move leaves one behind; it is never a
+     * look, so remove it lazily on the next read instead of accumulating.
+     */
+    private fun sweepTempFiles() {
+        val temps = dir.listFiles { file ->
+            file.isFile && file.name.endsWith("$JSON_SUFFIX.tmp")
+        } ?: return
+        for (temp in temps) {
+            runCatching { temp.delete() }
+        }
+    }
+
+    /**
      * POSIX `rename` semantics (Android): atomic, replaces the target. Some
      * filesystems refuse `ATOMIC_MOVE`, and a plain JVM on Windows has no
      * atomic replace at all — fall back to the non-atomic move there so unit
@@ -131,6 +147,8 @@ class UserLookStore(private val dir: File) : UserLookSource {
                 StandardCopyOption.ATOMIC_MOVE
             )
         } catch (_: AtomicMoveNotSupportedException) {
+            Files.move(temp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        } catch (_: UnsupportedOperationException) {
             Files.move(temp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
         }
     }

@@ -15,6 +15,7 @@ import eu.indukto.zoombox.zoom.CaptureExtension
 import eu.indukto.zoombox.zoom.LensRole
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.util.Locale
 
 private val Context.settingsDataStore by preferencesDataStore("camera_settings")
 
@@ -80,7 +81,9 @@ class UserPreferencesRepository(private val context: Context) {
             // Legacy installs stored the enum name. Exact match first so a
             // future enum/asset id collision can't be resolved the wrong way.
             FilmPreset.entries.firstOrNull { it.name == raw }?.let { return it.profileId }
-            return raw.lowercase()
+            // Locale-explicit so a Turkish default locale can never turn
+            // `I` into `ı` and lose the persisted selection.
+            return raw.lowercase(Locale.ROOT)
         }
 
         private val RAW_MODE = booleanPreferencesKey("raw_mode")

@@ -765,6 +765,14 @@ suspend fun Bitmap.applyRetroFilter(
             buffers.pixels = IntArray(0)
             buffers.rowDistanceSquared = FloatArray(0)
         }
+        // The blur snapshot is the same order of magnitude as `pixels`
+        // (one Int per pixel), so it gets the same cap. Without this a
+        // single FULL-resolution soft-focus capture pins ~48 MB per
+        // dispatcher thread forever.
+        val snapshot = buffers.softFocusSnapshot
+        if (snapshot != null && snapshot.size > MAX_RETAINED_FILTER_PIXELS) {
+            buffers.softFocusSnapshot = null
+        }
     }
 }
 

@@ -339,7 +339,9 @@ class PhotoStore(private val context: Context) {
         val collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         val projection = arrayOf(
             MediaStore.Images.Media._ID,
-            @Suppress("DEPRECATION") MediaStore.Images.Media.DATA
+            @Suppress("DEPRECATION") MediaStore.Images.Media.DATA,
+            MediaStore.Images.Media.DISPLAY_NAME,
+            MediaStore.Images.Media.RELATIVE_PATH
         )
         // IS_PENDING = 0 keeps in-flight writes out of the gallery.
         // MIME_TYPE filter narrows to JPEG/DNG so we don't accidentally pick up
@@ -372,20 +374,55 @@ class PhotoStore(private val context: Context) {
             resolver.query(collection, projection, selection, args, sortOrder)?.use { cursor ->
                 @Suppress("DEPRECATION")
                 val dataIdx = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA)
+                val nameIdx = cursor.getColumnIndex(MediaStore.Images.Media.DISPLAY_NAME)
+                val relativeIdx = cursor.getColumnIndex(MediaStore.Images.Media.RELATIVE_PATH)
                 val result = mutableListOf<File>()
                 while (cursor.moveToNext()) {
                     @Suppress("DEPRECATION")
                     val dataPath = cursor.getString(dataIdx)
-                    if (dataPath.isNullOrBlank()) continue
-                    val f = File(dataPath)
-                    // Skip rows whose on-disk file is gone — MediaStore rows
-                    // can outlive the actual file during a half-completed delete;
-                    // listing them in the gallery would dereference to nothing.
-                    if (f.exists()) result.add(f)
+                    if (!dataPath.isNullOrBlank()) {
+                        val f = File(dataPath)
+                        // Skip rows whose on-disk file is gone — MediaStore rows
+                        // can outlive the actual file during a half-completed delete;
+                        // listing them in the gallery would dereference to nothing.
+                        if (f.exists()) result.add(f)
+                        continue
+                    }
+                    // Scoped-storage fallback: DATA is deprecated and may come
+                    // back null even for our own rows. Rebuild the public path
+                    // from RELATIVE_PATH + DISPLAY_NAME so those rows still
+                    // resolve to the canonical reinstall-surviving file.
+                    val fallback = publicFileFallback(
+                        cursor.getString(nameIdx),
+                        if (relativeIdx >= 0) cursor.getString(relativeIdx) else null
+                    )
+                    if (fallback != null && fallback.exists()) result.add(fallback)
                 }
                 result
             } ?: emptyList()
         }.getOrDefault(emptyList())
+    }
+
+    /**
+     * Rebuilds `/sdcard/<RELATIVE_PATH>/<DISPLAY_NAME>` when the deprecated
+     * DATA column is null. Returns null when either column is missing or the
+     * name tries to escape the folder.
+     */
+    private fun publicFileFallback(displayName: String?, relativePath: String?): File? {
+        if (displayName.isNullOrBlank()) return null
+        if (displayName.contains('/') || displayName.contains('\\')) return null
+        if (relativePath.isNullOrBlank()) return null
+        return try {
+            @Suppress("DEPRECATION")
+            val pictures = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
+            // RELATIVE_PATH is like `Pictures/ZoomBoxCamera/RAW/`; strip the
+            // leading `Pictures/` segment and resolve under the public dir.
+            val stripped = relativePath.trim().trim('/').removePrefix(Environment.DIRECTORY_PICTURES).trim('/')
+            val base = if (stripped.isEmpty()) pictures else File(pictures, stripped)
+            File(base, displayName)
+        } catch (_: Exception) {
+            null
+        }
     }
 
     /**

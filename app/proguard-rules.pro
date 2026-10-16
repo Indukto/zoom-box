@@ -5,13 +5,12 @@
 -keepattributes InnerClasses
 -keepattributes EnclosingMethod
 
-# Keep Compose — narrow: allow obfuscation but keep classes
--keep,allowobfuscation class androidx.compose.** { *; }
--dontwarn androidx.compose.**
-
-# Keep CameraX — narrow: allow obfuscation
--keep,allowobfuscation class androidx.camera.** { *; }
--dontwarn androidx.camera.**
+# Compose, CameraX and the other Jetpack libraries ship their own consumer
+# ProGuard rules via AAR metadata. No broad -keep for androidx.* here: a single
+# `-keep class androidx.compose.**` / `androidx.camera.**` pins megabytes of
+# reachable DEX and drives Play's DEX-Codeoptimierung (Shrinking/Optimierung)
+# under the 25 % threshold. R8 strips, optimizes and obfuscates everything
+# not otherwise kept.
 
 # Keep Kotlin coroutines internals
 -keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
@@ -21,19 +20,18 @@
 }
 
 # Keep app data classes — Robolectric reflection + DataStore serialisation targets.
-# Removing any of these can break test reflection or runtime deserialisation.
--keep class eu.indukto.zoombox.zoom.LensProfile { *; }
--keep class eu.indukto.zoombox.zoom.LensRole { *; }
--keep class eu.indukto.zoombox.zoom.CaptureExtension { *; }
--keep class eu.indukto.zoombox.zoom.BindResult { *; }
--keep class eu.indukto.zoombox.zoom.AspectRatio { *; }
--keep class eu.indukto.zoombox.ExifData { *; }
--keep class eu.indukto.zoombox.FilmPreset { *; }
--keep class eu.indukto.zoombox.color.CubeLut { *; }
--keep class eu.indukto.zoombox.zoom.LensCatalog$CatalogResult { *; }
-
-# Keep Compose runtime (reflection-heavy)
--keep class androidx.compose.runtime.** { *; }
+# allowobfuscation so R8 may still rename/obfuscate while keeping the members
+# reachable for org.json / DataStore reflection. A plain -keep pins the names
+# and lowers the Play obfuscation factor for no runtime gain.
+-keep,allowobfuscation class eu.indukto.zoombox.zoom.LensProfile { *; }
+-keep,allowobfuscation class eu.indukto.zoombox.zoom.LensRole { *; }
+-keep,allowobfuscation class eu.indukto.zoombox.zoom.CaptureExtension { *; }
+-keep,allowobfuscation class eu.indukto.zoombox.zoom.BindResult { *; }
+-keep,allowobfuscation class eu.indukto.zoombox.zoom.AspectRatio { *; }
+-keep,allowobfuscation class eu.indukto.zoombox.ExifData { *; }
+-keep,allowobfuscation class eu.indukto.zoombox.FilmPreset { *; }
+-keep,allowobfuscation class eu.indukto.zoombox.color.CubeLut { *; }
+-keep,allowobfuscation class eu.indukto.zoombox.zoom.LensCatalog$CatalogResult { *; }
 
 # Keep enums
 -keepclassmembers enum * {
