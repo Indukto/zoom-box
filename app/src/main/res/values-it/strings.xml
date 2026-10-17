@@ -208,4 +208,9 @@
     <string name="look_slider_light_leak">Infiltrazione di luce</string>
     <string name="look_slider_decrease_desc">Riduci %1$s</string>
     <string name="look_slider_increase_desc">Aumenta %1$s</string>
+
+    <!-- Segnalazione di bug: copia dispositivo, fotocamera e impostazioni in Markdown per le issue su GitHub. -->
+    <string name="bug_report_label">Copia segnalazione di bug</string>
+    <string name="bug_report_subtitle">Dispositivo, fotocamera e impostazioni per le issue su GitHub</string>
+    <string name="bug_report_copied">Segnalazione di bug copiata: incollala nella tua issue su GitHub</string>
 </resources>

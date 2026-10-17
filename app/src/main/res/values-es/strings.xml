@@ -208,4 +208,9 @@
     <string name="look_slider_light_leak">Fuga de luz</string>
     <string name="look_slider_decrease_desc">Disminuir %1$s</string>
     <string name="look_slider_increase_desc">Aumentar %1$s</string>
+
+    <!-- Informe de errores: copia dispositivo, cámara y ajustes en Markdown para incidencias de GitHub. -->
+    <string name="bug_report_label">Copiar informe de errores</string>
+    <string name="bug_report_subtitle">Dispositivo, cámara y ajustes para incidencias de GitHub</string>
+    <string name="bug_report_copied">Informe de errores copiado: pégalo en tu incidencia de GitHub</string>
 </resources>

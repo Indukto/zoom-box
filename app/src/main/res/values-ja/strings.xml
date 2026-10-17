@@ -208,4 +208,9 @@
     <string name="look_slider_light_leak">光漏れ</string>
     <string name="look_slider_decrease_desc">%1$sを下げる</string>
     <string name="look_slider_increase_desc">%1$sを上げる</string>
+
+    <!-- バグレポート: 端末・カメラ・設定情報を Markdown で GitHub Issue 用にコピーします。 -->
+    <string name="bug_report_label">バグレポートをコピー</string>
+    <string name="bug_report_subtitle">GitHub の Issue 用の端末・カメラ・設定情報</string>
+    <string name="bug_report_copied">バグレポートをコピーしました — GitHub の Issue に貼り付けてください</string>
 </resources>

@@ -208,4 +208,9 @@
     <string name="look_slider_light_leak">Vazamento de luz</string>
     <string name="look_slider_decrease_desc">Diminuir %1$s</string>
     <string name="look_slider_increase_desc">Aumentar %1$s</string>
+
+    <!-- Relatório de erros: copia dispositivo, câmera e configurações em Markdown para issues do GitHub. -->
+    <string name="bug_report_label">Copiar relatório de erros</string>
+    <string name="bug_report_subtitle">Dispositivo, câmera e configurações para issues do GitHub</string>
+    <string name="bug_report_copied">Relatório de erros copiado — cole no seu issue do GitHub</string>
 </resources>

@@ -208,4 +208,9 @@
     <string name="look_slider_light_leak">빛샘</string>
     <string name="look_slider_decrease_desc">%1$s 낮추기</string>
     <string name="look_slider_increase_desc">%1$s 높이기</string>
+
+    <!-- 버그 보고서: 기기, 카메라 및 설정을 Markdown로 GitHub 이슈용에 복사합니다. -->
+    <string name="bug_report_label">버그 보고서 복사</string>
+    <string name="bug_report_subtitle">GitHub 이슈용 기기, 카메라 및 설정</string>
+    <string name="bug_report_copied">버그 보고서를 복사했습니다 — GitHub 이슈에 붙여넣으세요</string>
 </resources>

@@ -208,4 +208,9 @@
     <string name="look_slider_light_leak">प्रकाश रिसाव</string>
     <string name="look_slider_decrease_desc">%1$s घटाएं</string>
     <string name="look_slider_increase_desc">%1$s बढ़ाएं</string>
+
+    <!-- बग रिपोर्ट: GitHub issues के लिए डिवाइस, कैमरा और सेटिंग्स को Markdown में कॉपी करता है। -->
+    <string name="bug_report_label">बग रिपोर्ट कॉपी करें</string>
+    <string name="bug_report_subtitle">GitHub issues के लिए डिवाइस, कैमरा और सेटिंग्स</string>
+    <string name="bug_report_copied">बग रिपोर्ट कॉपी हो गई — इसे अपने GitHub issue में चिपकाएँ</string>
 </resources>

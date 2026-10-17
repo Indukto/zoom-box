@@ -74,6 +74,7 @@
     <string name="delete_captured_photo_desc">Delete captured photo</string>
     <string name="enlarged_capture_desc">Enlarged capture</string>
     <string name="filmstrip_photo_desc">Filmstrip photo</string>
+    <string name="capture_not_ready">Camera isn\'t ready yet — try again in a moment</string>
 
     <!-- Settings -->
     <string name="close_settings_desc">Close settings</string>
@@ -107,6 +108,8 @@
     <string name="viewfinder_section">VIEWFINDER</string>
     <string name="grid_lines_label">Grid lines</string>
     <string name="grid_lines_subtitle">Rule-of-thirds overlay while framing</string>
+    <string name="backdrop_blur_label">Backdrop blur</string>
+    <string name="backdrop_blur_subtitle">Frosted glass behind the bubble and panels</string>
     <string name="self_timer_label">Self timer</string>
     <string name="self_timer_off">Off</string>
     <string name="self_timer_desc_off">Shutter fires instantly.</string>

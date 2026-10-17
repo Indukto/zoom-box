@@ -208,4 +208,9 @@
     <string name="look_slider_light_leak">Průnik světla</string>
     <string name="look_slider_decrease_desc">Snížit %1$s</string>
     <string name="look_slider_increase_desc">Zvýšit %1$s</string>
+
+    <!-- Hlášení chyby: kopíruje zařízení, fotoaparát a nastavení jako Markdown pro issue na GitHubu. -->
+    <string name="bug_report_label">Kopírovat hlášení chyby</string>
+    <string name="bug_report_subtitle">Zařízení, fotoaparát a nastavení pro issue na GitHubu</string>
+    <string name="bug_report_copied">Hlášení chyby zkopírováno — vložte ho do issue na GitHubu</string>
 </resources>

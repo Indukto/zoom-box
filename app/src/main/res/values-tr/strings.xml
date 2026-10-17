@@ -208,4 +208,9 @@
     <string name="look_slider_light_leak">Işık sızıntısı</string>
     <string name="look_slider_decrease_desc">%1$s öğesini azalt</string>
     <string name="look_slider_increase_desc">%1$s öğesini artır</string>
+
+    <!-- Hata raporu: cihazı, kamerayı ve ayarları GitHub sorunları için Markdown olarak kopyalar. -->
+    <string name="bug_report_label">Hata raporunu kopyala</string>
+    <string name="bug_report_subtitle">GitHub sorunları için cihaz, kamera ve ayarlar</string>
+    <string name="bug_report_copied">Hata raporu kopyalandı — GitHub sorununuza yapıştırın</string>
 </resources>

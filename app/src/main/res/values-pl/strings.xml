@@ -208,4 +208,9 @@
     <string name="look_slider_light_leak">Przeciek światła</string>
     <string name="look_slider_decrease_desc">Zmniejsz %1$s</string>
     <string name="look_slider_increase_desc">Zwiększ %1$s</string>
+
+    <!-- Raport błędu: kopiuje urządzenie, aparat i ustawienia jako Markdown do zgłoszeń w GitHubie. -->
+    <string name="bug_report_label">Kopiuj raport błędu</string>
+    <string name="bug_report_subtitle">Urządzenie, aparat i ustawienia do zgłoszeń w GitHubie</string>
+    <string name="bug_report_copied">Raport błędu skopiowany — wklej go do swojego zgłoszenia na GitHubie</string>
 </resources>

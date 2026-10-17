@@ -216,4 +216,9 @@
     <string name="look_slider_light_leak">Fuite de lumière</string>
     <string name="look_slider_decrease_desc">Diminuer %1$s</string>
     <string name="look_slider_increase_desc">Augmenter %1$s</string>
+
+    <!-- Rapport de bug : copie appareil, caméra et paramètres en Markdown pour les tickets GitHub. -->
+    <string name="bug_report_label">Copier le rapport de bug</string>
+    <string name="bug_report_subtitle">Appareil, caméra et paramètres pour les tickets GitHub</string>
+    <string name="bug_report_copied">Rapport de bug copié — collez-le dans votre ticket GitHub</string>
 </resources>
