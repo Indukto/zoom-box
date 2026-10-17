@@ -258,7 +258,17 @@ fun CameraPreviewView(
     // The caller decides this from the registry (`CameraProfileRegistry
     // .isPassThrough`), so a JSON-only look routes the same way an enum one
     // does.
-    val lutPreviewView = remember { LutPreviewView(context) }
+    // Bumped by LutPreviewView when it rebuilds its EGL chain after a dead
+    // context. Part of the bind effect's keys below so the recovery re-runs
+    // the proven unbindAll → bindToLifecycle path: a rebuilt GL chain mints a
+    // fresh camera SurfaceTexture, and the rebind is what makes CameraX wrap
+    // it — without the rebind the viewfinder would stay black forever.
+    val glRecoveryTick = remember { mutableStateOf(0) }
+    val lutPreviewView = remember {
+        LutPreviewView(context).apply {
+            onContextLost = { glRecoveryTick.value = glRecoveryTick.value + 1 }
+        }
+    }
     val normalPreviewView = remember {
         PreviewView(context).apply {
             // Force TextureView rather than PreviewView's default SurfaceView.
@@ -439,7 +449,8 @@ fun CameraPreviewView(
         previewPaused,
         useFilteredPreview,
         catalogHolder.value,
-        resumeRebindTick
+        resumeRebindTick,
+        glRecoveryTick.value
     ) {
         // Never block the main thread on the provider future: at cold start
         // CameraX init (camera-service queries, disk I/O) can take hundreds
@@ -646,8 +657,20 @@ fun CameraPreviewView(
             modifier = modifier.fillMaxSize().pointerInput(zoomEnabled) {
             val heightPx = size.height.toFloat().coerceAtLeast(1f)
             awaitEachGesture {
-                if (!currentZoomEnabled) return@awaitEachGesture
+                // Await the down BEFORE the zoomEnabled check — this body must
+                // never return without having suspended. awaitEachGesture
+                // calls awaitAllPointersUp() after the body returns, and that
+                // is a no-op when no finger is down (foundation 1.11.4
+                // ForEachGesture.kt), so a body returning before awaiting
+                // anything loops with zero suspension: the UI thread spins in
+                // place, the app freezes and the ANR watchdog kills it. That
+                // is the freeze/crash on non-primary lenses, where zoomEnabled
+                // stays false (digital zoom is primary-only) and this body
+                // used to bail before awaitFirstDown. With the down awaited
+                // first, the early return below is safe: the post-body
+                // awaitAllPointersUp() then drains exactly this gesture.
                 awaitFirstDown(requireUnconsumed = false)
+                if (!currentZoomEnabled) return@awaitEachGesture
                 // Seed from the current VM value so the gesture doesn't jump
                 var runningZoom = currentDigitalZoom
                 var lastTick = tickIndexOf(ZoomBoxCalculator.clampZoom(runningZoom))

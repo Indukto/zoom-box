@@ -74,12 +74,21 @@ class GpuCaptureProcessor {
             glThread.submit(Callable<Bitmap?> {
                 if (!ensureContext()) return@Callable null
                 if (!ensureSurface(w, h)) return@Callable null
-                val d = display!!
-                val s = surface!!
-                val c = context!!
-                if (!EGL14.eglMakeCurrent(d, s, s, c)) {
-                    Log.e(TAG, "eglMakeCurrent failed")
-                    return@Callable null
+                if (!EGL14.eglMakeCurrent(display!!, surface!!, surface!!, context!!)) {
+                    // Cached EGL handles can outlive their validity: a GPU
+                    // reset, or another component terminating the shared
+                    // default display, leaves them dangling but non-null —
+                    // ensureContext() then keeps "succeeding" forever and
+                    // every capture fails (or renders into a zombie context
+                    // that reads back black). Drop the dead objects and
+                    // rebuild once before deferring to the CPU filter.
+                    Log.w(TAG, "eglMakeCurrent failed; rebuilding EGL context once")
+                    invalidateContext()
+                    if (!ensureContext() || !ensureSurface(w, h)) return@Callable null
+                    if (!EGL14.eglMakeCurrent(display!!, surface!!, surface!!, context!!)) {
+                        Log.e(TAG, "eglMakeCurrent failed after rebuild")
+                        return@Callable null
+                    }
                 }
                 render(source, params, lut, grainSeed)
             }).get()
@@ -172,26 +181,36 @@ class GpuCaptureProcessor {
     }
 
     /**
+     * Destroys our context + surface and forgets the display handle. GL-thread
+     * only. Deliberately never calls eglTerminate: the default display is
+     * process-global and shared with the live preview renderer
+     * (LutPreviewView), and on non-refcounted drivers eglTerminate tears down
+     * EVERY context on the display — killing the viewfinder along with it.
+     */
+    private fun invalidateContext() {
+        destroySurface()
+        val d = display
+        val c = context
+        if (d != null && c != null) {
+            try {
+                EGL14.eglMakeCurrent(d, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_CONTEXT)
+                EGL14.eglDestroyContext(d, c)
+            } catch (_: Exception) {
+                // Best-effort teardown; a leaked context is preferable to a crash.
+            }
+        }
+        display = null
+        config = null
+        context = null
+    }
+
+    /**
      * Releases the GL thread and shared EGL resources. Idempotent; safe to
      * call after a final [process]. Any capture in flight is drained first.
      */
     fun release() {
         try {
-            glThread.submit {
-                destroySurface()
-                val d = display ?: return@submit
-                val c = context ?: return@submit
-                try {
-                    EGL14.eglMakeCurrent(d, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_CONTEXT)
-                    EGL14.eglDestroyContext(d, c)
-                    EGL14.eglTerminate(d)
-                } catch (_: Exception) {
-                    // Best-effort teardown; never mask an in-flight result.
-                }
-                display = null
-                config = null
-                context = null
-            }
+            glThread.submit { invalidateContext() }
             glThread.shutdown()
         } catch (_: Exception) {
             // Executor already shut down or rejected; nothing left to do.
@@ -249,14 +268,27 @@ class GpuCaptureProcessor {
         source.getPixels(srcPixels, 0, w, 0, 0, w, h)
         val rgba = ByteBuffer.allocateDirect(pixelCount * 4).order(ByteOrder.nativeOrder())
         val rgbaArr = ByteArray(pixelCount * 4)
+        // Source flatness for the silent-failure guard below: a genuinely flat
+        // input (lens covered) is allowed to grade to a flat output.
+        var srcMin = 255
+        var srcMax = 0
         var q = 0
         while (q < pixelCount) {
             val p = srcPixels[q]
             val o = q * 4
-            rgbaArr[o]     = ((p shr 16) and 0xFF).toByte() // R
-            rgbaArr[o + 1] = ((p shr 8) and 0xFF).toByte()  // G
-            rgbaArr[o + 2] = (p and 0xFF).toByte()          // B
+            val sr = (p shr 16) and 0xFF
+            val sg = (p shr 8) and 0xFF
+            val sb = p and 0xFF
+            rgbaArr[o]     = sr.toByte() // R
+            rgbaArr[o + 1] = sg.toByte() // G
+            rgbaArr[o + 2] = sb.toByte() // B
             rgbaArr[o + 3] = (p ushr 24).toByte()           // A (sign-safe)
+            if (sr < srcMin) srcMin = sr
+            if (sg < srcMin) srcMin = sg
+            if (sb < srcMin) srcMin = sb
+            if (sr > srcMax) srcMax = sr
+            if (sg > srcMax) srcMax = sg
+            if (sb > srcMax) srcMax = sb
             q++
         }
         rgba.put(rgbaArr)
@@ -361,20 +393,49 @@ class GpuCaptureProcessor {
         readback.get(bytes)
 
         val out = IntArray(w * h)
+        var outMin = 255
+        var outMax = 0
         for (i in 0 until w * h) {
             val r = bytes[i * 4].toInt() and 0xFF
             val g = bytes[i * 4 + 1].toInt() and 0xFF
             val b = bytes[i * 4 + 2].toInt() and 0xFF
             out[i] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
+            if (r < outMin) outMin = r
+            if (g < outMin) outMin = g
+            if (b < outMin) outMin = b
+            if (r > outMax) outMax = r
+            if (g > outMax) outMax = g
+            if (b > outMax) outMax = b
         }
 
         // Cleanup per-capture GL resources (the EGL display/context/surface
         // are kept and reused by [process] / [ensureSurface]).
-        GLES20.glDeleteFramebuffers(1, fbo, 0)
-        GLES20.glDeleteTextures(1, outputTex, 0)
-        GLES20.glDeleteTextures(1, inputTex, 0)
-        if (lutTexture != 0) GLES20.glDeleteTextures(1, intArrayOf(lutTexture), 0)
-        GLES20.glDeleteProgram(program)
+        fun cleanupCaptureGl() {
+            GLES20.glDeleteFramebuffers(1, fbo, 0)
+            GLES20.glDeleteTextures(1, outputTex, 0)
+            GLES20.glDeleteTextures(1, inputTex, 0)
+            if (lutTexture != 0) GLES20.glDeleteTextures(1, intArrayOf(lutTexture), 0)
+            GLES20.glDeleteProgram(program)
+        }
+
+        // ── Silent-failure guard ──
+        // A driver that lost the context or dropped the draw does not have to
+        // raise a GL error: glReadPixels can simply hand back zeros, which
+        // used to be encoded straight into the saved JPEG — the reported
+        // "photo comes out completely black". When the graded output collapses
+        // to ONE flat value while the source carried real content, treat the
+        // readback as garbage and let the caller fall back to the CPU filter.
+        // A genuinely flat scene (lens covered) is preserved: only the
+        // source-not-flat/output-flat mismatch is rejected. Grain alone makes
+        // any real capture non-uniform, so a flat grainy output is always
+        // failure.
+        if (outMin == outMax && srcMin != srcMax) {
+            Log.e(TAG, "GPU readback is flat (0x${Integer.toHexString(outMin)}) over a non-flat source; rejecting")
+            cleanupCaptureGl()
+            return null
+        }
+
+        cleanupCaptureGl()
 
         return Bitmap.createBitmap(out, w, h, Bitmap.Config.ARGB_8888)
     }

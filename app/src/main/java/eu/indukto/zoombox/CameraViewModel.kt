@@ -629,7 +629,14 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun setZoom(ratio: Float) {
-        if (_selectedLensRole.value != LensRole.PRIMARY) return
+        // Digital zoom is deliberately primary-lens-only: the zoom box is the
+        // crop model of the primary sensor, and ultra-wide/tele frame at their
+        // native FOV. The pinch gesture is disabled outside primary in
+        // CameraUi's zoomEnabled so it never buzzes with no visible effect —
+        // the reported "zoom vibrates but nothing happens" confusion.
+        // Front camera excluded too: single-lens, and a zoom accepted here
+        // would only leak stale into the next rear session.
+        if (_isFrontCamera.value || _selectedLensRole.value != LensRole.PRIMARY) return
         val clampedRatio = ratio.coerceIn(
             ZoomBoxCalculator.MIN_ZOOM_RATIO,
             ZoomBoxCalculator.MAX_ZOOM_RATIO
@@ -678,7 +685,12 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         // state is meaningless there. Short-circuit prevents an earlier
         // rear-camera zoom from leaking into the front preview as the
         // zoom-box overlay + "24mm" label at line ~1421 of CameraUi.kt.
-        if (_isFrontCamera.value) return
+        // Scale is forced to 1 so a stale rear zoom can never draw a zoom box
+        // on the selfie preview.
+        if (_isFrontCamera.value) {
+            _boxScale.value = 1f
+            return
+        }
         val catalog = lensCatalogResult
         val primaryFocalMm = catalog?.primary?.equivFocalMm ?: 24f
         val ultraWideFocalMm = catalog?.ultraWide?.equivFocalMm ?: 13.4f

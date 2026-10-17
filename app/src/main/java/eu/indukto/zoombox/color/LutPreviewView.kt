@@ -53,6 +53,27 @@ class LutPreviewView(
     private var currentSurface: Surface? = null
     private var currentSurfaceTexture: SurfaceTexture? = null
 
+    // The TextureView's own SurfaceTexture + last window size, kept so a dead
+    // EGL context can be rebuilt against the same window surface (see
+    // drawFrame's recovery path).
+    private var windowSurfaceTexture: SurfaceTexture? = null
+    private var windowWidth = 0
+    private var windowHeight = 0
+
+    // Consecutive failed draws before recovery gives up. Reset by any
+    // successful draw or fresh surface, so a real context loss recovers while
+    // a permanently broken EGL cannot spin teardown/init forever.
+    private var failedDraws = 0
+
+    /**
+     * Invoked after the GL chain is rebuilt from a dead EGL context. CameraX
+     * must re-provide its surface then: the rebuild mints a fresh camera
+     * SurfaceTexture (see LutPreviewRenderer.onGlContextCreated). The host
+     * bumps its rebind trigger so the proven unbindAll → bindToLifecycle path
+     * runs again.
+     */
+    var onContextLost: (() -> Unit)? = null
+
     private val cameraExecutor = Executors.newSingleThreadExecutor()
 
     // Manually-managed EGL state. Touched only on [glThread], except for the
@@ -183,6 +204,10 @@ class LutPreviewView(
     // TextureView.SurfaceTextureListener (UI thread callbacks)
 
     override fun onSurfaceTextureAvailable(st: SurfaceTexture, width: Int, height: Int) {
+        windowSurfaceTexture = st
+        windowWidth = width
+        windowHeight = height
+        failedDraws = 0
         ensureGlThread()
         postGl { initGl(st, width, height) }
     }
@@ -203,6 +228,7 @@ class LutPreviewView(
         // the SurfaceTexture underneath it. Returning true lets the framework
         // finish the release.
         runGlBlocking { teardownGlLocked() }
+        windowSurfaceTexture = null
         return true
     }
 
@@ -318,7 +344,10 @@ class LutPreviewView(
             numConfigs[0] == 0
         ) {
             Log.e(TAG, "initGl: no matching EGL config")
-            EGL14.eglTerminate(display)
+            // No eglTerminate on these error paths either: the display is
+            // shared with GpuCaptureProcessor and terminating it would tear
+            // down the capture pipeline's live context too. Our own objects
+            // are all that this class may destroy.
             return
         }
         val context = EGL14.eglCreateContext(
@@ -327,7 +356,6 @@ class LutPreviewView(
         )
         if (context === EGL14.EGL_NO_CONTEXT) {
             Log.e(TAG, "initGl: context creation failed")
-            EGL14.eglTerminate(display)
             return
         }
         val surface = EGL14.eglCreateWindowSurface(
@@ -336,14 +364,12 @@ class LutPreviewView(
         if (surface == null || surface === EGL14.EGL_NO_SURFACE) {
             Log.e(TAG, "initGl: window surface creation failed")
             EGL14.eglDestroyContext(display, context)
-            EGL14.eglTerminate(display)
             return
         }
         if (!EGL14.eglMakeCurrent(display, surface, surface, context)) {
             Log.e(TAG, "initGl: eglMakeCurrent failed")
             EGL14.eglDestroySurface(display, surface)
             EGL14.eglDestroyContext(display, context)
-            EGL14.eglTerminate(display)
             return
         }
         eglDisplay = display
@@ -359,9 +385,27 @@ class LutPreviewView(
         val surface = eglSurface ?: return
         val context = eglContext ?: return
         if (!EGL14.eglMakeCurrent(display, surface, surface, context)) {
-            Log.w(TAG, "drawFrame: eglMakeCurrent failed")
+            // A failed makeCurrent means the cached EGL objects are dead (GPU
+            // reset, or another component terminated the shared display).
+            // Logging and returning left the viewfinder black until the next
+            // look switch — the reported "screen goes black and never comes
+            // back". Rebuild the EGL chain against the same window surface and
+            // tell the host so CameraX re-provides its surface on the fresh
+            // camera SurfaceTexture. Bounded: after two failed rebuilds in a
+            // row, stop — the EGL stack is permanently broken and looping
+            // teardown/init on every frame would be worse than a black feed.
+            failedDraws++
+            Log.w(TAG, "drawFrame: eglMakeCurrent failed (attempt $failedDraws)")
+            if (failedDraws > 2) return
+            val st = windowSurfaceTexture
+            teardownGlLocked()
+            if (st != null) {
+                initGl(st, windowWidth, windowHeight)
+                onContextLost?.invoke()
+            }
             return
         }
+        failedDraws = 0
         try {
             renderer.drawFrame()
         } catch (e: Exception) {
@@ -403,10 +447,14 @@ class LutPreviewView(
                 } catch (_: Exception) {
                 }
             }
-            try {
-                EGL14.eglTerminate(display)
-            } catch (_: Exception) {
-            }
+            // Deliberately NO eglTerminate: EGL_DEFAULT_DISPLAY is
+            // process-global and shared with GpuCaptureProcessor. On
+            // non-refcounted drivers eglTerminate tears down EVERY context on
+            // the display, so calling it here would kill the capture
+            // pipeline's cached context — the next shutter then renders into a
+            // zombie context and saves a black photo. This class owns exactly
+            // one surface and one context; destroying those is the full
+            // cleanup.
         }
         eglSurface = null
         eglContext = null

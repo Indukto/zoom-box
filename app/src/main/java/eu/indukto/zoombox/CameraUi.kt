@@ -2440,7 +2440,12 @@ fun CameraActiveScreen(
             previewPausedBase = previewPaused,
             photoViewerOpen = selectedPhoto != null,
             flingEnabled = selectedPhoto == null && !showExpSlider && !showTempSlider,
-            zoomEnabled = !(showExpSlider || showTempSlider),
+            // Digital zoom is primary-lens-only (CameraViewModel.setZoom), so
+            // the gesture is disabled elsewhere entirely — which is also what
+            // silences its tick haptic on ultra-wide/tele/front, where the
+            // pinch used to buzz with no visible effect.
+            zoomEnabled = !(showExpSlider || showTempSlider) &&
+                !isFrontCamera && selectedLensRole == LensRole.PRIMARY,
             activeLut = previewLut,
             onImageCapture = { activeImageCapture = it },
             onFlingFired = { direction ->
