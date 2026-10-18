@@ -254,49 +254,10 @@ class GpuCaptureProcessor {
         GLES20.glPixelStorei(GLES20.GL_UNPACK_ALIGNMENT, 4)
 
         // ── Input texture (bulk ARGB→RGBA swizzle) ──
-        // The upload path used to run a per-pixel Java loop with four
-        // ByteBuffer.put calls per pixel — measurable JIT work per shot at
-        // full sensor resolution, on top of the getPixels copy. The swizzle
-        // below does the same channel reordering with one bulk array pass
-        // and one bulk buffer put: getPixels (native), an unrolled ARGB→RGBA
-        // pass with sign-safe channel extraction, then ByteBuffer.put(byte[])
-        // (a single native bulk copy into the direct buffer). Row 0 of the
-        // upload is still row 0 of the bitmap, so the identity-texcoord draw
-        // and the top-down glReadPixels readback are unchanged.
-        val pixelCount = w * h
-        val srcPixels = IntArray(pixelCount)
-        source.getPixels(srcPixels, 0, w, 0, 0, w, h)
-        val rgba = ByteBuffer.allocateDirect(pixelCount * 4).order(ByteOrder.nativeOrder())
-        val rgbaArr = ByteArray(pixelCount * 4)
-        // Source flatness for the silent-failure guard below: a genuinely flat
-        // input (lens covered) is allowed to grade to a flat output.
-        var srcMin = 255
-        var srcMax = 0
-        var q = 0
-        while (q < pixelCount) {
-            val p = srcPixels[q]
-            val o = q * 4
-            val sr = (p shr 16) and 0xFF
-            val sg = (p shr 8) and 0xFF
-            val sb = p and 0xFF
-            rgbaArr[o]     = sr.toByte() // R
-            rgbaArr[o + 1] = sg.toByte() // G
-            rgbaArr[o + 2] = sb.toByte() // B
-            rgbaArr[o + 3] = (p ushr 24).toByte()           // A (sign-safe)
-            if (sr < srcMin) srcMin = sr
-            if (sg < srcMin) srcMin = sg
-            if (sb < srcMin) srcMin = sb
-            if (sr > srcMax) srcMax = sr
-            if (sg > srcMax) srcMax = sg
-            if (sb > srcMax) srcMax = sb
-            q++
-        }
-        rgba.put(rgbaArr)
-        rgba.position(0)
-        GLES20.glTexImage2D(
-            GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA,
-            w, h, 0, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, rgba
-        )
+        // See uploadSourceTexture for the swizzle itself and why it lives in
+        // its own function; all we need back is the source's channel range for
+        // the silent-failure guards below.
+        val sourceRange = uploadSourceTexture(source, w, h)
 
         // ── Optional 3D LUT ──
         var lutTexture = 0
@@ -323,8 +284,20 @@ class GpuCaptureProcessor {
             GLES20.GL_FRAMEBUFFER, GLES20.GL_COLOR_ATTACHMENT0,
             GLES20.GL_TEXTURE_2D, outputTex[0], 0
         )
+        // Declared before the draw so every early-out below can release the
+        // per-capture GL objects (the EGL display/context/surface are kept and
+        // reused by [process] / [ensureSurface]).
+        fun cleanupCaptureGl() {
+            GLES20.glDeleteFramebuffers(1, fbo, 0)
+            GLES20.glDeleteTextures(1, outputTex, 0)
+            GLES20.glDeleteTextures(1, inputTex, 0)
+            if (lutTexture != 0) GLES20.glDeleteTextures(1, intArrayOf(lutTexture), 0)
+            GLES20.glDeleteProgram(program)
+        }
+
         if (GLES20.glCheckFramebufferStatus(GLES20.GL_FRAMEBUFFER) != GLES20.GL_FRAMEBUFFER_COMPLETE) {
             Log.e(TAG, "GPU capture FBO incomplete")
+            cleanupCaptureGl()
             return null
         }
 
@@ -377,6 +350,15 @@ class GpuCaptureProcessor {
             GLES20.glUniform1i(uLutEnabled, 0)
         }
 
+        // ── Sentinel clear ──
+        // glTexImage2D(.., null) leaves the attachment undefined, so a draw
+        // the driver drops (lost context, a shader the GPU refused) reads back
+        // whatever the allocator left there. Paint the attachment first: a
+        // dropped draw then reads back as ONE flat value, which the flat-
+        // readback guard below rejects instead of shipping it.
+        GLES20.glClearColor(0f, 0f, 0f, 1f)
+        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
+
         drawQuad(aPosition, aTexCoord)
 
         // ── Readback ──
@@ -385,9 +367,28 @@ class GpuCaptureProcessor {
         // swizzle can't feed createBitmap. The upload path above is the bulk
         // win; this loop stays as the correct, well-tested decode.)
         GLES20.glFinish()
+        // Drain whatever the setup left in the error queue (bounded: a driver
+        // that always reports an error must not spin here) so the check after
+        // the readback can only be reporting the readback itself.
+        var drained = 0
+        while (GLES20.glGetError() != GLES20.GL_NO_ERROR && drained < MAX_GL_ERROR_DRAIN) drained++
         val readback = ByteBuffer.allocateDirect(w * h * 4).order(ByteOrder.nativeOrder())
         GLES20.glPixelStorei(GLES20.GL_PACK_ALIGNMENT, 1)
         GLES20.glReadPixels(0, 0, w, h, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, readback)
+        // The readback can fail WITHOUT raising a Java exception: the driver
+        // runs out of memory staging a full-sensor RGBA copy, sets
+        // GL_OUT_OF_MEMORY, and leaves `readback` untouched. Android does not
+        // zero direct ByteBuffers, so the next line copies recycled heap —
+        // fine RGB speckle, which is exactly what a burst capture saved
+        // (shutter released while the previous shot was still processing, so
+        // several multi-hundred-megabyte grade passes overlapped). Reject on
+        // any error and let the CPU filter produce the photo instead.
+        val readbackError = GLES20.glGetError()
+        if (readbackError != GLES20.GL_NO_ERROR) {
+            Log.e(TAG, "glReadPixels failed (0x${Integer.toHexString(readbackError)}); rejecting capture")
+            cleanupCaptureGl()
+            return null
+        }
         readback.position(0)
         val bytes = ByteArray(w * h * 4)
         readback.get(bytes)
@@ -408,16 +409,6 @@ class GpuCaptureProcessor {
             if (b > outMax) outMax = b
         }
 
-        // Cleanup per-capture GL resources (the EGL display/context/surface
-        // are kept and reused by [process] / [ensureSurface]).
-        fun cleanupCaptureGl() {
-            GLES20.glDeleteFramebuffers(1, fbo, 0)
-            GLES20.glDeleteTextures(1, outputTex, 0)
-            GLES20.glDeleteTextures(1, inputTex, 0)
-            if (lutTexture != 0) GLES20.glDeleteTextures(1, intArrayOf(lutTexture), 0)
-            GLES20.glDeleteProgram(program)
-        }
-
         // ── Silent-failure guard ──
         // A driver that lost the context or dropped the draw does not have to
         // raise a GL error: glReadPixels can simply hand back zeros, which
@@ -429,7 +420,7 @@ class GpuCaptureProcessor {
         // source-not-flat/output-flat mismatch is rejected. Grain alone makes
         // any real capture non-uniform, so a flat grainy output is always
         // failure.
-        if (outMin == outMax && srcMin != srcMax) {
+        if (outMin == outMax && sourceRange.min != sourceRange.max) {
             Log.e(TAG, "GPU readback is flat (0x${Integer.toHexString(outMin)}) over a non-flat source; rejecting")
             cleanupCaptureGl()
             return null
@@ -438,6 +429,72 @@ class GpuCaptureProcessor {
         cleanupCaptureGl()
 
         return Bitmap.createBitmap(out, w, h, Bitmap.Config.ARGB_8888)
+    }
+
+    /**
+     * Per-channel range of the graded source, carried back from
+     * [uploadSourceTexture] so the silent-failure guards can tell a genuinely
+     * flat scene (lens covered) apart from a failed readback.
+     */
+    private class SourceRange(val min: Int, val max: Int)
+
+    /**
+     * Uploads [source] as an RGBA texture and returns its per-channel range.
+     *
+     * The upload is deliberately its own function rather than inline in
+     * [render]. The swizzle needs three full-frame buffers — an IntArray, a
+     * ByteArray and a direct ByteBuffer, ≈3×4 bytes/pixel, so ~144 MB at
+     * 12 MP — and all three are dead the instant `glTexImage2D` has copied
+     * them. Scoping them here means they are unreachable before [render]
+     * allocates the equally large readback buffers instead of both sets being
+     * live at once, which is the difference between fitting in the heap and
+     * not when captures overlap.
+     *
+     * Row 0 of the upload is still row 0 of the bitmap, so the identity-
+     * texcoord draw and the top-down glReadPixels readback are unchanged.
+     *
+     * The swizzle used to run a per-pixel Java loop with four
+     * ByteBuffer.put calls per pixel — measurable JIT work per shot at full
+     * sensor resolution, on top of the getPixels copy. It now does the same
+     * channel reordering with one bulk array pass and one bulk buffer put:
+     * getPixels (native), an unrolled ARGB→RGBA pass with sign-safe channel
+     * extraction, then ByteBuffer.put(byte[]) (a single native bulk copy into
+     * the direct buffer).
+     */
+    private fun uploadSourceTexture(source: Bitmap, w: Int, h: Int): SourceRange {
+        val pixelCount = w * h
+        val srcPixels = IntArray(pixelCount)
+        source.getPixels(srcPixels, 0, w, 0, 0, w, h)
+        val rgba = ByteBuffer.allocateDirect(pixelCount * 4).order(ByteOrder.nativeOrder())
+        val rgbaArr = ByteArray(pixelCount * 4)
+        var srcMin = 255
+        var srcMax = 0
+        var q = 0
+        while (q < pixelCount) {
+            val p = srcPixels[q]
+            val o = q * 4
+            val sr = (p shr 16) and 0xFF
+            val sg = (p shr 8) and 0xFF
+            val sb = p and 0xFF
+            rgbaArr[o]     = sr.toByte() // R
+            rgbaArr[o + 1] = sg.toByte() // G
+            rgbaArr[o + 2] = sb.toByte() // B
+            rgbaArr[o + 3] = (p ushr 24).toByte()           // A (sign-safe)
+            if (sr < srcMin) srcMin = sr
+            if (sg < srcMin) srcMin = sg
+            if (sb < srcMin) srcMin = sb
+            if (sr > srcMax) srcMax = sr
+            if (sg > srcMax) srcMax = sg
+            if (sb > srcMax) srcMax = sb
+            q++
+        }
+        rgba.put(rgbaArr)
+        rgba.position(0)
+        GLES20.glTexImage2D(
+            GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA,
+            w, h, 0, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, rgba
+        )
+        return SourceRange(srcMin, srcMax)
     }
 
     /**
@@ -546,6 +603,14 @@ class GpuCaptureProcessor {
 
     companion object {
         private const val TAG = "GpuCaptureProcessor"
+
+        /**
+         * Cap on the pre-readback `glGetError` drain loop. A driver that
+         * reports an error for every call would otherwise spin here forever;
+         * anything left in the queue after this many reads is stale setup
+         * noise, not the readback we care about.
+         */
+        private const val MAX_GL_ERROR_DRAIN = 16
     }
 }
 

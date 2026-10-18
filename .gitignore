@@ -48,6 +48,9 @@ __pycache__/
 # Internal-only: Play Store docs and dev tools stay local, not public.
 /docs/
 /tools/
+# Play Store marketing assets: generated locally by the screenshot editor,
+# never sourced from or needed by a fresh clone.
+/store-screenshots/
 /app/src/test/java/com/example/color/CameraProfileWriterTest.kt
 /app/src/test/roborazzi/film_style_picker.png
 /app/src/test/roborazzi/film_style_picker_bottom.png

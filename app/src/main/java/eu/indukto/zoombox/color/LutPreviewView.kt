@@ -53,6 +53,14 @@ class LutPreviewView(
     private var currentSurface: Surface? = null
     private var currentSurfaceTexture: SurfaceTexture? = null
 
+    /**
+     * A CameraX surface request that arrived before the GL chain existed.
+     * Answered by [flushPendingSurfaceRequest] once init runs. Touched only
+     * on the GL thread (postGl blocks and the teardown paths via
+     * runGlBlocking), so no synchronization is needed.
+     */
+    private var pendingSurfaceRequest: SurfaceRequest? = null
+
     // The TextureView's own SurfaceTexture + last window size, kept so a dead
     // EGL context can be rebuilt against the same window surface (see
     // drawFrame's recovery path).
@@ -111,46 +119,78 @@ class LutPreviewView(
         lastSurfaceHeight = resolution.height
         renderer.setSurfaceBufferSize(lastSurfaceWidth, lastSurfaceHeight)
 
-        // Wait for the renderer to have created its SurfaceTexture on the GL
-        // thread, then build a Surface from it and hand it to CameraX. All
-        // SurfaceTexture/Surface construction must happen on the GL thread.
+        if (glHandler == null) {
+            // Torn down: refuse now instead of leaving CameraX waiting on a
+            // request nobody will ever answer.
+            runCatching { request.willNotProvideSurface() }
+            return
+        }
+
+        // Hand the surface to CameraX from the GL thread: all
+        // SurfaceTexture/Surface construction must happen there. The GL chain
+        // may not exist yet (initGl is still queued behind this task, or the
+        // TextureView surface never arrived) — DEFER in that case. The old
+        // code busy-waited on this very thread for a SurfaceTexture that only
+        // initGl (queued BEHIND us) could mint: a 2 s stall that then refused
+        // the surface and left the viewfinder black until the next rebind.
         postGl {
-            val st = renderer.awaitSurfaceTexture()
+            val st = renderer.peekSurfaceTexture()
             if (st == null) {
-                Log.e(TAG, "SurfaceTexture not ready; willNotProvideSurface")
-                request.willNotProvideSurface()
+                pendingSurfaceRequest?.let { runCatching { it.willNotProvideSurface() } }
+                pendingSurfaceRequest = request
                 return@postGl
             }
+            fulfillSurfaceRequest(request, st)
+        }
+    }
 
-            try {
-                // Tell SurfaceTexture what CameraX asked for BEFORE wrapping
-                // it in a Surface. Without this, the SurfaceTexture keeps its
-                // default (0x0) buffer size and CameraX falls back to its
-                // lowest-res preview size — the live viewfinder renders as a
-                // blurry upscaled thumbnail. Setting the buffer size to the
-                // same resolution CameraX requested matches both sides and
-                // unlocks a sharp preview at the sensor-native frame size.
-                st.setDefaultBufferSize(resolution.width, resolution.height)
+    /** Provides [st] to CameraX for [request]. GL thread only. */
+    private fun fulfillSurfaceRequest(request: SurfaceRequest, st: SurfaceTexture) {
+        try {
+            val resolution = request.resolution
+            // Tell SurfaceTexture what CameraX asked for BEFORE wrapping
+            // it in a Surface. Without this, the SurfaceTexture keeps its
+            // default (0x0) buffer size and CameraX falls back to its
+            // lowest-res preview size — the live viewfinder renders as a
+            // blurry upscaled thumbnail. Setting the buffer size to the
+            // same resolution CameraX requested matches both sides and
+            // unlocks a sharp preview at the sensor-native frame size.
+            st.setDefaultBufferSize(resolution.width, resolution.height)
 
-                // The renderer owns its own SurfaceTexture; we wrap it as a
-                // Surface for CameraX. We must track this wrapper so we can
-                // release it when CameraX signals session teardown.
-                val surface = Surface(st)
-                currentSurface = surface
-                currentSurfaceTexture = st
+            // The renderer owns its own SurfaceTexture; we wrap it as a
+            // Surface for CameraX. We must track this wrapper so we can
+            // release it when CameraX signals session teardown.
+            val surface = Surface(st)
+            currentSurface = surface
+            currentSurfaceTexture = st
 
-                request.provideSurface(surface, cameraExecutor) { result ->
-                    // CameraX is done with the surface (rebind / lifecycle).
-                    // Tear down the wrapper; the underlying SurfaceTexture is
-                    // owned by the renderer and reused across rebinds.
-                    try { surface.release() } catch (_: Exception) {}
-                    if (currentSurface === surface) currentSurface = null
-                    Log.d(TAG, "Surface released: ${result.resultCode}")
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "provideSurface failed", e)
-                request.willNotProvideSurface()
+            request.provideSurface(surface, cameraExecutor) { result ->
+                // CameraX is done with the surface (rebind / lifecycle).
+                // Tear down the wrapper; the underlying SurfaceTexture is
+                // owned by the renderer and reused across rebinds.
+                try { surface.release() } catch (_: Exception) {}
+                if (currentSurface === surface) currentSurface = null
+                Log.d(TAG, "Surface released: ${result.resultCode}")
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "provideSurface failed", e)
+            request.willNotProvideSurface()
+        }
+    }
+
+    /**
+     * Answers the deferred [SurfaceRequest] once init has run, or refuses it
+     * when the GL chain still doesn't exist. GL thread only.
+     */
+    private fun flushPendingSurfaceRequest() {
+        val request = pendingSurfaceRequest ?: return
+        pendingSurfaceRequest = null
+        val st = renderer.peekSurfaceTexture()
+        if (st != null) {
+            fulfillSurfaceRequest(request, st)
+        } else {
+            Log.e(TAG, "init finished without a SurfaceTexture; willNotProvideSurface")
+            runCatching { request.willNotProvideSurface() }
         }
     }
 
@@ -209,7 +249,13 @@ class LutPreviewView(
         windowHeight = height
         failedDraws = 0
         ensureGlThread()
-        postGl { initGl(st, width, height) }
+        postGl {
+            initGl(st, width, height)
+            // A surface request may have arrived before this init (CameraX
+            // binds before the TextureView attaches at cold start); answer it
+            // now that the camera SurfaceTexture exists.
+            flushPendingSurfaceRequest()
+        }
     }
 
     override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, width: Int, height: Int) {
@@ -418,6 +464,11 @@ class LutPreviewView(
     }
 
     private fun teardownGlLocked() {
+        // Any deferred surface request is stale the moment the GL chain goes
+        // away: refuse it now so CameraX never waits on a surface this
+        // teardown (or a lost context) can no longer provide.
+        pendingSurfaceRequest?.let { runCatching { it.willNotProvideSurface() } }
+        pendingSurfaceRequest = null
         // Release the camera SurfaceTexture first: CameraX must re-provide a
         // surface after this, which the existing rebind path handles (same
         // contract as the old surface-destroy path).

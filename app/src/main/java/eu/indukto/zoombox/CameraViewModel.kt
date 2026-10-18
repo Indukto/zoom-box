@@ -61,6 +61,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import java.util.concurrent.atomic.AtomicInteger
 import java.io.File
 import java.io.FileOutputStream
 import kotlin.time.Duration.Companion.milliseconds
@@ -78,6 +81,30 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     // context are created once and reused across captures on a dedicated
     // thread (see GpuCaptureProcessor), instead of paying EGL setup per shot.
     private val gpuCaptureProcessor = GpuCaptureProcessor()
+
+    // Post-processing is serialised, and in-flight count is a counter rather
+    // than a boolean, because the shutter deliberately re-enables as soon as
+    // the hardware hands back the file (`endCapture()` on the first line of
+    // `processAndSavePhoto`). That makes rapid captures overlap by design: the
+    // user can fire the next shot while the previous shot is still decoding,
+    // grading and encoding.
+    //
+    // Two consequences, both of which were real bugs:
+    //
+    //  1. `_isCapturing` was a plain boolean, so the FIRST capture to finish
+    //     cleared it for every capture still running. `listPhotos` reads it as
+    //     `skipOrphanCleanup`, and with it wrongly false the orphan pass in
+    //     PhotoStore would delete the working copy of a capture that was still
+    //     in the middle of its own rename → MediaStore.insert window.
+    //  2. Each overlapping pass peaks at several hundred MB (decode buffer +
+    //     the GPU still processor's six full-frame buffers), so a burst of
+    //     taps could exhaust the heap and the driver's readback staging —
+    //     which is what produced the speckled "photos" reported from
+    //     continuous shooting. The Mutex keeps exactly one pass in flight,
+    //     so the peak stays at one capture's worth no matter how fast the
+    //     user taps. Queued shots still save, just one after another.
+    private val capturePipelineLock = Mutex()
+    private val capturesInFlight = AtomicInteger(0)
 
     private companion object {
         /**
@@ -313,6 +340,26 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
      * decode / LUT apply / JPEG encode / MediaStore save runs.
      */
     fun endCapture() { _captureInFlight.value = false }
+
+    /**
+     * Claim one unit of post-processing work. A counter rather than a boolean
+     * because post-processing deliberately outlives [captureInFlight]: the
+     * shutter frees the instant the hardware delivers the file, so several
+     * captures can be queued or running at once and a boolean would let the
+     * first one to finish clear the flag for all the others. [listPhotos] and
+     * the MediaStore observer read `_isCapturing` as `skipOrphanCleanup`, so a
+     * premature false let the orphan pass delete a capture that was still
+     * between its rename and its MediaStore row.
+     */
+    private fun beginPostProcessing() {
+        capturesInFlight.incrementAndGet()
+        _isCapturing.value = true
+    }
+
+    /** Release one unit claimed by [beginPostProcessing]. */
+    private fun endPostProcessing() {
+        _isCapturing.value = capturesInFlight.decrementAndGet() > 0
+    }
 
     private val _lensSwitchTrigger = MutableStateFlow(0)
 
@@ -1557,7 +1604,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         screenHeight: Float,
         captureLensNativeFocalMm: Float?
     ) {
-        _isCapturing.value = true
+        beginPostProcessing()
         // Mirror the timer onto the shutter-press state so the button visuals
         // (and `isRawCapturing` in CameraPreviewView) see "actively capturing"
         // until the Camera2 hardware callback fires. `_isCapturing` covers the
@@ -1582,6 +1629,12 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                 // No toast here: the JPEG path is silent on success, and the
                 // RAW popup was inconsistent with the rest of the app.
                 _captureInFlight.value = false
+                // Hand the post-processing hold over: processAndSavePhoto
+                // claims its own unit below, so releasing the RAW-level one
+                // here keeps the count balanced instead of leaking a unit
+                // that would pin `_isCapturing` (and `skipOrphanCleanup`) true
+                // for the rest of the session.
+                endPostProcessing()
                 // Double exposure: the first frame of a sequence is only
                 // retained as the blend ghost, so its DNG is dropped just
                 // like its JPEG companion (skipped inside processAndSavePhoto)
@@ -1607,7 +1660,6 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                     )
                 } else {
                     loadPhotos(context)
-                    _isCapturing.value = false
                 }
             },
             onError = { e ->
@@ -1617,7 +1669,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                 // than surfacing a popup.
                 Log.e("CameraViewModel", "RAW capture failed", e)
                 _captureInFlight.value = false
-                _isCapturing.value = false
+                endPostProcessing()
             }
         )
     }
@@ -1638,302 +1690,332 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
         // → crop → LUT → encode → save pipeline is still running in the
         // IO dispatcher below.
         endCapture()
-        _isCapturing.value = true
+        beginPostProcessing()
         val tStart = System.currentTimeMillis()
-        val currentAspectRatioMultiplier = _aspectRatio.value.heightToWidth
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                var originalExposureTime = 0.0
-                var originalIso = 0
-                var exifOrientation = ExifInterface.ORIENTATION_NORMAL
-                try {
-                    val e = ExifInterface(rawFile.absolutePath)
-                    originalExposureTime = e.getAttributeDouble(ExifInterface.TAG_EXPOSURE_TIME, 0.0)
-                    originalIso = e.getAttributeInt(ExifInterface.TAG_ISO_SPEED_RATINGS, 0)
-                    exifOrientation = e.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
-                } catch (e: Exception) { Log.e("CameraViewModel", "Error reading original EXIF", e) }
-
-                val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                BitmapFactory.decodeFile(rawFile.absolutePath, opts)
-                val origW = opts.outWidth
-                val origH = opts.outHeight
-                if (origW <= 0 || origH <= 0) return@launch
-
-                val (rotW, rotH) = when (exifOrientation) {
-                    ExifInterface.ORIENTATION_ROTATE_90, ExifInterface.ORIENTATION_ROTATE_270 -> origH to origW
-                    else -> origW to origH
-                }
-
-                var curX = 0; var curY = 0; var curW = rotW; var curH = rotH
-
-                if (captureLensNativeFocalMm != null) {
-                    val cropFactor = (captureLensNativeFocalMm / captureFocalLength).coerceIn(0f, 1f)
-                    if (cropFactor < 0.99f) {
-                        val cropW = (curW * cropFactor).toInt().coerceAtLeast(1)
-                        val cropH = (curH * cropFactor).toInt().coerceAtLeast(1)
-                        curX = (curW - cropW) / 2; curY = (curH - cropH) / 2
-                        curW = cropW; curH = cropH
-                    }
-                }
-
-                // The aspect-ratio setting is expressed in portrait terms
-                // (heightToWidth > 1, e.g. 4:3 portrait). A landscape capture
-                // (rotated dims wider than tall) must be cropped toward the
-                // LANDSCAPE equivalent of the chosen ratio — otherwise a photo
-                // taken with the phone held sideways gets force-cropped into a
-                // portrait frame and the saved picture is never landscape.
-                val arTargetRatio = if (rotW > rotH) {
-                    currentAspectRatioMultiplier
-                } else {
-                    1f / currentAspectRatioMultiplier
-                }
-                val arActualRatio = curW.toFloat() / curH.toFloat()
-                if (kotlin.math.abs(arActualRatio - arTargetRatio) >= 0.02f) {
-                    if (arActualRatio > arTargetRatio) {
-                        val targetW = (curH * arTargetRatio).toInt().coerceIn(1, curW)
-                        curX += (curW - targetW) / 2; curW = targetW
-                    } else {
-                        val targetH = (curW / arTargetRatio).toInt().coerceIn(1, curH)
-                        curY += (curH - targetH) / 2; curH = targetH
-                    }
-                }
-
-                if (captureLensNativeFocalMm == null && boxWidthFraction < 0.99f) {
-                    val wScreen = screenWidth; val hScreen = screenHeight
-                    val arW = curW.toFloat(); val arH = curH.toFloat()
-                    val scale = kotlin.math.max(wScreen / arW, hScreen / arH)
-                    val wVisible = wScreen / scale; val hVisible = hScreen / scale
-                    val xVisibleStart = (arW - wVisible) / 2f; val yVisibleStart = (arH - hVisible) / 2f
-                    val wBox = wScreen * boxWidthFraction; val hBox = wBox * currentAspectRatioMultiplier
-                    val xBox = (wScreen - wBox) / 2f; val yBox = (hScreen - hBox) / 2f
-                    val xCrop = (xVisibleStart + (xBox / wScreen) * wVisible).toInt().coerceIn(0, curW - 1)
-                    val yCrop = (yVisibleStart + (yBox / hScreen) * hVisible).toInt().coerceIn(0, curH - 1)
-                    val wCrop = ((wBox / wScreen) * wVisible).toInt().coerceIn(1, curW - xCrop)
-                    val hCrop = ((hBox / hScreen) * hVisible).toInt().coerceIn(1, curH - yCrop)
-                    curX += xCrop; curY += yCrop; curW = wCrop; curH = hCrop
-                }
-
-                val cropArea = curW.toLong() * curH.toLong()
-                val fullArea = rotW.toLong() * rotH.toLong()
-
-                var finalBitmap: Bitmap
-                if (cropArea < fullArea * 9 / 10) {
-                    val (srcL, srcT, srcR, srcB) = when (exifOrientation) {
-                        ExifInterface.ORIENTATION_ROTATE_90 ->
-                            intArrayOf(curY, origH - curX - curW, curY + curH, origH - curX)
-                        ExifInterface.ORIENTATION_ROTATE_180 ->
-                            intArrayOf(origW - curX - curW, origH - curY - curH, origW - curX, origH - curY)
-                        ExifInterface.ORIENTATION_ROTATE_270 ->
-                            intArrayOf(origW - curY - curH, curX, origW - curY, curX + curW)
-                        else ->
-                            intArrayOf(curX, curY, curX + curW, curY + curH)
-                    }
-                    // BitmapRegionDecoder.newInstance(String) is API 31+, but the
-                    // project's minSdk is 29. The 2-arg `newInstance(String, Boolean)`
-                    // overload is deprecated but available on all API levels, so we
-                    // use it with `inInputShareable = false` (non-shared / safer) and
-                    // suppress the deprecation lint. The modern 1-arg form is otherwise
-                    // byte-for-byte equivalent (it internally calls this same path).
-                    @Suppress("DEPRECATION")
-                    val decoder = BitmapRegionDecoder.newInstance(rawFile.absolutePath, false)
-                    // Pass the user's output-resolution preference into the
-                    // region decoder so this crop-region branch honours the
-                    // 0.8 MP / 3 MP / full choice just like the
-                    // BitmapFactory path below does. The decoder scales the
-                    // cropped rect on decode (no need to allocate and then
-                    // downscale a full sensor resolution bitmap) so the saved
-                    // JPEG matches the requested size. Per
-                    // BitmapRegionDecoder's contract, `Rect` stays in original
-                    // unscaled coordinates, which matches the `origW`/`origH`
-                    // math above.
-                    val regionOpts = BitmapFactory.Options().apply {
-                        inSampleSize = _outputResolution.value.inSampleSize
-                    }
-                    val regionBitmap = decoder.decodeRegion(Rect(srcL, srcT, srcR, srcB), regionOpts)
-                    decoder.recycle()
-
-                    val matrix = Matrix()
-                    when (exifOrientation) {
-                        ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
-                        ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
-                        ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
-                    }
-                    if (_isFrontCamera.value) matrix.postScale(-1f, 1f)
-
-                    finalBitmap = if (matrix.isIdentity) regionBitmap
-                    else {
-                        val rotated = Bitmap.createBitmap(regionBitmap, 0, 0, regionBitmap.width, regionBitmap.height, matrix, true)
-                        if (rotated !== regionBitmap) regionBitmap.recycle()
-                        rotated
-                    }
-                } else {
-                    // Honour the user's output resolution preference so this
-                    // no-crop branch decodes at full sensor resolution
-                    // (inSampleSize = 1), half resolution on each axis
-                    // (inSampleSize = 2 → ~3 MP), or quarter resolution
-                    // (inSampleSize = 4 → ~0.8 MP, soft digicam). The retro
-                    // film-style output forgives the small loss of fine
-                    // detail (the filter character — grain, tonal
-                    // compression, colour tint — already hides it) but this
-                    // single change cuts applyRetroFilter's pixel-loop work
-                    // ~4× and the JPEG encode + save by a similar factor,
-                    // dropping the full-quality post-capture path (the only
-                    // path without explicit zoom-box cropping) from ~3-4 s
-                    // to < 1 s on mid-range hardware.
-                    val originalBitmap = BitmapFactory.decodeFile(rawFile.absolutePath,
-                        BitmapFactory.Options().apply {
-                            inMutable = true
-                            inSampleSize = _outputResolution.value.inSampleSize
-                        }) ?: return@launch
-
-                    val matrix = Matrix()
-                    when (exifOrientation) {
-                        ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
-                        ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
-                        ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
-                        ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> matrix.postScale(-1f, 1f)
-                        ExifInterface.ORIENTATION_FLIP_VERTICAL -> matrix.postScale(1f, -1f)
-                        ExifInterface.ORIENTATION_TRANSPOSE -> { matrix.postRotate(90f); matrix.postScale(-1f, 1f) }
-                        ExifInterface.ORIENTATION_TRANSVERSE -> { matrix.postRotate(270f); matrix.postScale(-1f, 1f) }
-                    }
-                    if (_isFrontCamera.value) matrix.postScale(-1f, 1f)
-
-                    val normalizedBitmap = try {
-                        if (matrix.isIdentity) originalBitmap
-                        else Bitmap.createBitmap(originalBitmap, 0, 0, originalBitmap.width, originalBitmap.height, matrix, true)
-                    } catch (e: Exception) { originalBitmap }
-                    if (normalizedBitmap !== originalBitmap) originalBitmap.recycle()
-
-                    finalBitmap = try {
-                        Bitmap.createBitmap(normalizedBitmap, curX, curY, curW, curH)
-                    } catch (e: Exception) {
-                        Log.e("CameraViewModel", "Error in final crop", e)
-                        normalizedBitmap
-                    }
-                    if (finalBitmap !== normalizedBitmap) normalizedBitmap.recycle()
-                }
-
-                val lookId = _activeLookId.value
-                // One shared snapshot drives both the live preview and the
-                // post-capture filter, so the saved JPEG can never drift from
-                // what the viewfinder showed. The registry prefers a JSON
-                // profile over the enum when one is bundled; the bundled
-                // profile mirrors the enum so output is unchanged today.
-                val renderParams = cameraProfileRegistry.renderParamsFor(
-                    lookId,
-                    temperature = _temperature.value,
-                    tint = _tint.value,
-                    exposure = _exposure.value
-                ) ?: cameraProfileRegistry.renderParamsFor(
-                    FilmPreset.NORMAL,
-                    temperature = _temperature.value,
-                    tint = _tint.value,
-                    exposure = _exposure.value
-                )
-                val currentLut = loadLut(context, lookId)
-                if (currentLut != null || renderParams.needsProcessing) {
-                    // Fresh organic grain per shutter press: the seed re-keys
-                    // the grain field on both back-ends so consecutive shots
-                    // never repeat the same speckle. Bounded to MAX_GRAIN_SEED
-                    // (see RetroFilter.kt): the GPU receives it as a float and
-                    // larger values would tile into visible blocks. The live
-                    // preview stays on seed 0 for a stable viewfinder.
-                    val grainSeed = kotlin.random.Random.nextInt(0, eu.indukto.zoombox.color.MAX_GRAIN_SEED)
-                    val filtered = if (USE_GPU_CAPTURE) {
-                        // GPU still capture with a CPU fallback.
-                        // GpuCaptureProcessor returns null on any EGL/shader
-                        // failure, in which case the well-tested CPU pipeline
-                        // below still produces the saved JPEG.
-                        val gpu = try {
-                            gpuCaptureProcessor.process(finalBitmap, renderParams, lut = currentLut, grainSeed = grainSeed)
-                        } catch (e: Exception) {
-                            Log.e("CameraViewModel", "GPU capture threw; using CPU filter", e)
-                            null
-                        }
-                        gpu ?: finalBitmap.applyRetroFilter(renderParams, lut = currentLut, grainSeed = grainSeed)
-                    } else {
-                        finalBitmap.applyRetroFilter(renderParams, lut = currentLut, grainSeed = grainSeed)
-                    }
-                    if (filtered !== finalBitmap) {
-                        finalBitmap.recycle()
-                        finalBitmap = filtered
-                    }
-                }
-
-                // Double exposure runs on the graded frame, not the raw one:
-                // the ghost has to carry the same look as the current shot or
-                // the two "exposures" would disagree on contrast, grain and
-                // white balance, which reads as a compositing bug rather than
-                // as a film effect. Applied before the gallery-frame bake so
-                // the frame is drawn once over the finished picture.
-                if (_doubleExposureActive.value) {
-                    val exposed = finalBitmap.applyDoubleExposure()
-                    if (exposed == null) {
-                        // First frame of a double-exposure sequence: retained
-                        // as the blend ghost only, so neither it nor any
-                        // gallery entry is saved. Drop the working bitmap and
-                        // the temp capture file; the finally block below still
-                        // releases the shutter state.
-                        try { finalBitmap.recycle() } catch (_: Exception) {}
-                        try { rawFile.delete() } catch (_: Exception) {}
-                        return@launch
-                    }
-                    if (exposed !== finalBitmap) {
-                        finalBitmap.recycle()
-                        finalBitmap = exposed
-                    }
-                }
-
-                // When the Photo Frame setting is on, bake the film-card frame
-                // into the saved JPEG itself so the frame travels with the file
-                // (visible in every gallery app), not just the in-app viewer.
-                val framedBitmap = if (_showGalleryFrame.value) {
-                    bakeGalleryFrame(
-                        photo = finalBitmap,
-                        focalLength = captureFocalLength,
-                        exposureTime = originalExposureTime,
-                        iso = originalIso
+                // Serialise the whole post-capture pipeline. The shutter is
+                // already free by this point, so a burst queues here instead
+                // of running N multi-hundred-megabyte grade passes at once —
+                // see capturePipelineLock for why that mattered.
+                capturePipelineLock.withLock {
+                    gradeAndSavePhoto(
+                        context = context,
+                        rawFile = rawFile,
+                        boxWidthFraction = boxWidthFraction,
+                        screenWidth = screenWidth,
+                        screenHeight = screenHeight,
+                        captureFocalLength = captureFocalLength,
+                        captureLensNativeFocalMm = captureLensNativeFocalMm
                     )
-                } else {
-                    finalBitmap
                 }
-                if (framedBitmap !== finalBitmap) finalBitmap.recycle()
-
-                FileOutputStream(rawFile).use { out -> framedBitmap.compress(Bitmap.CompressFormat.JPEG, 97, out) }
-                framedBitmap.recycle()
-
-                val focalDir = rawFile.parentFile
-                val focalName = rawFile.nameWithoutExtension
-                val focalExt = rawFile.extension
-                val newName = "${focalName}_${captureFocalLength}mm.$focalExt"
-                val renamedFile = File(focalDir, newName)
-                rawFile.renameTo(renamedFile)
-
-                try {
-                    val exifOut = ExifInterface(renamedFile.absolutePath)
-                    if (originalExposureTime > 0.0) { exifOut.setAttribute(ExifInterface.TAG_EXPOSURE_TIME, originalExposureTime.toString()) }
-                    if (originalIso > 0) { exifOut.setAttribute(ExifInterface.TAG_ISO_SPEED_RATINGS, originalIso.toString()) }
-                    exifOut.setAttribute(ExifInterface.TAG_FOCAL_LENGTH, "${captureFocalLength}.0")
-                    // The pixels were already rotated upright by the matrix pass
-                    // above (EXIF rotation applied to the decoded bitmap before
-                    // re-encoding), so the saved file is tagged NORMAL. Baking
-                    // the rotation into the pixels + tagging NORMAL is what keeps
-                    // the photo upright in external gallery apps and viewers.
-                    exifOut.setAttribute(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL.toString())
-                    exifOut.saveAttributes()
-                } catch (e: Exception) { Log.e("CameraViewModel", "Error writing EXIF", e) }
-
-                photoStore.saveJpeg(renamedFile)
-                loadPhotos(context)
             } catch (e: Exception) {
                 Log.e("CameraViewModel", "Error processing photo", e)
-            }
-            finally {
-                _isCapturing.value = false
+            } finally {
+                endPostProcessing()
                 Log.i("CaptureTime", "processAndSavePhoto total=${System.currentTimeMillis() - tStart} ms")
             }
         }
     }
+
+    /**
+     * The decode → EXIF → crop → grade → frame → encode → save body of
+     * [processAndSavePhoto], run under [capturePipelineLock]. Split out so the
+     * lock wraps the whole thing without re-indenting the pipeline.
+     */
+    private suspend fun gradeAndSavePhoto(
+        context: Context,
+        rawFile: File,
+        boxWidthFraction: Float,
+        screenWidth: Float,
+        screenHeight: Float,
+        captureFocalLength: Int,
+        captureLensNativeFocalMm: Float?
+    ) {
+        val currentAspectRatioMultiplier = _aspectRatio.value.heightToWidth
+        var originalExposureTime = 0.0
+        var originalIso = 0
+        var exifOrientation = ExifInterface.ORIENTATION_NORMAL
+        try {
+            val e = ExifInterface(rawFile.absolutePath)
+            originalExposureTime = e.getAttributeDouble(ExifInterface.TAG_EXPOSURE_TIME, 0.0)
+            originalIso = e.getAttributeInt(ExifInterface.TAG_ISO_SPEED_RATINGS, 0)
+            exifOrientation = e.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+        } catch (e: Exception) { Log.e("CameraViewModel", "Error reading original EXIF", e) }
+
+        val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(rawFile.absolutePath, opts)
+        val origW = opts.outWidth
+        val origH = opts.outHeight
+        if (origW <= 0 || origH <= 0) return
+
+        val (rotW, rotH) = when (exifOrientation) {
+            ExifInterface.ORIENTATION_ROTATE_90, ExifInterface.ORIENTATION_ROTATE_270 -> origH to origW
+            else -> origW to origH
+        }
+
+        var curX = 0; var curY = 0; var curW = rotW; var curH = rotH
+
+        if (captureLensNativeFocalMm != null) {
+            val cropFactor = (captureLensNativeFocalMm / captureFocalLength).coerceIn(0f, 1f)
+            if (cropFactor < 0.99f) {
+                val cropW = (curW * cropFactor).toInt().coerceAtLeast(1)
+                val cropH = (curH * cropFactor).toInt().coerceAtLeast(1)
+                curX = (curW - cropW) / 2; curY = (curH - cropH) / 2
+                curW = cropW; curH = cropH
+            }
+        }
+
+        // The aspect-ratio setting is expressed in portrait terms
+        // (heightToWidth > 1, e.g. 4:3 portrait). A landscape capture
+        // (rotated dims wider than tall) must be cropped toward the
+        // LANDSCAPE equivalent of the chosen ratio — otherwise a photo
+        // taken with the phone held sideways gets force-cropped into a
+        // portrait frame and the saved picture is never landscape.
+        val arTargetRatio = if (rotW > rotH) {
+            currentAspectRatioMultiplier
+        } else {
+            1f / currentAspectRatioMultiplier
+        }
+        val arActualRatio = curW.toFloat() / curH.toFloat()
+        if (kotlin.math.abs(arActualRatio - arTargetRatio) >= 0.02f) {
+            if (arActualRatio > arTargetRatio) {
+                val targetW = (curH * arTargetRatio).toInt().coerceIn(1, curW)
+                curX += (curW - targetW) / 2; curW = targetW
+            } else {
+                val targetH = (curW / arTargetRatio).toInt().coerceIn(1, curH)
+                curY += (curH - targetH) / 2; curH = targetH
+            }
+        }
+
+        if (captureLensNativeFocalMm == null && boxWidthFraction < 0.99f) {
+            val wScreen = screenWidth; val hScreen = screenHeight
+            val arW = curW.toFloat(); val arH = curH.toFloat()
+            val scale = kotlin.math.max(wScreen / arW, hScreen / arH)
+            val wVisible = wScreen / scale; val hVisible = hScreen / scale
+            val xVisibleStart = (arW - wVisible) / 2f; val yVisibleStart = (arH - hVisible) / 2f
+            val wBox = wScreen * boxWidthFraction; val hBox = wBox * currentAspectRatioMultiplier
+            val xBox = (wScreen - wBox) / 2f; val yBox = (hScreen - hBox) / 2f
+            val xCrop = (xVisibleStart + (xBox / wScreen) * wVisible).toInt().coerceIn(0, curW - 1)
+            val yCrop = (yVisibleStart + (yBox / hScreen) * hVisible).toInt().coerceIn(0, curH - 1)
+            val wCrop = ((wBox / wScreen) * wVisible).toInt().coerceIn(1, curW - xCrop)
+            val hCrop = ((hBox / hScreen) * hVisible).toInt().coerceIn(1, curH - yCrop)
+            curX += xCrop; curY += yCrop; curW = wCrop; curH = hCrop
+        }
+
+        val cropArea = curW.toLong() * curH.toLong()
+        val fullArea = rotW.toLong() * rotH.toLong()
+
+        var finalBitmap: Bitmap
+        if (cropArea < fullArea * 9 / 10) {
+            val (srcL, srcT, srcR, srcB) = when (exifOrientation) {
+                ExifInterface.ORIENTATION_ROTATE_90 ->
+                    intArrayOf(curY, origH - curX - curW, curY + curH, origH - curX)
+                ExifInterface.ORIENTATION_ROTATE_180 ->
+                    intArrayOf(origW - curX - curW, origH - curY - curH, origW - curX, origH - curY)
+                ExifInterface.ORIENTATION_ROTATE_270 ->
+                    intArrayOf(origW - curY - curH, curX, origW - curY, curX + curW)
+                else ->
+                    intArrayOf(curX, curY, curX + curW, curY + curH)
+            }
+            // BitmapRegionDecoder.newInstance(String) is API 31+, but the
+            // project's minSdk is 29. The 2-arg `newInstance(String, Boolean)`
+            // overload is deprecated but available on all API levels, so we
+            // use it with `inInputShareable = false` (non-shared / safer) and
+            // suppress the deprecation lint. The modern 1-arg form is otherwise
+            // byte-for-byte equivalent (it internally calls this same path).
+            @Suppress("DEPRECATION")
+            val decoder = BitmapRegionDecoder.newInstance(rawFile.absolutePath, false)
+            // Pass the user's output-resolution preference into the
+            // region decoder so this crop-region branch honours the
+            // 0.8 MP / 3 MP / full choice just like the
+            // BitmapFactory path below does. The decoder scales the
+            // cropped rect on decode (no need to allocate and then
+            // downscale a full sensor resolution bitmap) so the saved
+            // JPEG matches the requested size. Per
+            // BitmapRegionDecoder's contract, `Rect` stays in original
+            // unscaled coordinates, which matches the `origW`/`origH`
+            // math above.
+            val regionOpts = BitmapFactory.Options().apply {
+                inSampleSize = _outputResolution.value.inSampleSize
+            }
+            val regionBitmap = decoder.decodeRegion(Rect(srcL, srcT, srcR, srcB), regionOpts)
+            decoder.recycle()
+
+            val matrix = Matrix()
+            when (exifOrientation) {
+                ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
+                ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
+                ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
+            }
+            if (_isFrontCamera.value) matrix.postScale(-1f, 1f)
+
+            finalBitmap = if (matrix.isIdentity) regionBitmap
+            else {
+                val rotated = Bitmap.createBitmap(regionBitmap, 0, 0, regionBitmap.width, regionBitmap.height, matrix, true)
+                if (rotated !== regionBitmap) regionBitmap.recycle()
+                rotated
+            }
+        } else {
+            // Honour the user's output resolution preference so this
+            // no-crop branch decodes at full sensor resolution
+            // (inSampleSize = 1), half resolution on each axis
+            // (inSampleSize = 2 → ~3 MP), or quarter resolution
+            // (inSampleSize = 4 → ~0.8 MP, soft digicam). The retro
+            // film-style output forgives the small loss of fine
+            // detail (the filter character — grain, tonal
+            // compression, colour tint — already hides it) but this
+            // single change cuts applyRetroFilter's pixel-loop work
+            // ~4× and the JPEG encode + save by a similar factor,
+            // dropping the full-quality post-capture path (the only
+            // path without explicit zoom-box cropping) from ~3-4 s
+            // to < 1 s on mid-range hardware.
+            val originalBitmap = BitmapFactory.decodeFile(rawFile.absolutePath,
+                BitmapFactory.Options().apply {
+                    inMutable = true
+                    inSampleSize = _outputResolution.value.inSampleSize
+                }) ?: return
+
+            val matrix = Matrix()
+            when (exifOrientation) {
+                ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
+                ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
+                ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
+                ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> matrix.postScale(-1f, 1f)
+                ExifInterface.ORIENTATION_FLIP_VERTICAL -> matrix.postScale(1f, -1f)
+                ExifInterface.ORIENTATION_TRANSPOSE -> { matrix.postRotate(90f); matrix.postScale(-1f, 1f) }
+                ExifInterface.ORIENTATION_TRANSVERSE -> { matrix.postRotate(270f); matrix.postScale(-1f, 1f) }
+            }
+            if (_isFrontCamera.value) matrix.postScale(-1f, 1f)
+
+            val normalizedBitmap = try {
+                if (matrix.isIdentity) originalBitmap
+                else Bitmap.createBitmap(originalBitmap, 0, 0, originalBitmap.width, originalBitmap.height, matrix, true)
+            } catch (e: Exception) { originalBitmap }
+            if (normalizedBitmap !== originalBitmap) originalBitmap.recycle()
+
+            finalBitmap = try {
+                Bitmap.createBitmap(normalizedBitmap, curX, curY, curW, curH)
+            } catch (e: Exception) {
+                Log.e("CameraViewModel", "Error in final crop", e)
+                normalizedBitmap
+            }
+            if (finalBitmap !== normalizedBitmap) normalizedBitmap.recycle()
+        }
+
+        val lookId = _activeLookId.value
+        // One shared snapshot drives both the live preview and the
+        // post-capture filter, so the saved JPEG can never drift from
+        // what the viewfinder showed. The registry prefers a JSON
+        // profile over the enum when one is bundled; the bundled
+        // profile mirrors the enum so output is unchanged today.
+        val renderParams = cameraProfileRegistry.renderParamsFor(
+            lookId,
+            temperature = _temperature.value,
+            tint = _tint.value,
+            exposure = _exposure.value
+        ) ?: cameraProfileRegistry.renderParamsFor(
+            FilmPreset.NORMAL,
+            temperature = _temperature.value,
+            tint = _tint.value,
+            exposure = _exposure.value
+        )
+        val currentLut = loadLut(context, lookId)
+        if (currentLut != null || renderParams.needsProcessing) {
+            // Fresh organic grain per shutter press: the seed re-keys
+            // the grain field on both back-ends so consecutive shots
+            // never repeat the same speckle. Bounded to MAX_GRAIN_SEED
+            // (see RetroFilter.kt): the GPU receives it as a float and
+            // larger values would tile into visible blocks. The live
+            // preview stays on seed 0 for a stable viewfinder.
+            val grainSeed = kotlin.random.Random.nextInt(0, eu.indukto.zoombox.color.MAX_GRAIN_SEED)
+            val filtered = if (USE_GPU_CAPTURE) {
+                // GPU still capture with a CPU fallback.
+                // GpuCaptureProcessor returns null on any EGL/shader
+                // failure, in which case the well-tested CPU pipeline
+                // below still produces the saved JPEG.
+                val gpu = try {
+                    gpuCaptureProcessor.process(finalBitmap, renderParams, lut = currentLut, grainSeed = grainSeed)
+                } catch (e: Exception) {
+                    Log.e("CameraViewModel", "GPU capture threw; using CPU filter", e)
+                    null
+                }
+                gpu ?: finalBitmap.applyRetroFilter(renderParams, lut = currentLut, grainSeed = grainSeed)
+            } else {
+                finalBitmap.applyRetroFilter(renderParams, lut = currentLut, grainSeed = grainSeed)
+            }
+            if (filtered !== finalBitmap) {
+                finalBitmap.recycle()
+                finalBitmap = filtered
+            }
+        }
+
+        // Double exposure runs on the graded frame, not the raw one:
+        // the ghost has to carry the same look as the current shot or
+        // the two "exposures" would disagree on contrast, grain and
+        // white balance, which reads as a compositing bug rather than
+        // as a film effect. Applied before the gallery-frame bake so
+        // the frame is drawn once over the finished picture.
+        if (_doubleExposureActive.value) {
+            val exposed = finalBitmap.applyDoubleExposure()
+            if (exposed == null) {
+                // First frame of a double-exposure sequence: retained
+                // as the blend ghost only, so neither it nor any
+                // gallery entry is saved. Drop the working bitmap and
+                // the temp capture file; the caller's finally still
+                // releases the shutter state.
+                try { finalBitmap.recycle() } catch (_: Exception) {}
+                try { rawFile.delete() } catch (_: Exception) {}
+                return
+            }
+            if (exposed !== finalBitmap) {
+                finalBitmap.recycle()
+                finalBitmap = exposed
+            }
+        }
+
+        // When the Photo Frame setting is on, bake the film-card frame
+        // into the saved JPEG itself so the frame travels with the file
+        // (visible in every gallery app), not just the in-app viewer.
+        val framedBitmap = if (_showGalleryFrame.value) {
+            bakeGalleryFrame(
+                photo = finalBitmap,
+                focalLength = captureFocalLength,
+                exposureTime = originalExposureTime,
+                iso = originalIso
+            )
+        } else {
+            finalBitmap
+        }
+        if (framedBitmap !== finalBitmap) finalBitmap.recycle()
+
+        FileOutputStream(rawFile).use { out -> framedBitmap.compress(Bitmap.CompressFormat.JPEG, 97, out) }
+        framedBitmap.recycle()
+
+        val focalDir = rawFile.parentFile
+        val focalName = rawFile.nameWithoutExtension
+        val focalExt = rawFile.extension
+        val newName = "${focalName}_${captureFocalLength}mm.$focalExt"
+        val renamedFile = File(focalDir, newName)
+        rawFile.renameTo(renamedFile)
+
+        try {
+            val exifOut = ExifInterface(renamedFile.absolutePath)
+            if (originalExposureTime > 0.0) { exifOut.setAttribute(ExifInterface.TAG_EXPOSURE_TIME, originalExposureTime.toString()) }
+            if (originalIso > 0) { exifOut.setAttribute(ExifInterface.TAG_ISO_SPEED_RATINGS, originalIso.toString()) }
+            exifOut.setAttribute(ExifInterface.TAG_FOCAL_LENGTH, "${captureFocalLength}.0")
+            // The pixels were already rotated upright by the matrix pass
+            // above (EXIF rotation applied to the decoded bitmap before
+            // re-encoding), so the saved file is tagged NORMAL. Baking
+            // the rotation into the pixels + tagging NORMAL is what keeps
+            // the photo upright in external gallery apps and viewers.
+            exifOut.setAttribute(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL.toString())
+            exifOut.saveAttributes()
+        } catch (e: Exception) { Log.e("CameraViewModel", "Error writing EXIF", e) }
+
+        photoStore.saveJpeg(renamedFile)
+        loadPhotos(context)
+}
 
     fun deletePhoto(context: Context, file: File) {
         viewModelScope.launch(Dispatchers.IO) {

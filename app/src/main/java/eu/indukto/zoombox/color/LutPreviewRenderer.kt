@@ -264,15 +264,16 @@ class LutPreviewRenderer(
         surfaceBufferHeight = height
     }
 
-    /** Blocks until [onSurfaceCreated] has produced the SurfaceTexture. */
-    fun awaitSurfaceTexture(): SurfaceTexture? {
-        var tries = 0
-        while (!surfaceTextureReady && tries < 200) {
-            try { Thread.sleep(10) } catch (_: InterruptedException) {}
-            tries++
-        }
-        return surfaceTexture
-    }
+    /**
+     * Non-blocking accessor for the camera [SurfaceTexture]: null until
+     * [onSurfaceCreated] has minted one. Deliberately does NOT wait — the old
+     * polling wait ran on the GL thread, the very thread that must run
+     * onSurfaceCreated, so when a camera surface request outran the queued
+     * init the poll stalled that queue for 2 s and then failed against its
+     * own initializer (black viewfinder until the next rebind). Callers that
+     * can arrive before init must DEFER instead of block.
+     */
+    fun peekSurfaceTexture(): SurfaceTexture? = if (surfaceTextureReady) surfaceTexture else null
 
     // ------------------------------------------------------------------
     // SurfaceTexture.OnFrameAvailableListener

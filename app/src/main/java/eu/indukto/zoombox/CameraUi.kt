@@ -3107,12 +3107,23 @@ fun CameraActiveScreen(
                             } else {
                                 // Start countdown
                                 coroutineScope.launch {
-                                    timerCountdown = selfTimerMode
-                                    repeat(selfTimerMode) {
-                                        kotlinx.coroutines.delay(1000.milliseconds)
-                                        timerCountdown--
+                                    try {
+                                        timerCountdown = selfTimerMode
+                                        repeat(selfTimerMode) {
+                                            kotlinx.coroutines.delay(1000.milliseconds)
+                                            timerCountdown--
+                                        }
+                                        doCapture()
+                                    } finally {
+                                        // The shutter gate is `timerCountdown < 0`
+                                        // (button + volume keys), but the countdown
+                                        // decrements to exactly 0 — without this
+                                        // reset one self-timer shot permanently
+                                        // disabled the shutter until the camera
+                                        // screen was re-entered. finally also
+                                        // resets when the countdown is cancelled.
+                                        timerCountdown = -1
                                     }
-                                    doCapture()
                                 }
                             }
                         },

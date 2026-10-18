@@ -3,6 +3,7 @@
 import android.content.ContentValues
 import android.content.Context
 import android.media.ExifInterface
+import android.net.Uri
 import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
@@ -51,21 +52,29 @@ class PhotoStore(private val context: Context) {
         // names from the private mirror after the corresponding public file
         // disappears — the gallery would keep showing photos the user just
         // removed from /sdcard/Pictures/ZoomBoxCamera/.
-        if (!skipOrphanCleanup) {
+        //
+        // A FAILED public query (null) is unknown state, NOT an empty gallery:
+        // the cleanup pass must never run against it, or one transient
+        // MediaProvider hiccup turns every private working copy into an
+        // "orphan" and the pass mass-deletes the user's photos.
+        if (!skipOrphanCleanup && publicFiles != null) {
             cleanupOrphanPrivateFiles(publicFiles.map { it.name }.toSet())
         }
         val privateFiles = privateDir()?.listFiles(::isOurPhoto)?.toList() ?: emptyList()
 
         // Public first, then private — distinctBy { it.name } keeps the
         // public entry when both copies exist, so the file we hand to
-        // deletePhoto() is the canonical (reinstall-survived) path.
-        return (publicFiles + privateFiles)
+        // deletePhoto() is the canonical (reinstall-survived) path. On a
+        // failed public query only the private copies are listable, which is
+        // the correct degraded view: same names, same photos.
+        return ((publicFiles ?: emptyList()) + privateFiles)
             .distinctBy { it.name }
             .sortedByDescending { it.lastModified() }
     }
 
     /** Inserts [file] into the public gallery as a JPEG under Pictures/ZoomBoxCamera. */
     fun saveJpeg(file: File) {
+        var uri: Uri? = null
         try {
             val values = ContentValues().apply {
                 put(MediaStore.Images.Media.DISPLAY_NAME, file.name)
@@ -76,14 +85,17 @@ class PhotoStore(private val context: Context) {
             val resolver = context.contentResolver
             val contentUri =
                 MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-            val uri = resolver.insert(contentUri, values)
-            if (uri != null) {
-                resolver.openOutputStream(uri)?.use { out -> file.inputStream().use { `in` -> `in`.copyTo(out) } }
-                values.clear()
-                values.put(MediaStore.Images.Media.IS_PENDING, 0)
-                resolver.update(uri, values, null, null)
-            }
-        } catch (e: Exception) { Log.e(TAG, "Error saving to gallery", e) }
+            uri = resolver.insert(contentUri, values) ?: return
+            val out = resolver.openOutputStream(uri)
+                ?: throw IllegalStateException("MediaStore opened no stream for $uri")
+            out.use { o -> file.inputStream().use { `in` -> `in`.copyTo(o) } }
+            values.clear()
+            values.put(MediaStore.Images.Media.IS_PENDING, 0)
+            resolver.update(uri, values, null, null)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving to gallery", e)
+            removeFailedRow(uri)
+        }
     }
 
     /**
@@ -92,6 +104,7 @@ class PhotoStore(private val context: Context) {
      * retro-roll filmstrip (which decodes JPEGs) isn't polluted.
      */
     fun saveDng(file: File) {
+        var uri: Uri? = null
         try {
             val values = ContentValues().apply {
                 put(MediaStore.Images.Media.DISPLAY_NAME, file.name)
@@ -102,15 +115,30 @@ class PhotoStore(private val context: Context) {
             val resolver = context.contentResolver
             val contentUri =
                 MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-            val uri = resolver.insert(contentUri, values) ?: return
-            resolver.openOutputStream(uri)?.use { out ->
-                file.inputStream().use { `in` -> `in`.copyTo(out) }
-            }
+            uri = resolver.insert(contentUri, values) ?: return
+            val out = resolver.openOutputStream(uri)
+                ?: throw IllegalStateException("MediaStore opened no stream for $uri")
+            out.use { o -> file.inputStream().use { `in` -> `in`.copyTo(o) } }
             values.clear()
             values.put(MediaStore.Images.Media.IS_PENDING, 0)
             resolver.update(uri, values, null, null)
         } catch (e: Exception) {
             Log.e(TAG, "Error saving DNG to gallery", e)
+            removeFailedRow(uri)
+        }
+    }
+
+    /**
+     * Removes a half-written row after a failed save. Without this the row
+     * stays IS_PENDING=1 forever: an invisible zombie in MediaStore that no
+     * query of ours ever surfaces and no cleanup ever reaches.
+     */
+    private fun removeFailedRow(uri: Uri?) {
+        if (uri == null) return
+        try {
+            context.contentResolver.delete(uri, null, null)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error removing failed save row", e)
         }
     }
 
@@ -274,7 +302,12 @@ class PhotoStore(private val context: Context) {
 
         // Probe once: collect all display names that have a row under our
         // folder. Anything not in this set is an orphan.
-        val protectedNames: Set<String> = runCatching {
+        //
+        // Null means the probe FAILED (exception or null cursor). That is
+        // unknown state, and unknown must never be read as "no rows": the old
+        // `?: emptySet()` fallback deleted every candidate whenever the
+        // provider hiccuped — a photo-deletion bug dressed up as cleanup.
+        val protectedNames: Set<String>? = runCatching {
             resolver.query(
                 imageUri,
                 arrayOf(MediaStore.Images.Media.DISPLAY_NAME),
@@ -290,7 +323,11 @@ class PhotoStore(private val context: Context) {
                     }
                 }
             }
-        }.getOrNull() ?: emptySet()
+        }.getOrNull()
+        if (protectedNames == null) {
+            Log.w(TAG, "Orphan probe failed; skipping cleanup (unknown state)")
+            return
+        }
 
         var deletedCount = 0
         for (f in orphanCandidates) {
@@ -333,8 +370,13 @@ class PhotoStore(private val context: Context) {
      * IS_PENDING = 0 filters out half-written rows that the capture pipeline
      * hasn't finished copying yet — without this the gallery can briefly show
      * a thumbnail pointing at a file that's still being flushed to disk.
+     *
+     * Returns **null** when the provider could not be queried (exception or
+     * null cursor): that is UNKNOWN state and must never be collapsed into
+     * an empty list. Callers distinguish "no photos" from "couldn't look" so
+     * the orphan-cleanup pass never deletes on uncertainty.
      */
-    private fun listPublicPhotosViaMediaStore(): List<File> {
+    private fun listPublicPhotosViaMediaStore(): List<File>? {
         val resolver = context.contentResolver
         val collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         val projection = arrayOf(
@@ -399,8 +441,8 @@ class PhotoStore(private val context: Context) {
                     if (fallback != null && fallback.exists()) result.add(fallback)
                 }
                 result
-            } ?: emptyList()
-        }.getOrDefault(emptyList())
+            }
+        }.getOrNull()
     }
 
     /**
@@ -451,11 +493,34 @@ class PhotoStore(private val context: Context) {
             val resolver = context.contentResolver
             val collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
             @Suppress("DEPRECATION")
-            val rows = resolver.delete(
+            var rows = resolver.delete(
                 collection,
                 "${MediaStore.Images.Media.DISPLAY_NAME} = ? AND ${MediaStore.Images.Media.DATA} = ?",
                 arrayOf(file.name, file.absolutePath)
             )
+            if (rows == 0) {
+                // DATA is reliable on AOSP but is the same deprecated column
+                // the list query needs a fallback for; when a vendor
+                // normalises it differently the match above misses and the
+                // row becomes a ghost in other galleries. Fall back to the
+                // name scoped to our own folder tree (same slash-anchored
+                // RELATIVE_PATH matching as the probes above), never to a
+                // bare name that could hit a foreign row.
+                val folderBase = Environment.DIRECTORY_PICTURES.lowercase()
+                rows = resolver.delete(
+                    collection,
+                    "${MediaStore.Images.Media.DISPLAY_NAME} = ? AND (" +
+                        "LOWER(${MediaStore.Images.Media.RELATIVE_PATH}) = ? OR " +
+                        "LOWER(${MediaStore.Images.Media.RELATIVE_PATH}) = ? OR " +
+                        "LOWER(${MediaStore.Images.Media.RELATIVE_PATH}) LIKE ?)",
+                    arrayOf(
+                        file.name,
+                        "$folderBase/zoomboxcamera",
+                        "$folderBase/zoomboxcamera/",
+                        "$folderBase/zoomboxcamera/%"
+                    )
+                )
+            }
             Log.i(TAG, "Deleted $rows MediaStore row(s) for ${file.name}")
         } catch (e: SecurityException) {
             // Vendors have been known to throw SecurityException when revoking
