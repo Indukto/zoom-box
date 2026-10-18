@@ -182,6 +182,7 @@ import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 import java.util.Locale
 import eu.indukto.zoombox.zoom.AspectRatio
+import eu.indukto.zoombox.zoom.ViewfinderLayout
 import eu.indukto.zoombox.zoom.CaptureExtension
 import eu.indukto.zoombox.zoom.edgeLabelAnchor
 import eu.indukto.zoombox.zoom.focalLabelAnchor
@@ -328,44 +329,16 @@ private fun deckGlassBorder(active: Boolean = false): Brush = Brush.linearGradie
  * All fractions are relative to the full screen so the layout scales to
  * any device while keeping the design's proportions:
  * - viewfinder: 3.94% side margins, top 13.22%, bottom reserve 30.13%
+ *   (the fractions themselves live in `ViewfinderLayout`, which owns the
+ *   box geometry both the camera screen and the tutorial mirror read)
  * - zoom-box: sides 19.61%, top 22.85%, bottom reserve 39.76%
  * - control-bubble: sides ~25.7%, top 61.38%, bottom reserve 31.69%
  * - bottom-deck: top 72.77%; aux-row height ~45px; primary-row 81.69-91.55%
  */
 private object ZoomBoxSpec {
-    const val VIEWFINDER_WIDTH_FRACTION = 0.9212f // 100 - 3.94*2
-    const val VIEWFINDER_TOP_FRACTION = 0.1322f
-    const val VIEWFINDER_BOTTOM_RESERVE_FRACTION = 0.3013f
     const val BUBBLE_BOTTOM_OFFSET_DP = 10 // bubble sits ~10dp above viewfinder bottom
-    // Floor for the 16:9 upward growth (see viewfinderTop) — keeps the box
-    // + its corner settings button clear of the status bar.
-    const val VIEWFINDER_MIN_TOP_DP = 28
     const val ZOOM_GRID_ALPHA = 0.55f
     const val ZOOM_OUTLINE_ALPHA = 0.9f
-}
-
-/**
- * Viewfinder top offset shared by [CameraActiveScreen] and the tutorial
- * mirror computation in [CameraUi] so both stay in lock-step.
- *
- * Fitting ratios are centered in the available band. Overflowing ratios
- * pin the top and grow downward — except 16:9, which overflows so far
- * that growing downward would bury its bottom edge (and the control
- * bubble anchored to it) under the opaque bottom deck. 16:9 therefore
- * grows upward instead, clamped so its top never enters the status bar.
- */
-private fun viewfinderTop(
-    topInset: Dp,
-    availableHeight: Dp,
-    vfHeight: Dp,
-    aspectRatio: AspectRatio
-): Dp {
-    if (vfHeight <= availableHeight) return topInset + (availableHeight - vfHeight) / 2f
-    if (aspectRatio == AspectRatio.RATIO_16_9) {
-        return (topInset + availableHeight - vfHeight)
-            .coerceAtLeast(ZoomBoxSpec.VIEWFINDER_MIN_TOP_DP.dp)
-    }
-    return topInset
 }
 
 /**
@@ -1479,32 +1452,11 @@ fun CameraUi(
             // from, and the viewfinder is live the instant the overlay
             // closes.
             BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                // Viewfinder-bottom fraction, mirrored from the exact
-                // geometry CameraActiveScreen computes internally
-                // (92% width fixed across ratios, aspect-ratio height,
-                // 56.dp top inset, 200.dp bottom-deck reserve). Width stays
-                // identical for 4:3 and 3:2 — 3:2 just extends vertically.
-                val vfWidthRaw = maxWidth * ZoomBoxSpec.VIEWFINDER_WIDTH_FRACTION
-                val vfHeightRaw = vfWidthRaw * aspectRatio.heightToWidth
-                val specTop = maxHeight * ZoomBoxSpec.VIEWFINDER_TOP_FRACTION
-                val specReserve = maxHeight * ZoomBoxSpec.VIEWFINDER_BOTTOM_RESERVE_FRACTION
-                val availableHeight =
-                    (maxHeight - specTop - specReserve).coerceAtLeast(120.dp)
-                // Keep width fixed (no side black bars on 3:2); height grows
-                // with the ratio. When the tall box overflows the available
-                // band, pin the top so 3:2 starts where 4:3 starts and only
-                // the bottom edge extends downward (16:9 grows upward instead
-                // — see viewfinderTop).
-                val vfWidth: Dp = vfWidthRaw
-                val vfHeight: Dp = vfHeightRaw
-                val vfTop = viewfinderTop(
-                    topInset = specTop,
-                    availableHeight = availableHeight,
-                    vfHeight = vfHeight,
-                    aspectRatio = aspectRatio
-                )
-                val viewfinderBottomFraction =
-                    (vfTop + vfHeight).value / maxHeight.value
+                // Viewfinder-bottom fraction, mirrored from the same
+                // ViewfinderLayout the camera screen places the box with, so
+                // the tutorial's arrow base tracks the live viewfinder.
+                val vf = ViewfinderLayout.box(maxWidth, maxHeight, aspectRatio)
+                val viewfinderBottomFraction = vf.bottom.value / maxHeight.value
 
                 CameraActiveScreen(
                     viewModel = viewModel,
@@ -2338,42 +2290,21 @@ fun CameraActiveScreen(
         modifier = Modifier.fillMaxSize().onSizeChanged { parentSize.value = it }
     ) {
 
-        // Viewfinder bounds — ZoomBox Figma spec (393×852):
-        // width 92.12% of screen (3.94% side margins) FIXED across ratios,
-        // top 13.22%, bottom reserve 30.13% for the bubble + two-row bottom
-        // deck. Height adapts to the selected aspect ratio
-        // (4:3 → 1.35× width, 3:2 → 1.5×, 16:9 → 1.78×, 1:1 → square): 3:2 keeps the
-        // same width/side margins as 4:3 and just extends vertically.
+        // Viewfinder bounds — ZoomBox Figma spec (393×852), owned by
+        // ViewfinderLayout: 92.12% width (3.94% side margins) fixed across
+        // ratios, 13.22% top inset, 30.13% bottom reserve for the bubble +
+        // two-row bottom deck, height from the selected aspect ratio
+        // (4:3 → 1.33× width, 3:2 → 1.5×, 16:9 → 1.78×, 1:1 → square).
+        // Width is never shrunk for the ratios that fit (4:3, 1:1, 3:2) —
+        // that shrink is what produced the side black bars; 16:9 is the one
+        // ratio too tall for the band at full width and it letterboxes there.
         // The zoom-box clamp + Canvas overlay keep working unchanged because
         // they size themselves from vfWidth / aspectRatio.
-        val topInset = totalHeight * ZoomBoxSpec.VIEWFINDER_TOP_FRACTION
-
-        // Width is never shrunk to fit height — that shrink is what produced
-        // the side black bars on 3:2. Height follows the ratio; a tall box
-        // may extend past the bottom reserve into the deck gap.
-        val vfWidthRaw = totalWidth * ZoomBoxSpec.VIEWFINDER_WIDTH_FRACTION
-        val vfHeightRaw = vfWidthRaw * aspectRatio.heightToWidth
-        // Spec bottom reserve (30.13%) covers the bubble (slider popup may
-        // open upward another ~120 dp) + the two-row bottom deck so they
-        // never overlap the viewfinder in any orientation.
-        val reservedBottom = totalHeight * ZoomBoxSpec.VIEWFINDER_BOTTOM_RESERVE_FRACTION
-        val availableHeight = (totalHeight - topInset - reservedBottom).coerceAtLeast(120.dp)
-        val vfWidth: Dp = vfWidthRaw
-        val vfHeight: Dp = vfHeightRaw
-        val vfX = (totalWidth - vfWidth) / 2f
-
-        // Vertically center the viewfinder between the top inset (settings /
-        // status area) and the bottom UI deck when it fits. When a tall
-        // ratio overflows, 3:2 pins the top so it starts exactly where
-        // 4:3 starts and only grows downward — same width, longer bottom.
-        // 16:9 grows upward instead so its bottom edge (and the anchored
-        // bubble) stays clear of the bottom deck — see viewfinderTop.
-        val vfTop = viewfinderTop(
-            topInset = topInset,
-            availableHeight = availableHeight,
-            vfHeight = vfHeight,
-            aspectRatio = aspectRatio
-        )
+        val vf = ViewfinderLayout.box(totalWidth, totalHeight, aspectRatio)
+        val vfX = vf.left
+        val vfTop = vf.top
+        val vfWidth = vf.width
+        val vfHeight = vf.height
 
         // ─────────────────────────────────────────────────────────────────
         // Preset-change toast state (declared ahead of the viewfinder Box
