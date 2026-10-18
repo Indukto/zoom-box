@@ -68,6 +68,7 @@
     <string name="delete_captured_photo_desc">ली गई फोटो हटाएं</string>
     <string name="enlarged_capture_desc">बड़ी कैप्चर</string>
     <string name="filmstrip_photo_desc">फिल्मस्ट्रिप फोटो</string>
+    <string name="capture_not_ready">कैमरा अभी तक तैयार नहीं है — कुछ देर में फिर कोशिश करें</string>
 
     <string name="close_settings_desc">सेटिंग्स बंद करें</string>
     <string name="settings_subtitle">फिल्म लुक, फ्रेमिंग और कैप्चर</string>
@@ -100,6 +101,8 @@
     <string name="viewfinder_section">व्यूफाइंडर</string>
     <string name="grid_lines_label">ग्रिड लाइनें</string>
     <string name="grid_lines_subtitle">फ्रेमिंग के समय थर्ड-रूल ओवरले</string>
+    <string name="backdrop_blur_label">बैकग्राउंड ब्लर</string>
+    <string name="backdrop_blur_subtitle">बुलबुले और पैनल के पीछे फ्रॉस्टेड ग्लास</string>
     <string name="self_timer_label">सेल्फ टाइमर</string>
     <string name="self_timer_off">बंद</string>
     <string name="self_timer_desc_off">शटर तुरंत चलता है।</string>
@@ -141,6 +144,7 @@
     <string name="privacy_h_photos">फोटो और कैमरा</string>
     <string name="privacy_p_photos">फोटो सिर्फ आपके डिवाइस पर कैप्चर, प्रोसेस और स्टोर होती हैं (Pictures/ZoomBoxCamera/ और ऐप के निजी स्टोरेज में)। ऐप फोटो में आपकी लोकेशन या GPS नहीं लिखता। फोटो डिवाइस से तभी जाती है जब आप खुद शेयर करें।</string>
     <string name="privacy_h_permissions">परमिशन</string>
+    <string name="privacy_p_permissions">कैमरा: फोटो लेने के लिए ज़रूरी, पहली बार शुरू करते समय मांगा जाता है। ऐप फोटो लाइब्रेरी का कोई परमिशन नहीं मांगता: गैलरी में सिर्फ़ वही फोटो दिखती हैं जो इस इंस्टॉलेशन ने सहेजी हैं। कोई बैकग्राउंड एक्सेस नहीं — हर पढ़ना या लिखना आप ऐप में खुद शुरू करते हैं।</string>
     <string name="privacy_h_backup">बैकअप</string>
     <string name="privacy_p_backup">आपकी कैमरा सेटिंग (फिल्म लुक, ग्रिड लाइन आदि) Android के ऑटो बैकअप में शामिल हो सकती हैं, जो आपके Google खाते में रहता है और सिर्फ आपको दिखता है। फोटो बैकअप से बाहर हैं। Android सिस्टम सेटिंग में बैकअप बंद कर सकते हैं।</string>
     <string name="privacy_h_nodata">डेवलपर तक कोई डेटा नहीं पहुंचता</string>

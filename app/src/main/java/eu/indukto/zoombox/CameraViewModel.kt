@@ -47,6 +47,7 @@ import eu.indukto.zoombox.color.profileId
 // blend got inlined into applyRetroFilter's parallel chunks (one pixel pass total).
 import eu.indukto.zoombox.zoom.AspectRatio
 import eu.indukto.zoombox.zoom.CaptureExtension
+import eu.indukto.zoombox.zoom.CropRectCalculator
 import eu.indukto.zoombox.zoom.FovMapper
 import eu.indukto.zoombox.zoom.LensCatalog
 import eu.indukto.zoombox.zoom.LensRole
@@ -1808,16 +1809,20 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
 
         var finalBitmap: Bitmap
         if (cropArea < fullArea * 9 / 10) {
-            val (srcL, srcT, srcR, srcB) = when (exifOrientation) {
-                ExifInterface.ORIENTATION_ROTATE_90 ->
-                    intArrayOf(curY, origH - curX - curW, curY + curH, origH - curX)
-                ExifInterface.ORIENTATION_ROTATE_180 ->
-                    intArrayOf(origW - curX - curW, origH - curY - curH, origW - curX, origH - curY)
-                ExifInterface.ORIENTATION_ROTATE_270 ->
-                    intArrayOf(origW - curY - curH, curX, origW - curY, curX + curW)
-                else ->
-                    intArrayOf(curX, curY, curX + curW, curY + curH)
-            }
+            // Display-space crop → source-space region: the decoder wants the
+            // rect in the image's stored (unrotated) coordinates. All eight
+            // EXIF orientations map here — the previous inline `when` handled
+            // only the three rotations, so flip-tagged JPEGs were cropped in
+            // the wrong corner. See CropRectCalculator for the derivations.
+            val (srcL, srcT, srcR, srcB) = CropRectCalculator.sourceRect(
+                exifOrientation = exifOrientation,
+                cropX = curX,
+                cropY = curY,
+                cropW = curW,
+                cropH = curH,
+                sourceWidth = origW,
+                sourceHeight = origH
+            )
             // BitmapRegionDecoder.newInstance(String) is API 31+, but the
             // project's minSdk is 29. The 2-arg `newInstance(String, Boolean)`
             // overload is deprecated but available on all API levels, so we
@@ -1842,12 +1847,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
             val regionBitmap = decoder.decodeRegion(Rect(srcL, srcT, srcR, srcB), regionOpts)
             decoder.recycle()
 
-            val matrix = Matrix()
-            when (exifOrientation) {
-                ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
-                ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
-                ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
-            }
+            val matrix = orientationMatrix(exifOrientation)
             if (_isFrontCamera.value) matrix.postScale(-1f, 1f)
 
             finalBitmap = if (matrix.isIdentity) regionBitmap
@@ -1876,16 +1876,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                     inSampleSize = _outputResolution.value.inSampleSize
                 }) ?: return
 
-            val matrix = Matrix()
-            when (exifOrientation) {
-                ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
-                ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
-                ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
-                ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> matrix.postScale(-1f, 1f)
-                ExifInterface.ORIENTATION_FLIP_VERTICAL -> matrix.postScale(1f, -1f)
-                ExifInterface.ORIENTATION_TRANSPOSE -> { matrix.postRotate(90f); matrix.postScale(-1f, 1f) }
-                ExifInterface.ORIENTATION_TRANSVERSE -> { matrix.postRotate(270f); matrix.postScale(-1f, 1f) }
-            }
+            val matrix = orientationMatrix(exifOrientation)
             if (_isFrontCamera.value) matrix.postScale(-1f, 1f)
 
             val normalizedBitmap = try {
@@ -1894,8 +1885,25 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
             } catch (e: Exception) { originalBitmap }
             if (normalizedBitmap !== originalBitmap) originalBitmap.recycle()
 
+            // The rect above is in full-resolution display coordinates, but
+            // this branch decodes scaled by inSampleSize (the 3 MP / 0.8 MP
+            // output settings): re-map it into the decoded bitmap's space
+            // before cropping. Unscaled coordinates made createBitmap throw
+            // ("x + width must be <= bitmap.width()") and the catch below
+            // silently fell back to an UNcropped photo — the crop was lost
+            // exactly when the user chose a smaller output resolution.
+            val (dcX, dcY, dcW, dcH) = CropRectCalculator.toDecodedSpace(
+                cropX = curX,
+                cropY = curY,
+                cropW = curW,
+                cropH = curH,
+                fullWidth = rotW,
+                fullHeight = rotH,
+                decodedWidth = normalizedBitmap.width,
+                decodedHeight = normalizedBitmap.height
+            )
             finalBitmap = try {
-                Bitmap.createBitmap(normalizedBitmap, curX, curY, curW, curH)
+                Bitmap.createBitmap(normalizedBitmap, dcX, dcY, dcW, dcH)
             } catch (e: Exception) {
                 Log.e("CameraViewModel", "Error in final crop", e)
                 normalizedBitmap
@@ -2085,5 +2093,20 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
             catch (_: Exception) {}
             mediaStoreObserver = null
         }
+    }
+}
+
+/**
+ * The display-space transform for an EXIF orientation tag, shared by both
+ * decode branches so a flip-tagged JPEG is rotated/mirrored identically
+ * whether it was region-decoded or fully decoded. The decomposition lives in
+ * [CropRectCalculator.orientationOps] (unit-tested); this only lifts it into
+ * an [Matrix].
+ */
+private fun orientationMatrix(exifOrientation: Int): Matrix {
+    val ops = CropRectCalculator.orientationOps(exifOrientation)
+    return Matrix().apply {
+        if (ops.rotateCwDegrees != 0) postRotate(ops.rotateCwDegrees.toFloat())
+        if (ops.mirrorXAfterRotate) postScale(-1f, 1f)
     }
 }

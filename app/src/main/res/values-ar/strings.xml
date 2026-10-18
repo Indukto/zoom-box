@@ -68,6 +68,7 @@
     <string name="delete_captured_photo_desc">حذف الصورة الملتقطة</string>
     <string name="enlarged_capture_desc">لقطة مكبرة</string>
     <string name="filmstrip_photo_desc">صورة شريط فيلم</string>
+    <string name="capture_not_ready">الكاميرا ليست جاهزة بعد — حاول مرة أخرى بعد لحظات</string>
 
     <string name="close_settings_desc">إغلاق الإعدادات</string>
     <string name="settings_subtitle">أنماط الفيلم والتأطير والالتقاط</string>
@@ -100,6 +101,8 @@
     <string name="viewfinder_section">محدد المنظر</string>
     <string name="grid_lines_label">خطوط الشبكة</string>
     <string name="grid_lines_subtitle">شبكة الأثلاث أثناء التأطير</string>
+    <string name="backdrop_blur_label">ضباب الخلفية</string>
+    <string name="backdrop_blur_subtitle">زجاج مطفي خلف الفقاعة واللوحات</string>
     <string name="self_timer_label">مؤقت ذاتي</string>
     <string name="self_timer_off">متوقف</string>
     <string name="self_timer_desc_off">يعمل الغالق فورًا.</string>
@@ -141,6 +144,7 @@
     <string name="privacy_h_photos">الصور والكاميرا</string>
     <string name="privacy_p_photos">تُلتقط الصور وتُعالج وتُخزن على جهازك فقط (في Pictures/ZoomBoxCamera/ والتخزين الخاص للتطبيق). لا يكتب التطبيق موقعك أو إحداثيات GPS في الصور أبدًا. لا تغادر الصورة جهازك إلا إذا شاركتها بنفسك.</string>
     <string name="privacy_h_permissions">الأذونات</string>
+    <string name="privacy_p_permissions">الكاميرا: مطلوبة لالتقاط الصور، وتُطلب عند أول تشغيل. لا يطلب التطبيق إذن معرض الصور: يعرض المعرض فقط الصور التي حفظها هذا التثبيت. لا يوجد وصول في الخلفية — كل قراءة أو كتابة تتم بناءً على طلبك داخل التطبيق.</string>
     <string name="privacy_h_backup">النسخ الاحتياطي</string>
     <string name="privacy_p_backup">قد تُشمل إعدادات الكاميرا (نمط الفيلم وخطوط الشبكة وغيرها) في النسخ الاحتياطي التلقائي لـ Android المخزن في حساب Google الخاص بك والمرئي لك فقط. الصور مستثناة. يمكنك إيقاف النسخ الاحتياطي في إعدادات نظام Android.</string>
     <string name="privacy_h_nodata">لا تصل أي بيانات إلى المطور</string>

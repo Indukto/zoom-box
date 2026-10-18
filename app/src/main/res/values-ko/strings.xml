@@ -68,6 +68,7 @@
     <string name="delete_captured_photo_desc">촬영한 사진 삭제</string>
     <string name="enlarged_capture_desc">확대된 캡처</string>
     <string name="filmstrip_photo_desc">필름스트립 사진</string>
+    <string name="capture_not_ready">카메라가 아직 준비되지 않았습니다 — 잠시 후 다시 시도하세요</string>
 
     <string name="close_settings_desc">설정 닫기</string>
     <string name="settings_subtitle">필름 룩, 구도 및 촬영</string>
@@ -100,6 +101,8 @@
     <string name="viewfinder_section">뷰파인더</string>
     <string name="grid_lines_label">그리드 선</string>
     <string name="grid_lines_subtitle">구도용 삼분할 오버레이</string>
+    <string name="backdrop_blur_label">배경 블러</string>
+    <string name="backdrop_blur_subtitle">버블과 패널 뒤의 프로스티드 글래스</string>
     <string name="self_timer_label">셀프 타이머</string>
     <string name="self_timer_off">꺼짐</string>
     <string name="self_timer_desc_off">셔터가 즉시 작동합니다.</string>
@@ -141,6 +144,7 @@
     <string name="privacy_h_photos">사진 및 카메라</string>
     <string name="privacy_p_photos">사진은 기기에서만 촬영·처리·저장됩니다(Pictures/ZoomBoxCamera/ 및 앱 비공개 저장소). 사진에 위치나 GPS 좌표를 기록하지 않습니다. 직접 공유할 때만 사진이 기기를 벗어납니다.</string>
     <string name="privacy_h_permissions">권한</string>
+    <string name="privacy_p_permissions">카메라: 사진 촬영에 필요하며 첫 실행 시 요청됩니다. 이 앱은 사진 라이브러리 권한을 요청하지 않습니다: 갤러리에는 이 설치가 저장한 사진만 표시됩니다. 백그라운드 접근은 없습니다 — 모든 읽기 또는 쓰기는 앱 내에서 사용자가 직접 실행합니다.</string>
     <string name="privacy_h_backup">백업</string>
     <string name="privacy_p_backup">카메라 설정(필름 룩, 그리드 선 등)은 Google 계정에 저장되고 본인만 볼 수 있는 Android 자동 백업에 포함될 수 있습니다. 사진은 백업에서 제외됩니다. Android 시스템 설정에서 백업을 끌 수 있습니다.</string>
     <string name="privacy_h_nodata">개발자에게 데이터가 전달되지 않음</string>

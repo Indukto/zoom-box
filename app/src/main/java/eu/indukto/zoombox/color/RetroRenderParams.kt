@@ -15,12 +15,11 @@ import eu.indukto.zoombox.FilmPreset
  *
  * This is a pure Kotlin value type (no Android dependencies) so the mapping
  * can be unit-tested on the JVM. It intentionally only carries parameters the
- * two back-ends actually consume today; DAZZ-style fields ZoomBox does not
- * implement yet (lens distortion, skin protection, halation, dust/scratches,
- * light leaks, ...) should be added here as opt-in zero-default fields when
- * their render stages land. [highlightRolloff] and [fade] are the first two
- * of those stages and are already consumed by both the GL shader and the CPU
- * filter.
+ * render back-ends actually consume today; DAZZ-style fields ZoomBox does not
+ * implement yet (lens distortion, skin protection, halation, ...) should be
+ * added here as opt-in zero-default fields when their render stages land.
+ * Every field listed below — grain, dust, scratches and light leaks included
+ * — is consumed by the GL shader, the CPU filter and the GPU capture path.
  */
 data class RetroRenderParams(
     // ── User-adjustable white balance + exposure ──
@@ -48,7 +47,8 @@ data class RetroRenderParams(
     val milkyTintR: Float = 0f,
     val milkyTintG: Float = 0f,
     val milkyTintB: Float = 0f,
-    // ── Capture-only film grain (the GPU preview does not render grain yet) ──
+    // ── Film grain (rendered live in the GPU preview too, so the viewfinder
+    //    matches the saved JPEG's film texture) ──
     val grainStrength: Float = 0f,
     val grainChroma: Float = 0f,
     // ── Opt-in artifacts (zero defaults keep existing presets pixel-identical) ──

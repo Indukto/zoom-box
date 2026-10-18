@@ -68,6 +68,7 @@
     <string name="delete_captured_photo_desc">Opgenomen foto verwijderen</string>
     <string name="enlarged_capture_desc">Vergrote opname</string>
     <string name="filmstrip_photo_desc">Filmstripfoto</string>
+    <string name="capture_not_ready">De camera is nog niet klaar — probeer het zo nogmaals</string>
 
     <string name="close_settings_desc">Instellingen sluiten</string>
     <string name="settings_subtitle">Filmlooks, kader en opname</string>
@@ -100,6 +101,8 @@
     <string name="viewfinder_section">ZOEKER</string>
     <string name="grid_lines_label">Rasterlijnen</string>
     <string name="grid_lines_subtitle">Derden-overlay tijdens het kaderen</string>
+    <string name="backdrop_blur_label">Achtergrondvervaging</string>
+    <string name="backdrop_blur_subtitle">Mat glas achter de bel en de panelen</string>
     <string name="self_timer_label">Zelfontspanner</string>
     <string name="self_timer_off">Uit</string>
     <string name="self_timer_desc_off">Sluiter reageert direct.</string>
@@ -141,6 +144,7 @@
     <string name="privacy_h_photos">Foto’s en camera</string>
     <string name="privacy_p_photos">Foto’s worden alleen op je apparaat vastgelegd, verwerkt en opgeslagen (in Pictures/ZoomBoxCamera/ en de privéopslag van de app). De app schrijft nooit je locatie of gps-coördinaten in foto’s. Een foto verlaat je apparaat alleen als je deze zelf deelt.</string>
     <string name="privacy_h_permissions">Machtigingen</string>
+    <string name="privacy_p_permissions">Camera: vereist om foto’s te maken en wordt bij de eerste start gevraagd. De app vraagt geen toestemming voor de fotobibliotheek: in de galerij staan alleen de foto’s die deze installatie heeft opgeslagen. Er is geen achtergrondtoegang — elke lees- of schrijfactie start jij zelf in de app.</string>
     <string name="privacy_h_backup">Back-ups</string>
     <string name="privacy_p_backup">Je camera-instellingen (filmlook, rasterlijnen enz.) kunnen worden opgenomen in de automatische Android-back-up, opgeslagen in je Google-account en alleen voor jou zichtbaar. Foto’s zijn uitgesloten van back-ups. Je kunt back-ups uitschakelen in de Android-systeeminstellingen.</string>
     <string name="privacy_h_nodata">Er bereiken geen gegevens de ontwikkelaar</string>

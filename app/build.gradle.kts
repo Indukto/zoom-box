@@ -12,8 +12,8 @@ android {
     applicationId = "eu.indukto.zoombox"
     minSdk = 29
     targetSdk = 36
-    versionCode = 5
-    versionName = "1.3.4"
+    versionCode = 6
+    versionName = "1.3.5"
   }
 
   // Release keystore credentials come from environment variables.

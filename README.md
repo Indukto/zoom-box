@@ -79,23 +79,11 @@
 ###  Privacy & legal
 
 - **Fully offline** — no `INTERNET` permission: Android blocks all network access. No ads, no analytics, no trackers, no crash reporting. Photos never leave the device (sharing is user-initiated), and no GPS/location data is written into photos.
-- **In-app legal pages** — Settings → Legal: Privacy (GDPR), Impressum (§ 5 DDG) and open-source licenses, fully bilingual (English + German).
+- **In-app legal pages** — Settings → Legal: Privacy (GDPR) and open-source licenses, translated into all 15 supported languages.
 
 
 ---
 
-##  Tested Devices
-
-Real-hardware checks (preview + JPEG capture + lens switching):
-
-| Device             | Android version | Main camera | Ultra-wide / Tele |
-|--------------------|-----------------|-------------|-------------------|
-| Google Pixel 7 Pro | 17              | ✅          | ✅                |
-| Xiaomi Poco 7 pro  | 16              | ✅          | ❌                |
-| Oneplus nord ce 3  | -               | ✅            | -                 |
-> Only verified device so far. Tested something else? Please open an [issue](https://github.com/Indukto/zoom-box/issues) with your device + Android version and what works.
-
----
 
 ##  Film Looks
 

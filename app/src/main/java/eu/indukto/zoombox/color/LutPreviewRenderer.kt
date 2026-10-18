@@ -150,9 +150,11 @@ class LutPreviewRenderer(
     @Volatile private var milkyTintG = 0f
     @Volatile private var milkyTintB = 0f
 
-    // ── Opt-in artifact inputs. Grain is now rendered in the live preview so
-    //    the viewfinder matches the saved JPEG's film texture; dust, scratches,
-    //    and light leaks are capture-only overlays (kept at 0 here). ──
+    // ── Opt-in artifact inputs, all rendered live so the viewfinder matches
+    //    the saved JPEG — grain, dust, scratches and light leaks included.
+    //    Zeroing any of these here re-introduces the WYSIWYG gap where a look
+    //    (ccd_digicam ships dust + a light leak) previewed clean but captured
+    //    with visible artifacts. ──
     @Volatile private var highlightRolloff = 0f
     @Volatile private var fade = 0f
     @Volatile private var vignette = 1f
@@ -531,18 +533,21 @@ class LutPreviewRenderer(
         GLES20.glUniform1f(uMilkyTintGLoc, milkyTintG)
         GLES20.glUniform1f(uMilkyTintBLoc, milkyTintB)
 
-        // ── Upload opt-in artifact uniforms. Grain is rendered live so the
-        //    viewfinder matches the saved JPEG; dust/scratch/light-leak are
-        //    capture-only overlays and stay 0 in the preview. ──
+        // ── Upload opt-in artifact uniforms. Every stage renders live so the
+        //    viewfinder matches the saved JPEG — the one RetroRenderParams
+        //    snapshot drives all back-ends (see invariant #3 in AGENTS.md).
+        //    Dust/scratch/light-leak used to be forced to 0 here as
+        //    "capture-only" overlays, which made ccd_digicam's saved photos
+        //    visibly differ from the viewfinder. ──
         GLES20.glUniform1f(uHighlightRolloffLoc, highlightRolloff)
         GLES20.glUniform1f(uFadeLoc, fade)
         GLES20.glUniform1f(uGrainStrengthLoc, grainStrength)
         GLES20.glUniform1f(uGrainChromaLoc, grainChroma)
         GLES20.glUniform1f(uGrainSeedLoc, grainSeed)
         GLES20.glUniform1f(uVignetteLoc, vignette)
-        GLES20.glUniform1f(uDustLoc, 0f)
-        GLES20.glUniform1f(uScratchLoc, 0f)
-        GLES20.glUniform1f(uLightLeakLoc, 0f)
+        GLES20.glUniform1f(uDustLoc, dust)
+        GLES20.glUniform1f(uScratchLoc, scratch)
+        GLES20.glUniform1f(uLightLeakLoc, lightLeak)
 
         // Dual-slot LUT blend for the look crossfade. Each present slot is
         // bound to its own texture unit; absent sides fall back to ungraded

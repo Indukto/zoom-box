@@ -68,6 +68,7 @@
     <string name="delete_captured_photo_desc">Удалить снятое фото</string>
     <string name="enlarged_capture_desc">Увеличенный снимок</string>
     <string name="filmstrip_photo_desc">Фото с плёнки</string>
+    <string name="capture_not_ready">Камера ещё не готова — попробуйте снова через мгновение</string>
 
     <string name="close_settings_desc">Закрыть настройки</string>
     <string name="settings_subtitle">Образы, кадрирование и съёмка</string>
@@ -100,6 +101,8 @@
     <string name="viewfinder_section">ВИДОИСКАТЕЛЬ</string>
     <string name="grid_lines_label">Линии сетки</string>
     <string name="grid_lines_subtitle">Сетка третей при кадрировании</string>
+    <string name="backdrop_blur_label">Размытие фона</string>
+    <string name="backdrop_blur_subtitle">Матовое стекло за пузырьком и панелями</string>
     <string name="self_timer_label">Автоспуск</string>
     <string name="self_timer_off">Выкл</string>
     <string name="self_timer_desc_off">Спуск срабатывает мгновенно.</string>
@@ -141,6 +144,7 @@
     <string name="privacy_h_photos">Фото и камера</string>
     <string name="privacy_p_photos">Фото снимаются, обрабатываются и хранятся только на вашем устройстве (в Pictures/ZoomBoxCamera/ и частном хранилище приложения). Приложение никогда не записывает ваше местоположение или GPS-координаты в фото. Фото покидает устройство, только если вы сами им поделитесь.</string>
     <string name="privacy_h_permissions">Разрешения</string>
+    <string name="privacy_p_permissions">Камера: нужна для съёмки, запрашивается при первом запуске. Приложение не запрашивает доступ к галерее: в галерее отображаются только фото, сохранённые этой установкой. Фонового доступа нет — каждое чтение или запись вы запускаете сами в приложении.</string>
     <string name="privacy_h_backup">Резервные копии</string>
     <string name="privacy_p_backup">Ваши настройки камеры (стиль плёнки, линии сетки и т.д.) могут входить в автоматическую резервную копию Android, которая хранится в вашем аккаунте Google и видна только вам. Фото исключены из копий. Копии можно отключить в системных настройках Android.</string>
     <string name="privacy_h_nodata">Данные не доходят до разработчика</string>

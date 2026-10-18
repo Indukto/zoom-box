@@ -68,6 +68,7 @@
     <string name="delete_captured_photo_desc">Excluir foto capturada</string>
     <string name="enlarged_capture_desc">Captura ampliada</string>
     <string name="filmstrip_photo_desc">Foto de tira de filme</string>
+    <string name="capture_not_ready">A câmera ainda não está pronta — tente novamente em um instante</string>
 
     <string name="close_settings_desc">Fechar configurações</string>
     <string name="settings_subtitle">Visuais, enquadramento e captura</string>
@@ -100,6 +101,8 @@
     <string name="viewfinder_section">VISOR</string>
     <string name="grid_lines_label">Linhas de grade</string>
     <string name="grid_lines_subtitle">Grade de terços ao enquadrar</string>
+    <string name="backdrop_blur_label">Desfoque de fundo</string>
+    <string name="backdrop_blur_subtitle">Vidro fosco atrás da bolha e dos painéis</string>
     <string name="self_timer_label">Temporizador</string>
     <string name="self_timer_off">Desligado</string>
     <string name="self_timer_desc_off">O obturador dispara na hora.</string>
@@ -141,6 +144,7 @@
     <string name="privacy_h_photos">Fotos e câmera</string>
     <string name="privacy_p_photos">As fotos são capturadas, processadas e armazenadas apenas no seu dispositivo (em Pictures/ZoomBoxCamera/ e no armazenamento privado do app). O app nunca grava sua localização ou coordenadas GPS nas fotos. Uma foto só sai do seu dispositivo se você a compartilhar.</string>
     <string name="privacy_h_permissions">Permissões</string>
+    <string name="privacy_p_permissions">Câmera: necessária para tirar fotos, solicitada na primeira abertura. O app não pede permissão da fototeca: a galeria lista apenas as fotos que esta instalação salvou. Não há acesso em segundo plano — cada leitura ou gravação é iniciada por você no app.</string>
     <string name="privacy_h_backup">Backups</string>
     <string name="privacy_p_backup">Suas configurações de câmera (estilo de filme, linhas de grade etc.) podem ser incluídas no backup automático do Android, salvo na sua conta Google e visível só para você. Fotos são excluídas. Você pode desativar backups nas configurações do sistema Android.</string>
     <string name="privacy_h_nodata">Nenhum dado chega ao desenvolvedor</string>

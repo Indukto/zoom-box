@@ -59,6 +59,16 @@ object RawCapture {
     private const val CONVERGE_TIMEOUT_MS = 2000L
 
     /**
+     * Safety cap on how long we wait for the still's output buffers (RAW
+     * image + JPEG companion + TotalCaptureResult) after the still was
+     * submitted. The 3A timeout only bounds convergence BEFORE submission;
+     * without this second bound, a HAL that reports success but never delivers
+     * one of the streams wedges the caller forever — the shutter stays
+     * disabled because neither callback ever fires.
+     */
+    private const val STILL_TIMEOUT_MS = 5000L
+
+    /**
      * @param context Activity/application context
      * @param logicalCameraId The logical Camera2 id (e.g. "0")
      * @param physicalCameraId The target physical lens id (may equal logical
@@ -286,8 +296,8 @@ object RawCapture {
                                         pendingResult = result
                                         tryFinish()
                                     },
-                                    onFailure = { reason ->
-                                        failOnce(RuntimeException("RAW capture failed: $reason"))
+                                    onFailure = { message ->
+                                        failOnce(RuntimeException(message))
                                     }
                                 )
                             }
@@ -413,7 +423,7 @@ object RawCapture {
         flashMode: Int,
         handler: Handler,
         onStillResult: (TotalCaptureResult) -> Unit,
-        onFailure: (Int) -> Unit
+        onFailure: (String) -> Unit
     ) {
         val converged = java.util.concurrent.atomic.AtomicBoolean(false)
         val stillSubmitted = java.util.concurrent.atomic.AtomicBoolean(false)
@@ -453,12 +463,19 @@ object RawCapture {
                         session: CameraCaptureSession,
                         request: CaptureRequest, failure: CaptureFailure
                     ) {
-                        onFailure(failure.reason)
+                        onFailure("RAW capture failed: ${failure.reason}")
                     }
                 }, handler)
+                // Watchdog for the buffer pairing (see STILL_TIMEOUT_MS).
+                // failOnce is idempotent, so a late delivery after the timeout
+                // is ignored; on success cleanup() quits the handler thread,
+                // which drops this pending message without delivering it.
+                handler.postDelayed({
+                    onFailure("RAW capture timed out waiting for output buffers")
+                }, STILL_TIMEOUT_MS)
             } catch (e: Exception) {
                 Log.e(TAG, "Still capture failed", e)
-                onFailure(-1)
+                onFailure("Still capture failed")
             }
         }
 
@@ -505,7 +522,7 @@ object RawCapture {
             }, CONVERGE_TIMEOUT_MS)
         } catch (e: Exception) {
             Log.e(TAG, "RAW 3A preview failed", e)
-            onFailure(-1)
+            onFailure("RAW 3A preview failed")
         }
     }
 

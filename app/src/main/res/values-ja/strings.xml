@@ -68,6 +68,7 @@
     <string name="delete_captured_photo_desc">撮影した写真を削除</string>
     <string name="enlarged_capture_desc">拡大キャプチャ</string>
     <string name="filmstrip_photo_desc">フィルムストリップ写真</string>
+    <string name="capture_not_ready">カメラの準備ができていません — 少ししてからもう一度お試しください</string>
 
     <string name="close_settings_desc">設定を閉じる</string>
     <string name="settings_subtitle">フィルムルック、構図と撮影</string>
@@ -100,6 +101,8 @@
     <string name="viewfinder_section">ファインダー</string>
     <string name="grid_lines_label">グリッド線</string>
     <string name="grid_lines_subtitle">構図時の三分割オーバーレイ</string>
+    <string name="backdrop_blur_label">背景ぼかし</string>
+    <string name="backdrop_blur_subtitle">バブルとパネルの背後のフロストガラス</string>
     <string name="self_timer_label">セルフタイマー</string>
     <string name="self_timer_off">オフ</string>
     <string name="self_timer_desc_off">シャッターは即時に切れます。</string>
@@ -141,6 +144,7 @@
     <string name="privacy_h_photos">写真とカメラ</string>
     <string name="privacy_p_photos">写真はお使いのデバイス上でのみ撮影・処理・保存されます（Pictures/ZoomBoxCamera/およびアプリのプライベート領域）。写真に位置情報やGPS座標が書き込まれることはありません。写真がデバイス外に出るのは、ご自身で共有した場合のみです。</string>
     <string name="privacy_h_permissions">権限</string>
+    <string name="privacy_p_permissions">カメラ：写真を撮影するために必要で、初回起動時に求められます。本アプリは写真ライブラリのパーミッションを要求しません：ギャラリーにはこのインストールが保存した写真だけが表示されます。バックグラウンドアクセスはありません — 読み書きはいずれもアプリ内であなたが操作して発生します。</string>
     <string name="privacy_h_backup">バックアップ</string>
     <string name="privacy_p_backup">カメラ設定（フィルムルック、グリッド線など）はAndroid自動バックアップに含まれる場合があり、Googleアカウントに保存されご本人のみ閲覧可能です。写真はバックアップ対象外です。バックアップはAndroidシステム設定で無効化できます。</string>
     <string name="privacy_h_nodata">開発者にデータは届きません</string>

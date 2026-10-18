@@ -79,9 +79,12 @@ config-cache failure, retry once with `--no-configuration-cache`.
    fork the math into a single back-end.
 4. **The version has one source:** `versionName` in `app/build.gradle.kts` →
    `BuildConfig.VERSION_NAME` → `AppVersion`. Don't hardcode a version anywhere.
-5. **Partial localizations are deliberate.** Legal text exists in English and German only
-   and the rest falls back to English; `MissingTranslation` is a configured warning in
-   `app/build.gradle.kts`. Don't "fix" it by machine-translating legal copy.
+5. **Locales stay in sync with `values/`.** All 15 translated locales carry the full
+   key set, legal/GDPR copy included, so a user reading the privacy disclosure sees it
+   in their own language. `MissingTranslation` is a configured warning in
+   `app/build.gradle.kts` that flags any drift — keep it at zero. When you add a string
+   to `values/strings.xml`, translate it into every `values-*` file in the same commit;
+   the order of the keys should mirror the base file so diffs stay readable.
 
 ## Conventions
 

@@ -68,6 +68,7 @@
     <string name="delete_captured_photo_desc">Smazat pořízenou fotku</string>
     <string name="enlarged_capture_desc">Zvětšený záběr</string>
     <string name="filmstrip_photo_desc">Fotka z filmového pásu</string>
+    <string name="capture_not_ready">Fotoaparát ještě není připraven — zkuste to za chvíli</string>
 
     <string name="close_settings_desc">Zavřít nastavení</string>
     <string name="settings_subtitle">Filmové vzhledy, kompozice a snímání</string>
@@ -100,6 +101,8 @@
     <string name="viewfinder_section">HLEDÁČEK</string>
     <string name="grid_lines_label">Čáry mřížky</string>
     <string name="grid_lines_subtitle">Mřížka třetin při kompozici</string>
+    <string name="backdrop_blur_label">Rozostření pozadí</string>
+    <string name="backdrop_blur_subtitle">Matné sklo za bublinou a panely</string>
     <string name="self_timer_label">Samospoušť</string>
     <string name="self_timer_off">Vypnuto</string>
     <string name="self_timer_desc_off">Závěrka spustí okamžitě.</string>
@@ -141,6 +144,7 @@
     <string name="privacy_h_photos">Fotky a fotoaparát</string>
     <string name="privacy_p_photos">Fotky se snímají, zpracovávají a ukládají pouze na vašem zařízení (ve složce Pictures/ZoomBoxCamera/ a v soukromém úložišti aplikace). Aplikace nikdy nezapisuje vaši polohu ani GPS souřadnice do fotek. Fotka opustí vaše zařízení, jen když ji sami nasdílíte.</string>
     <string name="privacy_h_permissions">Oprávnění</string>
+    <string name="privacy_p_permissions">Fotoaparát: nutný pro pořizování fotek, vyžádán při prvním spuštění. Aplikace nežádá o oprávnění k fotogalerii: galerie zobrazuje pouze fotky, které tato instalace uložila. Žádný přístup na pozadí — každé čtení nebo zápis vyvoláte vy v aplikaci.</string>
     <string name="privacy_h_backup">Zálohy</string>
     <string name="privacy_p_backup">Nastavení fotoaparátu (filmový vzhled, čáry mřížky apod.) mohou být součástí automatické zálohy Androidu uložené ve vašem účtu Google a viditelné jen pro vás. Fotky jsou ze záloh vyloučeny. Zálohy můžete vypnout v systémovém nastavení Androidu.</string>
     <string name="privacy_h_nodata">K vývojáři se nedostanou žádná data</string>

@@ -51,16 +51,6 @@ __pycache__/
 # Play Store marketing assets: generated locally by the screenshot editor,
 # never sourced from or needed by a fresh clone.
 /store-screenshots/
-/app/src/test/java/com/example/color/CameraProfileWriterTest.kt
 /app/src/test/roborazzi/film_style_picker.png
 /app/src/test/roborazzi/film_style_picker_bottom.png
-/app/src/test/java/com/example/FilmLooksPickerTest.kt
 /app/src/test/roborazzi/look_editor_panel.png
-/app/src/test/java/com/example/color/LookDraftValidatorTest.kt
-/app/src/test/java/com/example/LookEditorLutRowTest.kt
-/app/src/test/java/com/example/LookEditorScreenshotTest.kt
-/app/src/test/java/com/example/LookEditorStateTest.kt
-/app/src/test/java/com/example/color/UserLookStoreTest.kt
-/app/src/test/java/com/example/color/UserLutStoreTest.kt
-/app/src/test/java/com/example/zoom/LensCatalogDecisionTest.kt
-/app/src/test/java/com/example/LookEditorRestoreTest.kt

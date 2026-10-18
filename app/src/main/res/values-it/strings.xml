@@ -68,6 +68,7 @@
     <string name="delete_captured_photo_desc">Elimina foto acquisita</string>
     <string name="enlarged_capture_desc">Scatto ingrandito</string>
     <string name="filmstrip_photo_desc">Foto da striscia pellicola</string>
+    <string name="capture_not_ready">La fotocamera non è ancora pronta — riprova tra un momento</string>
 
     <string name="close_settings_desc">Chiudi impostazioni</string>
     <string name="settings_subtitle">Look, inquadratura e scatto</string>
@@ -100,6 +101,8 @@
     <string name="viewfinder_section">MIRINO</string>
     <string name="grid_lines_label">Linee griglia</string>
     <string name="grid_lines_subtitle">Griglia dei terzi durante l’inquadratura</string>
+    <string name="backdrop_blur_label">Sfocatura dello sfondo</string>
+    <string name="backdrop_blur_subtitle">Vetro smerigliato dietro la bolla e i pannelli</string>
     <string name="self_timer_label">Autoscatto</string>
     <string name="self_timer_off">Off</string>
     <string name="self_timer_desc_off">Scatto immediato.</string>
@@ -141,6 +144,7 @@
     <string name="privacy_h_photos">Foto e fotocamera</string>
     <string name="privacy_p_photos">Le foto vengono acquisite, elaborate e conservate solo sul tuo dispositivo (in Pictures/ZoomBoxCamera/ e nello spazio privato dell’app). L’app non scrive mai la tua posizione o le coordinate GPS nelle foto. Una foto lascia il tuo dispositivo solo se la condividi tu.</string>
     <string name="privacy_h_permissions">Autorizzazioni</string>
+    <string name="privacy_p_permissions">Fotocamera: necessaria per scattare le foto, richiesta al primo avvio. L’app non richiede alcuna autorizzazione per la fototeca: la galleria mostra solo le foto salvate da questa installazione. Nessun accesso in background — ogni lettura o scrittura viene avviata da te nell’app.</string>
     <string name="privacy_h_backup">Backup</string>
     <string name="privacy_p_backup">Le impostazioni della fotocamera (stile pellicola, linee griglia, ecc.) possono essere incluse nel backup automatico Android, salvato nel tuo account Google e visibile solo a te. Le foto sono escluse dai backup. Puoi disattivare i backup nelle impostazioni di sistema Android.</string>
     <string name="privacy_h_nodata">Nessun dato raggiunge lo sviluppatore</string>

@@ -68,6 +68,7 @@
     <string name="delete_captured_photo_desc">Eliminar foto capturada</string>
     <string name="enlarged_capture_desc">Captura ampliada</string>
     <string name="filmstrip_photo_desc">Foto de tira de película</string>
+    <string name="capture_not_ready">La cámara todavía no está lista — inténtalo de nuevo en un momento</string>
 
     <string name="close_settings_desc">Cerrar ajustes</string>
     <string name="settings_subtitle">Looks, encuadre y captura</string>
@@ -100,6 +101,8 @@
     <string name="viewfinder_section">VISOR</string>
     <string name="grid_lines_label">Líneas de cuadrícula</string>
     <string name="grid_lines_subtitle">Cuadrícula de tercios al encuadrar</string>
+    <string name="backdrop_blur_label">Desenfoque de fondo</string>
+    <string name="backdrop_blur_subtitle">Cristal esmerilado detrás de la burbuja y los paneles</string>
     <string name="self_timer_label">Temporizador</string>
     <string name="self_timer_off">Desactivado</string>
     <string name="self_timer_desc_off">El obturador se dispara al instante.</string>
@@ -141,6 +144,7 @@
     <string name="privacy_h_photos">Fotos y cámara</string>
     <string name="privacy_p_photos">Las fotos se capturan, procesan y almacenan solo en tu dispositivo (en Pictures/ZoomBoxCamera/ y el almacenamiento privado de la app). La app nunca guarda tu ubicación ni coordenadas GPS en las fotos. Una foto solo sale de tu dispositivo si tú la compartes.</string>
     <string name="privacy_h_permissions">Permisos</string>
+    <string name="privacy_p_permissions">Cámara: necesaria para hacer fotos, se solicita en el primer arranque. La app no pide permiso de la fototeca: la galería solo muestra las fotos que ha guardado esta instalación. No hay acceso en segundo plano — cada lectura o escritura la activas tú en la app.</string>
     <string name="privacy_h_backup">Copias de seguridad</string>
     <string name="privacy_p_backup">Tus ajustes de cámara (estilo de película, líneas de cuadrícula, etc.) pueden incluirse en la copia de seguridad automática de Android, guardada en tu cuenta de Google y visible solo para ti. Las fotos están excluidas. Puedes desactivar las copias en los ajustes del sistema Android.</string>
     <string name="privacy_h_nodata">Ningún dato llega al desarrollador</string>

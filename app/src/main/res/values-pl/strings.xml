@@ -68,6 +68,7 @@
     <string name="delete_captured_photo_desc">Usuń zrobione zdjęcie</string>
     <string name="enlarged_capture_desc">Powiększone ujęcie</string>
     <string name="filmstrip_photo_desc">Zdjęcie z kliszy</string>
+    <string name="capture_not_ready">Aparat nie jest jeszcze gotowy — spróbuj ponownie za chwilę</string>
 
     <string name="close_settings_desc">Zamknij ustawienia</string>
     <string name="settings_subtitle">Style, kadrowanie i przechwytywanie</string>
@@ -100,6 +101,8 @@
     <string name="viewfinder_section">WIZJER</string>
     <string name="grid_lines_label">Linie siatki</string>
     <string name="grid_lines_subtitle">Siatka trójpodziału podczas kadrowania</string>
+    <string name="backdrop_blur_label">Rozmycie tła</string>
+    <string name="backdrop_blur_subtitle">Mleczne szkło za bańką i panelami</string>
     <string name="self_timer_label">Samowyzwalacz</string>
     <string name="self_timer_off">Wył.</string>
     <string name="self_timer_desc_off">Migawka wyzwala natychmiast.</string>
@@ -141,6 +144,7 @@
     <string name="privacy_h_photos">Zdjęcia i aparat</string>
     <string name="privacy_p_photos">Zdjęcia są rejestrowane, przetwarzane i przechowywane wyłącznie na Twoim urządzeniu (w Pictures/ZoomBoxCamera/ oraz prywatnym magazynie aplikacji). Aplikacja nigdy nie zapisuje Twojej lokalizacji ani współrzędnych GPS w zdjęciach. Zdjęcie opuszcza Twoje urządzenie tylko wtedy, gdy sam je udostępnisz.</string>
     <string name="privacy_h_permissions">Uprawnienia</string>
+    <string name="privacy_p_permissions">Aparat: wymagany do robienia zdjęć, proszony przy pierwszym uruchomieniu. Aplikacja nie prosi o uprawnienie do galerii zdjęć: galeria pokazuje tylko zdjęcia zapisane przez tę instalację. Nie ma dostępu w tle — każdy odczyt lub zapis inicjujesz w aplikacji.</string>
     <string name="privacy_h_backup">Kopie zapasowe</string>
     <string name="privacy_p_backup">Twoje ustawienia aparatu (styl filmu, linie siatki itp.) mogą być zawarte w automatycznej kopii zapasowej Androida, przechowywanej na Twoim koncie Google i widocznej tylko dla Ciebie. Zdjęcia są wykluczone z kopii. Kopie możesz wyłączyć w ustawieniach systemu Android.</string>
     <string name="privacy_h_nodata">Żadne dane nie trafiają do dewelopera</string>

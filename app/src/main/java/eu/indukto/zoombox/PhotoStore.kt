@@ -408,8 +408,10 @@ class PhotoStore(private val context: Context) {
             "${Environment.DIRECTORY_PICTURES}/zoomboxcamera".lowercase(),
             "${Environment.DIRECTORY_PICTURES}/zoomboxcamera/%".lowercase()
         )
-        // DATE_ADDED DESC matches the newest-first gallery ordering
-        // (lastModified on File can drift if a user copies files in via MTP).
+        // DATE_ADDED DESC only PRE-orders the rows: listPhotos re-sorts the
+        // merged list by File.lastModified() (which can drift from DATE_ADDED
+        // when a user copies files in via MTP), so this is a cheap hint that
+        // cuts the sort's work, not the gallery's ordering contract.
         val sortOrder = "${MediaStore.Images.Media.DATE_ADDED} DESC"
 
         return runCatching {

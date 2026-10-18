@@ -68,6 +68,7 @@
     <string name="delete_captured_photo_desc">Çekilen fotoğrafı sil</string>
     <string name="enlarged_capture_desc">Büyütülmüş çekim</string>
     <string name="filmstrip_photo_desc">Film şeridi fotoğrafı</string>
+    <string name="capture_not_ready">Kamera henüz hazır değil — birazdan tekrar deneyin</string>
 
     <string name="close_settings_desc">Ayarları kapat</string>
     <string name="settings_subtitle">Film görünümleri, kadraj ve çekim</string>
@@ -100,6 +101,8 @@
     <string name="viewfinder_section">VİZÖR</string>
     <string name="grid_lines_label">Izgara çizgileri</string>
     <string name="grid_lines_subtitle">Kadrajlarken üçte bir çizgileri</string>
+    <string name="backdrop_blur_label">Arka plan bulanıklığı</string>
+    <string name="backdrop_blur_subtitle">Baloncuk ve panellerin arkasında buzlu cam</string>
     <string name="self_timer_label">Özçekim zamanlayıcısı</string>
     <string name="self_timer_off">Kapalı</string>
     <string name="self_timer_desc_off">Deklanşör anında çalışır.</string>
@@ -141,6 +144,7 @@
     <string name="privacy_h_photos">Fotoğraflar ve kamera</string>
     <string name="privacy_p_photos">Fotoğraflar yalnızca cihazınızda çekilir, işlenir ve saklanır (Pictures/ZoomBoxCamera/ ve uygulamanın özel deposu). Uygulama fotoğraflara konum veya GPS koordinatı yazmaz. Bir fotoğraf cihazınızdan yalnızca siz paylaşırsanız çıkar.</string>
     <string name="privacy_h_permissions">İzinler</string>
+    <string name="privacy_p_permissions">Kamera: fotoğraf çekmek için gereklidir, ilk açılışta istenir. Uygulama fotoğraf galerisi izni istemez: galeride yalnızca bu kurulumun kaydettiği fotoğraflar listelenir. Arka plan erişimi yoktur — her okuma veya yazma işlemi uygulamada sizin tarafınızdan başlatılır.</string>
     <string name="privacy_h_backup">Yedekler</string>
     <string name="privacy_p_backup">Kamera ayarlarınız (film görünümü, ızgara çizgileri vb.) Google hesabınızda saklanan ve yalnızca sizin görebildiğiniz otomatik Android yedeklemesine dahil edilebilir. Fotoğraflar yedeklerin dışındadır. Yedekleri Android sistem ayarlarından kapatabilirsiniz.</string>
     <string name="privacy_h_nodata">Geliştiriciye veri ulaşmaz</string>

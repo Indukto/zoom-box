@@ -74,6 +74,7 @@
     <string name="delete_captured_photo_desc">Supprimer la photo capturée</string>
     <string name="enlarged_capture_desc">Capture agrandie</string>
     <string name="filmstrip_photo_desc">Photo de pellicule</string>
+    <string name="capture_not_ready">L’appareil photo n’est pas encore prêt — réessayez dans un instant</string>
 
     <!-- Settings -->
     <string name="close_settings_desc">Fermer les paramètres</string>
@@ -107,6 +108,8 @@
     <string name="viewfinder_section">VISEUR</string>
     <string name="grid_lines_label">Lignes de grille</string>
     <string name="grid_lines_subtitle">Grille des tiers pendant le cadrage</string>
+    <string name="backdrop_blur_label">Flou d’arrière-plan</string>
+    <string name="backdrop_blur_subtitle">Verre dépoli derrière la bulle et les panneaux</string>
     <string name="self_timer_label">Retardateur</string>
     <string name="self_timer_off">Désactivé</string>
     <string name="self_timer_desc_off">Déclenchement instantané.</string>
@@ -149,6 +152,7 @@
     <string name="privacy_h_photos">Photos et caméra</string>
     <string name="privacy_p_photos">Les photos sont capturées, traitées et stockées uniquement sur votre appareil (dans Pictures/ZoomBoxCamera/ et le stockage privé de l’app). L’app n’inscrit jamais votre position ni vos coordonnées GPS dans les photos. Une photo ne quitte votre appareil que si vous la partagez vous-même.</string>
     <string name="privacy_h_permissions">Autorisations</string>
+    <string name="privacy_p_permissions">Appareil photo : nécessaire pour prendre des photos, demandé au premier lancement. L’app ne demande aucune permission pour la photothèque : la galerie ne liste que les photos enregistrées par cette installation. Aucun accès en arrière-plan — chaque lecture ou écriture est déclenchée par vous dans l’app.</string>
     <string name="privacy_h_backup">Sauvegardes</string>
     <string name="privacy_p_backup">Vos réglages photo (style de film, lignes de grille, etc.) peuvent être inclus dans la sauvegarde automatique Android, stockée dans votre compte Google et visible uniquement par vous. Les photos sont exclues des sauvegardes. Vous pouvez désactiver les sauvegardes dans les paramètres système Android.</string>
     <string name="privacy_h_nodata">Aucune donnée ne parvient au développeur</string>

@@ -68,6 +68,7 @@
     <string name="delete_captured_photo_desc">删除拍摄的照片</string>
     <string name="enlarged_capture_desc">放大的成片</string>
     <string name="filmstrip_photo_desc">胶卷照片</string>
+    <string name="capture_not_ready">相机尚未就绪 — 请稍后重试</string>
 
     <string name="close_settings_desc">关闭设置</string>
     <string name="settings_subtitle">胶片外观、构图与拍摄</string>
@@ -100,6 +101,8 @@
     <string name="viewfinder_section">取景器</string>
     <string name="grid_lines_label">网格线</string>
     <string name="grid_lines_subtitle">构图时显示三分法叠加</string>
+    <string name="backdrop_blur_label">背景虚化</string>
+    <string name="backdrop_blur_subtitle">气泡和面板后的磨砂玻璃</string>
     <string name="self_timer_label">自拍定时</string>
     <string name="self_timer_off">关闭</string>
     <string name="self_timer_desc_off">快门立即触发。</string>
@@ -141,6 +144,7 @@
     <string name="privacy_h_photos">照片与相机</string>
     <string name="privacy_p_photos">照片仅在您的设备上拍摄、处理和存储（位于 Pictures/ZoomBoxCamera/ 及应用私有存储）。应用从不在照片中写入位置或 GPS 坐标。只有您主动分享时，照片才会离开设备。</string>
     <string name="privacy_h_permissions">权限</string>
+    <string name="privacy_p_permissions">相机：拍照所需，首次启动时请求。本应用不请求照片库权限：相册仅显示此安装所保存的照片。没有后台访问 — 每次读取或写入都由您在应用内触发。</string>
     <string name="privacy_h_backup">备份</string>
     <string name="privacy_p_backup">您的相机设置（胶片风格、网格线等）可能包含在 Android 自动设备备份中，存储在您的 Google 账号中且仅您可见。照片不包含在备份中。您可在 Android 系统设置中关闭备份。</string>
     <string name="privacy_h_nodata">开发者收不到任何数据</string>
