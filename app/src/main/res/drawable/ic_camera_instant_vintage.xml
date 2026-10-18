@@ -56,7 +56,7 @@
     <path
         android:strokeColor="#A178A4"
         android:strokeWidth=".8"
-        android:pathData="m 11 17.3 4 2 v 10 l -4 2 m 26 -16.7 -4 2 v 10 l 4 2 M 16 17.3 l 3 2 v 10 l -3 2 m 16 -16.7 -3 2 v 10 l 3 2"
+        android:pathData="m 11 17.3 4 2 v 10 l -4 2 m 26 -14 -4 2 v 10 l 4 2 M 16 17.3 l 3 2 v 10 l -3 2 m 16 -14 -3 2 v 10 l 3 2"
         />
     <path
         android:fillColor="#211824"

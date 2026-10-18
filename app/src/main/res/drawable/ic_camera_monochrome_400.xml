@@ -71,7 +71,7 @@
     <path
         android:strokeColor="#EEF0F1"
         android:strokeWidth=".4"
-        android:pathData="M 16.5 13.9 v 2 m 1.5 -4.1 v 2 m 1 -4.1 v 2"
+        android:pathData="M 16.5 13.9 v 2 m 1.5 -2 v 2 m 1 -2 v 2"
         />
     <path
         android:fillColor="#43525A"

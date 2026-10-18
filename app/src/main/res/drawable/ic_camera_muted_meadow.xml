@@ -39,7 +39,7 @@
     <path
         android:fillColor="#709780"
         android:fillAlpha=".85"
-        android:pathData="M 14.1 14.4 h 3 v 25 h -3 z m 20.1 0.4 h 3 v 25 h -3 Z"
+        android:pathData="M 14.1 14.4 h 3 v 25 h -3 z m 19 0 h 3 v 25 h -3 Z"
         />
     <path
         android:fillColor="#AAB4AE"
