@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" fill="none">
+  <title>Muted Meadow — Twin-Lens Reflex (TLR) Camera</title>
+  <!-- Main Vertical Box Body -->
+  <rect x="12" y="13" width="24" height="29" rx="3.5" fill="#1F2937" stroke="#7DCEA0" stroke-width="1.5"/>
+  <!-- Sage Meadow Green Side Leatherette Panels -->
+  <rect x="13.5" y="15" width="2.8" height="25" rx="1" fill="#7DCEA0" opacity="0.85"/>
+  <rect x="31.7" y="15" width="2.8" height="25" rx="1" fill="#7DCEA0" opacity="0.85"/>
+  <!-- Top Waist-Level Viewfinder Hood -->
+  <path d="M 13.5 13 L 15.5 7.5 L 32.5 7.5 L 34.5 13 Z" fill="#111827" stroke="#9CA3AF" stroke-width="1.2"/>
+  <line x1="24" y1="7.5" x2="24" y2="13" stroke="#4B5563" stroke-width="0.8"/>
+  <!-- Side Large Focus Dial (Left) -->
+  <rect x="9.5" y="26" width="2.5" height="8" rx="1" fill="#9CA3AF" stroke="#6B7280" stroke-width="0.8"/>
+  <!-- 1. Top Viewing Lens (Viewfinder / Composition) -->
+  <circle cx="24" cy="19.5" r="5.5" fill="#18181B" stroke="#D1D5DB" stroke-width="1.4"/>
+  <circle cx="24" cy="19.5" r="3.8" fill="#042F2E"/>
+  <path d="M 22 18 A 2.5 2.5 0 0 1 25.5 17.5" stroke="#6EE7B7" stroke-width="1.2" stroke-linecap="round"/>
+  <!-- Central Aperture/Shutter Setting Wheel between lenses -->
+  <rect x="22" y="24.8" width="4" height="2" rx="0.5" fill="#E5E7EB" stroke="#6B7280" stroke-width="0.5"/>
+  <!-- 2. Bottom Taking Lens (Taking / Capture) -->
+  <circle cx="24" cy="32" r="5.5" fill="#18181B" stroke="#D1D5DB" stroke-width="1.4"/>
+  <circle cx="24" cy="32" r="3.8" fill="#042F2E"/>
+  <path d="M 22 30.5 A 2.5 2.5 0 0 1 25.5 30" stroke="#34D399" stroke-width="1.2" stroke-linecap="round"/>
+  <circle cx="25" cy="33.5" r="0.8" fill="#FFFFFF" opacity="0.8"/>
+</svg>

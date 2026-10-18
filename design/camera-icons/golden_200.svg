@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" fill="none">
+  <title>Golden 200 — Classic 1970s 35mm Manual SLR</title>
+  <!-- Main Body with Black Textured Leatherette -->
+  <rect x="6" y="16" width="36" height="24" rx="3.5" fill="#18181B" stroke="#E0A54A" stroke-width="1.5"/>
+  <!-- Golden Brass Top Deck Plate -->
+  <path d="M 6 22 L 6 18 C 6 16.5 7.5 15.5 9 15.5 L 39 15.5 C 40.5 15.5 42 16.5 42 18 L 42 22 Z" fill="#E0A54A" stroke="#F59E0B" stroke-width="0.8"/>
+  <!-- Iconic Triangular Pentaprism Viewfinder -->
+  <path d="M 16.5 15.5 L 20.5 7.5 L 27.5 7.5 L 31.5 15.5 Z" fill="#D97706" stroke="#B45309" stroke-width="1.2"/>
+  <rect x="21" y="11" width="6" height="4" rx="0.5" fill="#18181B"/>
+  <!-- Flash Hot-Shoe Mount -->
+  <rect x="22" y="6" width="4" height="2" rx="0.5" fill="#374151" stroke="#E5E7EB" stroke-width="0.6"/>
+  <!-- Top Manual Controls -->
+  <!-- 1. Film Advance Lever (Right) -->
+  <path d="M 36 12 C 38 12 40 13 41 15.5 L 38 15.5 Z" fill="#D97706"/>
+  <!-- 2. Shutter Release Button -->
+  <rect x="33" y="12.5" width="3.5" height="3" rx="0.8" fill="#FDE68A" stroke="#B45309" stroke-width="0.8"/>
+  <!-- 3. Shutter Speed Dial -->
+  <rect x="28" y="13.5" width="4" height="2" rx="0.5" fill="#18181B"/>
+  <!-- 4. Rewind Crank (Left) -->
+  <circle cx="10" cy="14" r="2.5" fill="#D97706" stroke="#B45309" stroke-width="0.8"/>
+  <!-- Mechanical Self-Timer Lever on Front -->
+  <rect x="10.5" y="24" width="2" height="6" rx="0.6" fill="#FDE68A" stroke="#B45309" stroke-width="0.6"/>
+  <!-- Fast 50mm f/1.8 Prime Lens Barrel -->
+  <circle cx="24" cy="27.5" r="9.5" fill="#18181B" stroke="#E0A54A" stroke-width="1.5"/>
+  <circle cx="24" cy="27.5" r="7.5" fill="#27272A" stroke="#71717A" stroke-width="0.8"/>
+  <!-- Amber/Golden Coated Front Glass Element -->
+  <circle cx="24" cy="27.5" r="5.5" fill="#2A1805"/>
+  <!-- Warm Kodak Gold Lens Flare Reflection -->
+  <path d="M 20.5 24.5 A 4 4 0 0 1 26.5 23.5" stroke="#F59E0B" stroke-width="1.8" stroke-linecap="round"/>
+  <circle cx="21" cy="25.5" r="1" fill="#FEF3C7"/>
+</svg>

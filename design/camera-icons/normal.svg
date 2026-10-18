@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" fill="none">
+  <title>Normal — Contemporary Minimalist Rangefinder</title>
+  <!-- Base Body -->
+  <rect x="5" y="14" width="38" height="26" rx="4" fill="#222328" stroke="#E4E4E7" stroke-width="1.5"/>
+  <!-- Top Plate Accent -->
+  <path d="M 5 18 C 5 15.8 6.8 14 9 14 L 39 14 C 41.2 14 43 15.8 43 18 L 43 20 L 5 20 Z" fill="#3F3F46"/>
+  <!-- Top Plate Controls -->
+  <rect x="32" y="11" width="6" height="3" rx="1" fill="#E4E4E7" stroke="#71717A" stroke-width="0.8"/>
+  <rect x="25" y="12" width="5" height="2" rx="0.5" fill="#A1A1AA"/>
+  <!-- Viewfinder Window (top left) -->
+  <rect x="9" y="15.5" width="5.5" height="3.5" rx="0.8" fill="#0F172A" stroke="#CBD5E1" stroke-width="0.8"/>
+  <rect x="9.5" y="16" width="2" height="1.5" rx="0.4" fill="#38BDF8" opacity="0.8"/>
+  <!-- AF Assist / Indicator -->
+  <circle cx="17.5" cy="17.5" r="1" fill="#E4E4E7"/>
+  <!-- Textured Right Grip -->
+  <rect x="38" y="22" width="3" height="16" rx="1" fill="#18181B" opacity="0.6"/>
+  <!-- Main Lens Barrel -->
+  <circle cx="23" cy="27" r="11" fill="#18181B" stroke="#9CA3AF" stroke-width="1.5"/>
+  <circle cx="23" cy="27" r="8.5" fill="#27272A" stroke="#52525B" stroke-width="1"/>
+  <!-- Glass Optical Element -->
+  <circle cx="23" cy="27" r="6.5" fill="#090D16"/>
+  <!-- Anti-Reflective Glare & Specular Reflection -->
+  <path d="M 19 23.5 A 5 5 0 0 1 25.5 22.5" stroke="#60A5FA" stroke-width="1.5" stroke-linecap="round"/>
+  <circle cx="25.5" cy="29" r="0.9" fill="#FFFFFF" opacity="0.9"/>
+  <!-- Subtle Aperture Index Dot -->
+  <circle cx="23" cy="17.2" r="0.7" fill="#E4E4E7"/>
+</svg>
