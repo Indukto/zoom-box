@@ -1,29 +1,20 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" fill="none">
-  <title>Warm Portrait — Medium Format Portrait Camera</title>
-  <!-- Main Heavy Body -->
-  <rect x="7" y="16" width="29" height="25" rx="3.5" fill="#241B15" stroke="#D4A56A" stroke-width="1.5"/>
-  <!-- Pentaprism Viewfinder -->
-  <path d="M 14 16 L 18 9 L 26 9 L 30 16 Z" fill="#1C1510" stroke="#D4A56A" stroke-width="1.3"/>
-  <line x1="22" y1="9" x2="22" y2="16" stroke="#8B6943" stroke-width="1"/>
-  <!-- Hot Shoe / Cold Shoe Mount on Prism -->
-  <rect x="20" y="7.5" width="4" height="2" rx="0.5" fill="#8B6943"/>
-  <!-- Classic Wooden Hand Grip (Right Side) -->
-  <rect x="36" y="18" width="6.5" height="21" rx="3.2" fill="#8B4513" stroke="#D4A56A" stroke-width="1.2"/>
-  <!-- Woodgrain highlight -->
-  <path d="M 39.2 21 L 39.2 36" stroke="#D48B47" stroke-width="1.5" stroke-linecap="round"/>
-  <!-- Grip Metal Brackets & Shutter Release -->
-  <rect x="36" y="18" width="6.5" height="2.5" rx="1" fill="#D4A56A"/>
-  <rect x="36" y="36.5" width="6.5" height="2.5" rx="1" fill="#D4A56A"/>
-  <rect x="37.5" y="15" width="3.5" height="3" rx="0.8" fill="#FDE68A" stroke="#B45309" stroke-width="0.8"/>
-  <!-- Left Side Controls / Dials -->
-  <rect x="4.5" y="24" width="2.5" height="7" rx="1" fill="#8B6943"/>
-  <!-- Big Portrait Lens Barrel -->
-  <circle cx="21.5" cy="28.5" r="10.5" fill="#17120E" stroke="#D4A56A" stroke-width="1.5"/>
-  <circle cx="21.5" cy="28.5" r="8.5" fill="#2B1E15" stroke="#8B6943" stroke-width="1"/>
-  <!-- Deep Obsidian Front Glass Element -->
-  <circle cx="21.5" cy="28.5" r="6.5" fill="#0D0907"/>
-  <!-- Warm Amber / Golden Anti-Reflective Coating Reflection -->
-  <path d="M 17 25 A 5.5 5.5 0 0 1 24.5 24" stroke="#F59E0B" stroke-width="2" stroke-linecap="round"/>
-  <path d="M 18 32 A 4.5 4.5 0 0 0 24 32.5" stroke="#D97706" stroke-width="1.2" stroke-linecap="round" opacity="0.8"/>
-  <circle cx="19.5" cy="25.5" r="1" fill="#FEF3C7"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <defs>
+    <linearGradient id="leather" x2="0" y2="1"><stop stop-color="#493426"/><stop offset="1" stop-color="#1e1713"/></linearGradient>
+    <linearGradient id="wood" x2="1"><stop stop-color="#653719"/><stop offset=".5" stop-color="#ad6d38"/><stop offset="1" stop-color="#542b17"/></linearGradient>
+    <linearGradient id="amber" x2="0" y2="1"><stop stop-color="#e5a84d"/><stop offset=".5" stop-color="#47250e"/><stop offset="1" stop-color="#130d09"/></linearGradient>
+  </defs>
+  <path d="M5 19q0-3 4-3h27v24H9q-4 0-4-4Z" fill="url(#leather)" stroke="#ba9465" stroke-width="1.2"/>
+  <path d="m13 16 4-8h10l5 8Z" fill="#493627" stroke="#d4a56a" stroke-width="1.3"/>
+  <path d="M18 9h8v6h-8Z" fill="#15191a"/>
+  <rect x="20" y="6.5" width="5" height="2" rx=".6" fill="#c49b67"/>
+  <path d="M36 19q0-2 2-2h4v20q0 3-3 3h-3Z" fill="url(#wood)" stroke="#d4a56a" stroke-width="1"/>
+  <path d="M37 20h4M37 37h4" stroke="#e4bd84" stroke-width="1.5"/>
+  <path d="M39 23v11" stroke="#d99b60" stroke-width=".8" opacity=".7"/>
+  <rect x="37" y="14" width="4" height="3" rx=".8" fill="#edc27c" stroke="#7e4c27" stroke-width=".7"/>
+  <circle cx="21" cy="29" r="10" fill="#19130f" stroke="#d4a56a" stroke-width="1.5"/>
+  <circle cx="21" cy="29" r="7.7" fill="#332217" stroke="#8b6943" stroke-width=".8"/>
+  <circle cx="21" cy="29" r="5.6" fill="url(#amber)"/>
+  <path d="M17.7 25.7q2.5-3.3 6.2-2" fill="none" stroke="#efad36" stroke-width="1.4" stroke-linecap="round"/>
+  <circle cx="18.5" cy="26.5" r=".8" fill="#fff0bc"/>
 </svg>

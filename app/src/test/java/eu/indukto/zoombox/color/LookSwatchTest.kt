@@ -1,6 +1,7 @@
 ﻿package eu.indukto.zoombox.color
 
 import eu.indukto.zoombox.FilmPreset
+import eu.indukto.zoombox.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
@@ -20,13 +21,13 @@ class LookSwatchTest {
     private val bundledIds = FilmPreset.entries.map { it.profileId }
 
     @Test
-    fun `every bundled look has a hand-tuned color and glyph`() {
+    fun `every bundled look has a hand-tuned color and silhouette`() {
         for (id in bundledIds) {
             val color = LookSwatch.colorFor(id)
             assertEquals("${id} swatch must be opaque", 0xFF, (color ushr 24) and 0xFF)
             assertTrue(
-                "${id} swatch must not be the fallback glyph",
-                LookSwatch.emojiFor(id) != LookSwatch.FALLBACK_EMOJI
+                "${id} must not fall back to the shared silhouette",
+                LookSwatch.iconFor(id) != LookSwatch.FALLBACK_ICON
             )
         }
     }
@@ -38,13 +39,13 @@ class LookSwatchTest {
         assertEquals(0xFFD4A56A.toInt(), LookSwatch.colorFor("warm_portrait"))
         assertEquals(0xFF6B6B6B.toInt(), LookSwatch.colorFor("monochrome_400"))
         assertEquals(0xFF9CA3AF.toInt(), LookSwatch.colorFor("normal"))
-        assertEquals("📸", LookSwatch.emojiFor("instant_classic"))
+        assertEquals(R.drawable.ic_camera_instant_classic, LookSwatch.iconFor("instant_classic"))
     }
 
     @Test
     fun `look ids are matched case-insensitively`() {
         assertEquals(LookSwatch.colorFor("warm_portrait"), LookSwatch.colorFor("WARM_PORTRAIT"))
-        assertEquals(LookSwatch.emojiFor("moody"), LookSwatch.emojiFor("  Moody  "))
+        assertEquals(LookSwatch.iconFor("moody"), LookSwatch.iconFor("  Moody  "))
     }
 
     @Test
@@ -59,9 +60,9 @@ class LookSwatchTest {
     }
 
     @Test
-    fun `an unknown look gets the fallback glyph`() {
-        assertEquals(LookSwatch.FALLBACK_EMOJI, LookSwatch.emojiFor("halation_soft_1984"))
-        assertEquals(LookSwatch.FALLBACK_EMOJI, LookSwatch.emojiFor(""))
+    fun `an unknown look gets the shared silhouette`() {
+        assertEquals(LookSwatch.FALLBACK_ICON, LookSwatch.iconFor("halation_soft_1984"))
+        assertEquals(LookSwatch.FALLBACK_ICON, LookSwatch.iconFor(""))
     }
 
     @Test

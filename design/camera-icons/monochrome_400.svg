@@ -1,35 +1,19 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" fill="none">
-  <title>Monochrome 400 — Classic Mechanical 35mm Rangefinder</title>
-  <!-- Main Body with Dark Charcoal Vulcanite Grip -->
-  <rect x="6" y="15" width="36" height="25" rx="5" fill="#18181B" stroke="#9CA3AF" stroke-width="1.5"/>
-  <!-- Brushed Chrome Top Plate -->
-  <path d="M 6 21 L 6 17 C 6 15 8 14 10 14 L 38 14 C 40 14 42 15 42 17 L 42 21 Z" fill="#D1D5DB" stroke="#9CA3AF" stroke-width="1"/>
-  <!-- Chrome Bottom Plate -->
-  <path d="M 6 36 L 6 38 C 6 40 8 41 10 41 L 38 41 C 40 41 42 40 42 38 L 42 36 Z" fill="#D1D5DB" stroke="#9CA3AF" stroke-width="0.8"/>
-  <!-- Top Film Advance Lever -->
-  <path d="M 33 11.5 C 36 11.5 39 12.5 40 14 L 37 14 C 36 13 34 13 33 13 Z" fill="#9CA3AF"/>
-  <!-- Shutter Release with Cable Release Thread Socket -->
-  <rect x="31" y="11" width="4" height="3" rx="0.8" fill="#E5E7EB" stroke="#6B7280" stroke-width="0.8"/>
-  <circle cx="33" cy="11" r="0.6" fill="#18181B"/>
-  <!-- Knurled Rewind Knob (Left) -->
-  <rect x="9" y="11" width="5" height="3" rx="0.5" fill="#E5E7EB" stroke="#6B7280" stroke-width="0.8"/>
-  <!-- Triple Front Rangefinder Windows -->
-  <!-- 1. Main Viewfinder -->
-  <rect x="10" y="15.5" width="5" height="3.5" rx="0.6" fill="#1E293B" stroke="#9CA3AF" stroke-width="0.6"/>
-  <rect x="10.5" y="16" width="2" height="1.5" rx="0.3" fill="#64748B"/>
-  <!-- 2. Frosted Frameline Window -->
-  <rect x="16.5" y="15.5" width="5.5" height="3.5" rx="0.6" fill="#94A3B8" stroke="#64748B" stroke-width="0.6"/>
-  <line x1="18.5" y1="16" x2="18.5" y2="18.5" stroke="#CBD5E1" stroke-width="0.6"/>
-  <line x1="20" y1="16" x2="20" y2="18.5" stroke="#CBD5E1" stroke-width="0.6"/>
-  <!-- 3. Rangefinder Coincidence Window -->
-  <rect x="23.5" y="15.5" width="3" height="3.5" rx="0.6" fill="#334155" stroke="#9CA3AF" stroke-width="0.6"/>
-  <!-- Classic 50mm Lens Barrel -->
-  <circle cx="24" cy="28.5" r="9.5" fill="#27272A" stroke="#E5E7EB" stroke-width="1.5"/>
-  <circle cx="24" cy="28.5" r="7.5" fill="#18181B" stroke="#9CA3AF" stroke-width="1"/>
-  <circle cx="24" cy="28.5" r="5.5" fill="#09090B"/>
-  <!-- High-Contrast Monochrome Silver Glint -->
-  <path d="M 20.5 25.5 A 4 4 0 0 1 26 25" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round"/>
-  <circle cx="26" cy="30.5" r="0.8" fill="#FFFFFF" opacity="0.8"/>
-  <!-- Focus Tab -->
-  <path d="M 16 33 L 14 36 L 16 36 Z" fill="#9CA3AF"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <defs>
+    <linearGradient id="chrome" x2="0" y2="1"><stop stop-color="#f3f4f4"/><stop offset=".45" stop-color="#a9afb2"/><stop offset=".7" stop-color="#e7e9ea"/><stop offset="1" stop-color="#8e969a"/></linearGradient>
+    <linearGradient id="glass" x2="1" y2="1"><stop stop-color="#64727a"/><stop offset=".5" stop-color="#151a1e"/><stop offset="1" stop-color="#050607"/></linearGradient>
+  </defs>
+  <path d="M4 19q0-4 4-4h32q4 0 4 4v18q0 4-4 4H8q-4 0-4-4Z" fill="#211f1f" stroke="#73797c" stroke-width="1"/>
+  <path d="M4 20v-3q0-3 4-3h32q4 0 4 3v3Z" fill="url(#chrome)" stroke="#899195" stroke-width=".8"/>
+  <path d="M5 36h38v1q0 4-4 4H9q-4 0-4-4Z" fill="url(#chrome)"/>
+  <rect x="8" y="11" width="5" height="3" rx=".7" fill="#d6d9da" stroke="#727a7d" stroke-width=".7"/>
+  <rect x="31" y="11" width="4" height="3" rx=".7" fill="#e1e3e4" stroke="#727a7d" stroke-width=".7"/>
+  <rect x="9" y="15.5" width="4.5" height="3" rx=".5" fill="#17232b" stroke="#d4d8da" stroke-width=".5"/>
+  <rect x="15" y="15.5" width="5" height="3" rx=".5" fill="#b8c0c3"/>
+  <path d="M16.5 16v2m1.5-2v2m1-2v2" stroke="#eef0f1" stroke-width=".4"/>
+  <rect x="22" y="15.5" width="3" height="3" rx=".5" fill="#43525a" stroke="#b8bec1" stroke-width=".5"/>
+  <circle cx="25" cy="28.5" r="10" fill="#252628" stroke="#e1e3e4" stroke-width="1.5"/>
+  <circle cx="25" cy="28.5" r="7.7" fill="#151719" stroke="#868d90" stroke-width=".9"/>
+  <circle cx="25" cy="28.5" r="5.6" fill="url(#glass)"/>
+  <path d="M21.5 25.5q2.5-3 6-2" fill="none" stroke="#f5f6f6" stroke-width="1.2" stroke-linecap="round"/>
 </svg>

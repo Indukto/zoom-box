@@ -18,6 +18,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.annotation.DrawableRes
 import androidx.camera.core.ImageCapture
 import androidx.core.content.ContextCompat
 import androidx.compose.animation.AnimatedContent
@@ -160,6 +161,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import eu.indukto.zoombox.ui.theme.Inter
@@ -199,6 +201,9 @@ import com.google.accompanist.permissions.shouldShowRationale
 import java.io.File
 
 private const val FLASH_BURST_DURATION_MS = 120L
+
+/** How far a look's swatch is washed toward white behind its camera chip. */
+private const val FILM_PRESET_CHIP_WASH = 0.55f
 
 /**
  * Per-pointer state kept by the passive full-screen swipe overlay.
@@ -570,13 +575,41 @@ private fun BoxScope.ZoomBoxOverlay(
 
 /**
  * Swatch for a look id. The hand-tuned colors live in [LookSwatch] next to
- * the look catalog so the picker, the preset button and the swipe toast all
- * read one table; looks without a hand-tuned entry get a stable derived hue.
+ * the look catalog so the picker tiles and the chips all read one table;
+ * looks without a hand-tuned entry get a stable derived hue.
  */
 private fun filmPresetColor(lookId: String): Color = Color(LookSwatch.colorFor(lookId))
 
-/** Glyph for a look id, with the same hand-tuned / derived split as the swatch. */
-private fun filmPresetEmoji(lookId: String): String = LookSwatch.emojiFor(lookId)
+/**
+ * Camera silhouette for a look id. The drawables live in `res/drawable/ic_camera_*.xml`
+ * (SVG masters in `design/camera-icons/`) and are resolved by [LookSwatch] from
+ * the same hand-tuned table the swatch colors come from, so the chip, the preset
+ * button and the picker tile can never disagree about which camera a look is.
+ *
+ * Draw these with `Image(painterResource(...))`, never `Icon`: Material 3's
+ * `Icon` defaults `tint` to `LocalContentColor.current`, which collapses the
+ * multi-colour artwork into a single silhouette colour.
+ */
+@DrawableRes
+private fun filmPresetIcon(lookId: String): Int = LookSwatch.iconFor(lookId)
+
+/**
+ * Backing plate for a camera silhouette chip.
+ *
+ * Washed toward white rather than used raw: several bundled profiles (Street
+ * Mono 400, Moody) are near-black, and a black body on a black swatch is a
+ * blank chip. Lightening keeps the hue as the identity cue while guaranteeing
+ * every silhouette has something to read against, which a raw swatch does not.
+ */
+private fun filmPresetChipColor(lookId: String): Color {
+    val base = filmPresetColor(lookId)
+    return Color(
+        red = base.red + (1f - base.red) * FILM_PRESET_CHIP_WASH,
+        green = base.green + (1f - base.green) * FILM_PRESET_CHIP_WASH,
+        blue = base.blue + (1f - base.blue) * FILM_PRESET_CHIP_WASH,
+        alpha = 1f
+    )
+}
 
 /** Display name for a look id, resolved through the registry catalog. */
 private fun lookDisplayName(viewModel: CameraViewModel, lookId: String): String =
@@ -2517,12 +2550,16 @@ fun CameraActiveScreen(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(28.dp)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(filmPresetColor(toastLookId)),
+                            .size(32.dp)
+                            .clip(RoundedCornerShape(7.dp))
+                            .background(filmPresetChipColor(toastLookId)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(text = filmPresetEmoji(toastLookId), fontSize = 16.sp)
+                        Image(
+                            painter = painterResource(filmPresetIcon(toastLookId)),
+                            contentDescription = null,
+                            modifier = Modifier.size(25.dp)
+                        )
                     }
                     Text(
                         text = toastLookDisplayName,
@@ -3103,15 +3140,16 @@ fun CameraActiveScreen(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(36.dp)
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(filmPresetColor(activeLookId))
+                                .size(46.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(filmPresetChipColor(activeLookId))
                                 .rotate(animatedControlAngle),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = filmPresetEmoji(activeLookId),
-                                fontSize = 18.sp
+                            Image(
+                                painter = painterResource(filmPresetIcon(activeLookId)),
+                                contentDescription = null,
+                                modifier = Modifier.size(36.dp)
                             )
                         }
                     }
@@ -3377,6 +3415,27 @@ internal fun FilmLooksPickerSheet(
                                 modifier = Modifier.size(14.dp)
                             )
                         }
+                    }
+                    // The silhouette sits in its own lightened-swatch plate rather
+                    // than straight on the tile gradient: the darkest profiles
+                    // (Street Mono 400, Moody) would vanish into it, and a tile
+                    // needs the camera to be recognisable at a glance, not just
+                    // tinted by it. Top-centred so the bottom scrim keeps the
+                    // name legible where it already was.
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .padding(top = 12.dp)
+                            .size(64.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(filmPresetChipColor(look.id)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            painter = painterResource(filmPresetIcon(look.id)),
+                            contentDescription = null,
+                            modifier = Modifier.size(52.dp)
+                        )
                     }
                     // Tiles only apply looks now: editing lives in the
                     // full-width button below the grid, so no tile carries a

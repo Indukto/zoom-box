@@ -1,38 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" fill="none">
-  <title>Moody — Cinema Camera Rig with Matte Box and Anamorphic Blue Flare</title>
-  <!-- Top Rig Carrying Handle (Centered) -->
-  <path d="M 19 12 L 19 6.5 C 19 5.5 20 4.5 21 4.5 L 27 4.5 C 28 4.5 29 5.5 29 6.5 L 29 12" stroke="#64748B" stroke-width="2.2" stroke-linecap="round"/>
-  
-  <!-- Side Barn Doors (Left and Right) -->
-  <path d="M 7 15 L 3 16.5 L 3 39.5 L 7 38 Z" fill="#1E293B" stroke="#475569" stroke-width="1"/>
-  <path d="M 41 15 L 45 16.5 L 45 39.5 L 41 38 Z" fill="#1E293B" stroke="#475569" stroke-width="1"/>
-
-  <!-- Top Flare Eyebrow Flag -->
-  <path d="M 7 15 L 41 15 L 43 11 L 5 11 Z" fill="#1E293B" stroke="#64748B" stroke-width="1.2"/>
-
-  <!-- Main Centered Cinema Matte Box (Sunshade Body) -->
-  <rect x="7" y="15" width="34" height="24" rx="2.5" fill="#0F172A" stroke="#475569" stroke-width="1.5"/>
-
-  <!-- Recessed Matte Box Interior Filter Stage -->
-  <rect x="11" y="18" width="26" height="18" rx="1.5" fill="#020617"/>
-
-  <!-- Front Red Recording Tally Lamp (Top-Left) -->
-  <circle cx="10" cy="18" r="1.3" fill="#EF4444"/>
-
-  <!-- Centered Heavy Cinema Prime Lens Barrel -->
-  <circle cx="24" cy="27" r="8.5" fill="#0F172A" stroke="#0284C7" stroke-width="1.3"/>
-  <circle cx="24" cy="27" r="6.2" fill="#030712"/>
-
-  <!-- Cinematic Horizontal Anamorphic Blue Flare Streak -->
-  <!-- 1. Soft Cyan Glow -->
-  <line x1="7" y1="27" x2="41" y2="27" stroke="#0284C7" stroke-width="3" opacity="0.6"/>
-  <!-- 2. Intense Core Laser Streak -->
-  <line x1="5" y1="27" x2="43" y2="27" stroke="#38BDF8" stroke-width="1.6" stroke-linecap="round"/>
-  <!-- 3. Brilliant Specular Glint Center -->
-  <circle cx="24" cy="27" r="1.4" fill="#FFFFFF"/>
-
-  <!-- Bottom 15mm Rig Support Rods -->
-  <circle cx="17" cy="42" r="1.8" fill="#334155" stroke="#CBD5E1" stroke-width="0.8"/>
-  <circle cx="31" cy="42" r="1.8" fill="#334155" stroke="#CBD5E1" stroke-width="0.8"/>
-  <rect x="19" y="41.2" width="10" height="1.6" fill="#1E293B"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <defs><linearGradient id="matte" x2="0" y2="1"><stop stop-color="#293445"/><stop offset="1" stop-color="#0a1019"/></linearGradient></defs>
+  <path d="M18 12V7q0-2 2-2h8q2 0 2 2v5" fill="none" stroke="#73808c" stroke-width="2" stroke-linecap="round"/>
+  <path d="M7 15 3 17v19l4 2m34-23 4 2v19l-4 2" fill="#17212d" stroke="#657381" stroke-width=".8"/>
+  <path d="M6 15 9 10h30l3 5Z" fill="#24303d" stroke="#798692" stroke-width=".9"/>
+  <path d="M7 16h34v22H7Z" fill="url(#matte)" stroke="#66727e" stroke-width="1.2"/>
+  <path d="M11 19h26v16H11Z" fill="#080d15" stroke="#33404c" stroke-width=".7"/>
+  <circle cx="24" cy="27" r="8" fill="#101a25" stroke="#3489aa" stroke-width="1.3"/>
+  <circle cx="24" cy="27" r="5.5" fill="#03080d" stroke="#30475a" stroke-width=".8"/>
+  <path d="M5 27h38" stroke="#078fc1" stroke-width="2.4" opacity=".72"/><path d="M4 27h40" stroke="#7cddf3" stroke-width=".8" stroke-linecap="round"/>
+  <circle cx="24" cy="27" r="1.4" fill="#fff"/><circle cx="10" cy="18" r="1.2" fill="#e34d4d"/>
+  <path d="M14 40h20" stroke="#566474" stroke-width="1.8"/><circle cx="14" cy="42" r="1.5" fill="#263341" stroke="#abb5bd" stroke-width=".6"/><circle cx="34" cy="42" r="1.5" fill="#263341" stroke="#abb5bd" stroke-width=".6"/>
 </svg>

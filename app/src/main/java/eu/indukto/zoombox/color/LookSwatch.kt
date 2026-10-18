@@ -1,10 +1,19 @@
 ﻿package eu.indukto.zoombox.color
 
+import androidx.annotation.DrawableRes
+import eu.indukto.zoombox.R
 import kotlin.math.abs
 
 /**
- * Picker cosmetics for a [LookEntry]: the swatch color and the glyph shown
- * on the Film-Style chip, in the preset button and in the swipe toast.
+ * Picker cosmetics for a [LookEntry]: the swatch color and the camera
+ * silhouette shown on the Film-Style chip, in the preset button and in the
+ * swipe toast.
+ *
+ * The silhouettes are hand-drawn per look (the SVG masters live in
+ * `design/camera-icons/`, converted to `res/drawable/ic_camera_*.xml`) and
+ * replace the emoji glyphs this table used to hold — a camera *body* for a
+ * picture profile reads better than a weather symbol, and it renders the same
+ * on every OEM font stack instead of depending on the device's emoji font.
  *
  * Hand-tuned values live in a table keyed by look id so the thirteen bundled
  * looks keep the exact colors they shipped with. Any other id — a JSON-only
@@ -12,15 +21,19 @@ import kotlin.math.abs
  * id itself: the same look always renders the same color on every device and
  * every launch, which matters because the picker grid is keyed by id and a
  * color that changed between runs would make the grid look randomly shuffled.
+ * User looks share one neutral silhouette rather than getting a derived one,
+ * because there is nothing to derive a *shape* from and an invented outline
+ * would imply the look is a real film stock when it is not.
  *
- * Deliberately framework-free (plain `Int` ARGB, no Compose types) so the
- * mapping is unit-testable on the JVM; the UI layer wraps the result in
- * `Color(...)`.
+ * Deliberately framework-free (plain `Int` ARGB / resource ids, no Compose
+ * types) so the mapping is unit-testable on the JVM; the UI layer wraps the
+ * color in `Color(...)` and loads the drawable with `painterResource(...)`.
  */
 object LookSwatch {
 
-    /** Glyph for looks with no hand-tuned entry: a palette, not a stock. */
-    const val FALLBACK_EMOJI: String = "🎨"
+    /** Silhouette for looks with no hand-tuned entry: a modular craft body. */
+    @DrawableRes
+    val FALLBACK_ICON: Int = R.drawable.ic_camera_custom_fallback
 
     private const val FALLBACK_SATURATION = 0.42f
     private const val FALLBACK_VALUE = 0.82f
@@ -50,20 +63,20 @@ object LookSwatch {
         "normal" to 0xFF9CA3AF.toInt()
     )
 
-    private val PRESET_EMOJIS: Map<String, String> = mapOf(
-        "warm_portrait" to "🌅",
-        "monochrome_400" to "🌑",
-        "instant_classic" to "📸",
-        "cross_process" to "🎞️",
-        "instant_vintage" to "🌆",
-        "moody" to "🌧️",
-        "muted_meadow" to "🌿",
-        "sunlit_spill" to "☀️",
-        "golden_200" to "🌟",
-        "street_mono_400" to "🖤",
-        "vivid_cool_400" to "🍃",
-        "ccd_digicam" to "📟",
-        "normal" to "📷"
+    private val PRESET_ICONS: Map<String, Int> = mapOf(
+        "warm_portrait" to R.drawable.ic_camera_warm_portrait,
+        "monochrome_400" to R.drawable.ic_camera_monochrome_400,
+        "instant_classic" to R.drawable.ic_camera_instant_classic,
+        "cross_process" to R.drawable.ic_camera_cross_process,
+        "instant_vintage" to R.drawable.ic_camera_instant_vintage,
+        "moody" to R.drawable.ic_camera_moody,
+        "muted_meadow" to R.drawable.ic_camera_muted_meadow,
+        "sunlit_spill" to R.drawable.ic_camera_sunlit_spill,
+        "golden_200" to R.drawable.ic_camera_golden_200,
+        "street_mono_400" to R.drawable.ic_camera_street_mono_400,
+        "vivid_cool_400" to R.drawable.ic_camera_vivid_cool_400,
+        "ccd_digicam" to R.drawable.ic_camera_ccd_digicam,
+        "normal" to R.drawable.ic_camera_normal
     )
 
     /** Opaque ARGB swatch for [id]; hand-tuned when known, derived otherwise. */
@@ -73,9 +86,14 @@ object LookSwatch {
         return derivedColor(key)
     }
 
-    /** Glyph for [id]; hand-tuned when known, [FALLBACK_EMOJI] otherwise. */
-    fun emojiFor(id: String): String =
-        PRESET_EMOJIS[id.trim().lowercase()] ?: FALLBACK_EMOJI
+    /**
+     * Camera silhouette for [id]; hand-tuned when known, [FALLBACK_ICON]
+     * otherwise. Resource ids rather than a drawable object so this stays
+     * resolvable outside a composition (previews, tests).
+     */
+    @DrawableRes
+    fun iconFor(id: String): Int =
+        PRESET_ICONS[id.trim().lowercase()] ?: FALLBACK_ICON
 
     /**
      * Stable hue from the id, then a fixed mid-saturation / high-value HSV

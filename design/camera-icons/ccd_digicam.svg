@@ -1,31 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" fill="none">
-  <title>CCD Digicam — Y2K Metallic Pocket Digital Camera</title>
-  <!-- Main Brushed Aluminum Slate-Blue Body -->
-  <rect x="6" y="14" width="36" height="26" rx="3.5" fill="#475569" stroke="#94A3B8" stroke-width="1.5"/>
-  <!-- Two-Tone Y2K Brushed Metallic Left Plate -->
-  <path d="M 6 14 L 28 14 C 29.5 14 30.5 15.5 30.5 17 L 30.5 40 L 6 40 Z" fill="#5A7D8C" opacity="0.9"/>
-  <!-- Ergonomic Curved Grip Ridge on Right -->
-  <rect x="38" y="18" width="2" height="18" rx="1" fill="#CBD5E1"/>
-  <!-- Top Zoom Ring & Shutter Button -->
-  <rect x="30" y="11" width="7" height="3" rx="1.5" fill="#E2E8F0" stroke="#64748B" stroke-width="0.8"/>
-  <circle cx="25" cy="12.5" r="1.2" fill="#38BDF8"/>
-  <!-- Tiny Glass Optical Viewfinder Window -->
-  <rect x="18" y="16" width="3.5" height="2.5" rx="0.5" fill="#0F172A" stroke="#CBD5E1" stroke-width="0.6"/>
-  <rect x="18.5" y="16.5" width="1.5" height="1" rx="0.2" fill="#7DD3FC"/>
-  <!-- Horizontal Xenon Flash Window with Fresnel Diffuser -->
-  <rect x="23" y="15.8" width="6.5" height="3" rx="0.6" fill="#F8FAFC" stroke="#94A3B8" stroke-width="0.6"/>
-  <line x1="25" y1="16" x2="25" y2="18.5" stroke="#CBD5E1" stroke-width="0.5"/>
-  <line x1="27" y1="16" x2="27" y2="18.5" stroke="#CBD5E1" stroke-width="0.5"/>
-  <!-- Green Power / Ready Status LED -->
-  <circle cx="15" cy="17.2" r="0.9" fill="#22C55E"/>
-  <!-- Telescoping Optical Zoom Lens Barrel (Extending Out) -->
-  <!-- 1. Outer Base Collar -->
-  <circle cx="18" cy="28" r="9" fill="#334155" stroke="#CBD5E1" stroke-width="1.3"/>
-  <!-- 2. Telescoping Inner Barrel -->
-  <circle cx="18" cy="28" r="6.8" fill="#1E293B" stroke="#94A3B8" stroke-width="0.8"/>
-  <!-- 3. Automatic Sliding Shutter Leaves -->
-  <circle cx="18" cy="28" r="4.8" fill="#0F172A"/>
-  <!-- CCD Lens Cold Blue/Cyan Flare Glare -->
-  <path d="M 15 25.5 A 3.2 3.2 0 0 1 20.5 25" stroke="#38BDF8" stroke-width="1.5" stroke-linecap="round"/>
-  <circle cx="16" cy="27" r="0.8" fill="#FFFFFF"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <defs>
+    <linearGradient id="shell" x2="1"><stop stop-color="#9eafb4"/><stop offset=".3" stop-color="#e2e7e8"/><stop offset=".7" stop-color="#b9c5c9"/><stop offset="1" stop-color="#f0f2f2"/></linearGradient>
+    <linearGradient id="glass" x2="0" y2="1"><stop stop-color="#5fb6c9"/><stop offset=".45" stop-color="#163b4b"/><stop offset="1" stop-color="#09151e"/></linearGradient>
+  </defs>
+  <path d="M5 17q0-3 4-3h30q4 0 4 4v19q0 4-4 4H9q-4 0-4-4Z" fill="url(#shell)" stroke="#657981" stroke-width="1.3"/>
+  <path d="M6 20h10v19H9q-3 0-3-3Z" fill="#6f919c" opacity=".55"/>
+  <path d="M17 15v25" stroke="#879ba1" stroke-width=".7"/>
+  <rect x="9" y="18" width="9" height="3.5" rx="1.7" fill="#eaf1ed" stroke="#83949a" stroke-width=".7"/>
+  <path d="M10 19h7" stroke="#fff" stroke-width="1"/>
+  <rect x="25" y="16" width="6" height="2.5" rx="1.2" fill="#d6dfe1" stroke="#74858a" stroke-width=".6"/>
+  <circle cx="21" cy="19" r=".8" fill="#63b1a5"/>
+  <circle cx="29" cy="29" r="10.5" fill="#778a90" stroke="#f0f3f4" stroke-width="1.4"/>
+  <circle cx="29" cy="29" r="8.1" fill="url(#shell)" stroke="#6f8289" stroke-width=".9"/>
+  <circle cx="29" cy="29" r="6.2" fill="#263c45" stroke="#e7edef" stroke-width=".8"/>
+  <circle cx="29" cy="29" r="4.6" fill="url(#glass)"/>
+  <path d="M26 26.5q2-2.8 5.3-1.8" fill="none" stroke="#a8e0e5" stroke-width="1" stroke-linecap="round"/>
 </svg>

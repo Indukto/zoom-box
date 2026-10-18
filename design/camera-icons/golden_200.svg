@@ -1,31 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" fill="none">
-  <title>Golden 200 — Classic 1970s 35mm Manual SLR</title>
-  <!-- Main Body with Black Textured Leatherette -->
-  <rect x="6" y="16" width="36" height="24" rx="3.5" fill="#18181B" stroke="#E0A54A" stroke-width="1.5"/>
-  <!-- Golden Brass Top Deck Plate -->
-  <path d="M 6 22 L 6 18 C 6 16.5 7.5 15.5 9 15.5 L 39 15.5 C 40.5 15.5 42 16.5 42 18 L 42 22 Z" fill="#E0A54A" stroke="#F59E0B" stroke-width="0.8"/>
-  <!-- Iconic Triangular Pentaprism Viewfinder -->
-  <path d="M 16.5 15.5 L 20.5 7.5 L 27.5 7.5 L 31.5 15.5 Z" fill="#D97706" stroke="#B45309" stroke-width="1.2"/>
-  <rect x="21" y="11" width="6" height="4" rx="0.5" fill="#18181B"/>
-  <!-- Flash Hot-Shoe Mount -->
-  <rect x="22" y="6" width="4" height="2" rx="0.5" fill="#374151" stroke="#E5E7EB" stroke-width="0.6"/>
-  <!-- Top Manual Controls -->
-  <!-- 1. Film Advance Lever (Right) -->
-  <path d="M 36 12 C 38 12 40 13 41 15.5 L 38 15.5 Z" fill="#D97706"/>
-  <!-- 2. Shutter Release Button -->
-  <rect x="33" y="12.5" width="3.5" height="3" rx="0.8" fill="#FDE68A" stroke="#B45309" stroke-width="0.8"/>
-  <!-- 3. Shutter Speed Dial -->
-  <rect x="28" y="13.5" width="4" height="2" rx="0.5" fill="#18181B"/>
-  <!-- 4. Rewind Crank (Left) -->
-  <circle cx="10" cy="14" r="2.5" fill="#D97706" stroke="#B45309" stroke-width="0.8"/>
-  <!-- Mechanical Self-Timer Lever on Front -->
-  <rect x="10.5" y="24" width="2" height="6" rx="0.6" fill="#FDE68A" stroke="#B45309" stroke-width="0.6"/>
-  <!-- Fast 50mm f/1.8 Prime Lens Barrel -->
-  <circle cx="24" cy="27.5" r="9.5" fill="#18181B" stroke="#E0A54A" stroke-width="1.5"/>
-  <circle cx="24" cy="27.5" r="7.5" fill="#27272A" stroke="#71717A" stroke-width="0.8"/>
-  <!-- Amber/Golden Coated Front Glass Element -->
-  <circle cx="24" cy="27.5" r="5.5" fill="#2A1805"/>
-  <!-- Warm Kodak Gold Lens Flare Reflection -->
-  <path d="M 20.5 24.5 A 4 4 0 0 1 26.5 23.5" stroke="#F59E0B" stroke-width="1.8" stroke-linecap="round"/>
-  <circle cx="21" cy="25.5" r="1" fill="#FEF3C7"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <defs>
+    <linearGradient id="brass" x2="0" y2="1"><stop stop-color="#f0c36a"/><stop offset=".5" stop-color="#ad7131"/><stop offset="1" stop-color="#e6b45d"/></linearGradient>
+    <linearGradient id="glass" x2=".7" y2="1"><stop stop-color="#b98228"/><stop offset=".45" stop-color="#39240f"/><stop offset="1" stop-color="#100c08"/></linearGradient>
+  </defs>
+  <path d="M5 19q0-3 4-3h30q4 0 4 4v17q0 4-4 4H9q-4 0-4-4Z" fill="#201b18" stroke="#c79750" stroke-width="1.2"/>
+  <path d="M5 21v-3q0-2 4-2h30q4 0 4 3v3Z" fill="url(#brass)" stroke="#f1c36b" stroke-width=".7"/>
+  <path d="m14 16 4-8h11l5 8Z" fill="#46341f" stroke="#d7a657" stroke-width="1.2"/>
+  <path d="m19 10 2-1h5l2 6h-9Z" fill="#20282c"/>
+  <rect x="21" y="6" width="6" height="2.2" rx=".6" fill="#d9b36f" stroke="#73542e" stroke-width=".5"/>
+  <circle cx="9.5" cy="14" r="2.2" fill="#d6a557" stroke="#704e27" stroke-width=".7"/>
+  <rect x="34" y="12" width="4" height="3" rx=".7" fill="#f3d78c" stroke="#8a5f2c" stroke-width=".6"/><path d="M37 10q3 0 4 4h-3Z" fill="#b57b34"/>
+  <circle cx="23" cy="29" r="10" fill="#171413" stroke="#dda94f" stroke-width="1.5"/>
+  <circle cx="23" cy="29" r="7.7" fill="#332820" stroke="#81705d" stroke-width=".8"/>
+  <circle cx="23" cy="29" r="5.5" fill="url(#glass)"/>
+  <path d="M19.5 25.8q2.4-3 6-1.8" fill="none" stroke="#f3ad32" stroke-width="1.4" stroke-linecap="round"/><circle cx="20" cy="26.5" r=".8" fill="#fff0b7"/>
 </svg>

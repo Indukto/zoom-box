@@ -1,28 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" fill="none">
-  <title>Vivid Cool 400 — Japanese Titanium Luxury Compact</title>
-  <!-- Main Titanium Chamfered Body -->
-  <rect x="6" y="15" width="36" height="25" rx="3.5" fill="#1E293B" stroke="#2E9E8F" stroke-width="1.5"/>
-  <!-- Front Titanium Faceplate Inset -->
-  <rect x="7.5" y="16.5" width="33" height="22" rx="2" fill="#0F172A"/>
-  <!-- Titanium Top Deck Bar -->
-  <rect x="6" y="15" width="36" height="5" rx="1.5" fill="#334155" stroke="#2E9E8F" stroke-width="0.8"/>
-  <!-- Top Controls: Manual Aperture Wheel (Right) & Shutter Button -->
-  <rect x="34" y="12.5" width="4.5" height="2.5" rx="0.6" fill="#94A3B8" stroke="#475569" stroke-width="0.6"/>
-  <rect x="27" y="12.5" width="5" height="2.5" rx="0.8" fill="#F1F5F9" stroke="#94A3B8" stroke-width="0.8"/>
-  <!-- Top Window Array: Viewfinder & Dual Infrared AF Windows -->
-  <rect x="10" y="16" width="4.5" height="3" rx="0.6" fill="#0F172A" stroke="#2E9E8F" stroke-width="0.6"/>
-  <rect x="10.8" y="16.6" width="2" height="1.5" rx="0.3" fill="#38BDF8"/>
-  <!-- Dual AF Sensors -->
-  <circle cx="17" cy="17.5" r="1.2" fill="#991B1B"/>
-  <circle cx="20.5" cy="17.5" r="1.2" fill="#1E293B" stroke="#475569" stroke-width="0.5"/>
-  <circle cx="24" cy="17.5" r="0.8" fill="#10B981"/>
-  <!-- Carl Zeiss Sonnar Multi-Coated Lens Barrel -->
-  <circle cx="23" cy="28" r="9.5" fill="#1E293B" stroke="#2E9E8F" stroke-width="1.5"/>
-  <circle cx="23" cy="28" r="7.5" fill="#0F172A" stroke="#64748B" stroke-width="0.8"/>
-  <!-- Multi-Coated Deep Glass Element -->
-  <circle cx="23" cy="28" r="5.5" fill="#042F2E"/>
-  <!-- Signature Cool Emerald/Teal Multi-Coating Glare -->
-  <path d="M 19.5 25 A 4 4 0 0 1 25.5 24" stroke="#2DD4BF" stroke-width="1.8" stroke-linecap="round"/>
-  <path d="M 20.5 31 A 3.5 3.5 0 0 0 25.5 30.5" stroke="#38BDF8" stroke-width="1.2" stroke-linecap="round"/>
-  <circle cx="20.5" cy="26" r="0.9" fill="#FFFFFF"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <defs>
+    <linearGradient id="titanium" x2="0" y2="1"><stop stop-color="#e5e1d5"/><stop offset=".35" stop-color="#aeb7b5"/><stop offset="1" stop-color="#d7d9d4"/></linearGradient>
+    <linearGradient id="glass" x2="1" y2="1"><stop stop-color="#7fe0ca"/><stop offset=".5" stop-color="#135b5a"/><stop offset="1" stop-color="#101b25"/></linearGradient>
+  </defs>
+  <path d="m8 14 32 0 3 4v18l-3 4H8l-3-4V18Z" fill="url(#titanium)" stroke="#657a79" stroke-width="1.1"/>
+  <path d="M6 19h36v2H6Z" fill="#8a9998"/><path d="M8 16h32" stroke="#fbf8ec" stroke-width="1.2"/>
+  <rect x="10" y="16" width="5" height="3" rx=".6" fill="#16252c" stroke="#f0f0e9" stroke-width=".5"/>
+  <circle cx="18" cy="17.5" r="1.2" fill="#9b3934"/><circle cx="21.5" cy="17.5" r="1.2" fill="#343c40"/><circle cx="25" cy="17.5" r=".8" fill="#49aa8e"/>
+  <rect x="32" y="11.5" width="5" height="2.5" rx=".7" fill="#f4f1e7" stroke="#778480" stroke-width=".6"/>
+  <circle cx="25" cy="29" r="10" fill="#71817e" stroke="#e7e8df" stroke-width="1.4"/><circle cx="25" cy="29" r="7.8" fill="#bac1bd" stroke="#76837f" stroke-width=".8"/>
+  <circle cx="25" cy="29" r="5.8" fill="url(#glass)"/><path d="M21.5 25.8q2.4-3 6.3-1.8" fill="none" stroke="#69e4c8" stroke-width="1.4" stroke-linecap="round"/>
+  <path d="M22 32q2.5 2 5.2.4" fill="none" stroke="#4eb3d0" stroke-width=".8" stroke-linecap="round"/><circle cx="22" cy="26.4" r=".8" fill="#fff"/>
 </svg>
