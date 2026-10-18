@@ -1,12 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
   <defs><linearGradient id="body" x2="0" y2="1"><stop stop-color="#38332e"/><stop offset="1" stop-color="#191613"/></linearGradient></defs>
-  <path d="M5 18q0-4 4-4h30q4 0 4 4v18q0 4-4 4H9q-4 0-4-4Z" fill="url(#body)" stroke="#c4b28f" stroke-width="1.2"/>
-  <path d="M5 18q0-4 4-4h30q4 0 4 4v3H5Z" fill="#4a433b"/>
-  <rect x="21" y="10.5" width="6" height="3.5" rx=".8" fill="#e1d0ae" stroke="#8b8172" stroke-width=".7"/>
-  <rect x="32" y="11.5" width="4.5" height="2.5" rx=".7" fill="#eee6d4" stroke="#726b60" stroke-width=".6"/><rect x="10" y="12" width="4.5" height="2" rx=".5" fill="#a8a196"/>
-  <circle cx="24" cy="28.5" r="10" fill="#131210" stroke="#928572" stroke-width="1.2"/>
-  <path d="M24 19.5a9 9 0 0 1 9 9h-2.5a6.5 6.5 0 0 0-6.5-6.5Zm9 9a9 9 0 0 1-9 9V35a6.5 6.5 0 0 0 6.5-6.5Zm-9 9a9 9 0 0 1-9-9h2.5a6.5 6.5 0 0 0 6.5 6.5Zm-9-9a9 9 0 0 1 9-9V22a6.5 6.5 0 0 0-6.5 6.5Z" fill="#d89d54"/>
-  <path d="M24 19.5a9 9 0 0 1 9 9h-2.5a6.5 6.5 0 0 0-6.5-6.5Z" fill="#e65a49"/><path d="M33 28.5a9 9 0 0 1-9 9V35a6.5 6.5 0 0 0 6.5-6.5Z" fill="#e4a846"/>
-  <path d="M24 37.5a9 9 0 0 1-9-9h2.5a6.5 6.5 0 0 0 6.5 6.5Z" fill="#48a77c"/><path d="M15 28.5a9 9 0 0 1 9-9V22a6.5 6.5 0 0 0-6.5 6.5Z" fill="#4c91c2"/>
-  <circle cx="24" cy="28.5" r="5.2" fill="#11100e" stroke="#d7c7a4" stroke-width=".7"/><path d="M21.5 26.5q1.5-2 4-1.2" fill="none" stroke="#fff" stroke-width="1" stroke-linecap="round"/>
+  <path d="M 5 16.6 q 0 -4 4 -4 h 30 q 4 0 4 4 v 18 q 0 4 -4 4 H 9 q -4 0 -4 -4 Z" fill="url(#body)" stroke="#c4b28f" stroke-width="1.2"/>
+  <path d="M 5 16.6 q 0 -4 4 -4 h 30 q 4 0 4 4 v 3 H 5 Z" fill="#4a433b"/>
+  <rect x="21" y="9.1" width="6" height="3.5" rx=".8" fill="#e1d0ae" stroke="#8b8172" stroke-width=".7"/>
+  <rect x="32" y="10.1" width="4.5" height="2.5" rx=".7" fill="#eee6d4" stroke="#726b60" stroke-width=".6"/><rect x="10" y="10.6" width="4.5" height="2" rx=".5" fill="#a8a196"/>
+  <circle cx="24" cy="27.1" r="10" fill="#131210" stroke="#928572" stroke-width="1.2"/>
+  <path d="M 24 18.1 a 9 9 0 0 1 9 9 h -2.5 a 6.5 6.5 0 0 0 -6.5 -6.5 Z m 9 9 a 9 9 0 0 1 -9 9 V 33.6 a 6.5 6.5 0 0 0 6.5 -6.5 Z m -9 9 a 9 9 0 0 1 -9 -9 h 2.5 a 6.5 6.5 0 0 0 6.5 6.5 Z m -9 -9 a 9 9 0 0 1 9 -9 V 20.6 a 6.5 6.5 0 0 0 -6.5 6.5 Z" fill="#d89d54"/>
+  <path d="M 24 18.1 a 9 9 0 0 1 9 9 h -2.5 a 6.5 6.5 0 0 0 -6.5 -6.5 Z" fill="#e65a49"/><path d="M 33 27.1 a 9 9 0 0 1 -9 9 V 33.6 a 6.5 6.5 0 0 0 6.5 -6.5 Z" fill="#e4a846"/>
+  <path d="M 24 36.1 a 9 9 0 0 1 -9 -9 h 2.5 a 6.5 6.5 0 0 0 6.5 6.5 Z" fill="#48a77c"/><path d="M 15 27.1 a 9 9 0 0 1 9 -9 V 20.6 a 6.5 6.5 0 0 0 -6.5 6.5 Z" fill="#4c91c2"/>
+  <circle cx="24" cy="27.1" r="5.2" fill="#11100e" stroke="#d7c7a4" stroke-width=".7"/><path d="M 21.5 25.1 q 1.5 -2 4 -1.2" fill="none" stroke="#fff" stroke-width="1" stroke-linecap="round"/>
 </svg>

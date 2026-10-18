@@ -3,15 +3,15 @@
     <linearGradient id="brass" x2="0" y2="1"><stop stop-color="#f0c36a"/><stop offset=".5" stop-color="#ad7131"/><stop offset="1" stop-color="#e6b45d"/></linearGradient>
     <linearGradient id="glass" x2=".7" y2="1"><stop stop-color="#b98228"/><stop offset=".45" stop-color="#39240f"/><stop offset="1" stop-color="#100c08"/></linearGradient>
   </defs>
-  <path d="M5 19q0-3 4-3h30q4 0 4 4v17q0 4-4 4H9q-4 0-4-4Z" fill="#201b18" stroke="#c79750" stroke-width="1.2"/>
-  <path d="M5 21v-3q0-2 4-2h30q4 0 4 3v3Z" fill="url(#brass)" stroke="#f1c36b" stroke-width=".7"/>
-  <path d="m14 16 4-8h11l5 8Z" fill="#46341f" stroke="#d7a657" stroke-width="1.2"/>
-  <path d="m19 10 2-1h5l2 6h-9Z" fill="#20282c"/>
-  <rect x="21" y="6" width="6" height="2.2" rx=".6" fill="#d9b36f" stroke="#73542e" stroke-width=".5"/>
-  <circle cx="9.5" cy="14" r="2.2" fill="#d6a557" stroke="#704e27" stroke-width=".7"/>
-  <rect x="34" y="12" width="4" height="3" rx=".7" fill="#f3d78c" stroke="#8a5f2c" stroke-width=".6"/><path d="M37 10q3 0 4 4h-3Z" fill="#b57b34"/>
-  <circle cx="23" cy="29" r="10" fill="#171413" stroke="#dda94f" stroke-width="1.5"/>
-  <circle cx="23" cy="29" r="7.7" fill="#332820" stroke="#81705d" stroke-width=".8"/>
-  <circle cx="23" cy="29" r="5.5" fill="url(#glass)"/>
-  <path d="M19.5 25.8q2.4-3 6-1.8" fill="none" stroke="#f3ad32" stroke-width="1.4" stroke-linecap="round"/><circle cx="20" cy="26.5" r=".8" fill="#fff0b7"/>
+  <path d="M 5 19.4 q 0 -3 4 -3 h 30 q 4 0 4 4 v 17 q 0 4 -4 4 H 9 q -4 0 -4 -4 Z" fill="#201b18" stroke="#c79750" stroke-width="1.2"/>
+  <path d="M 5 21.4 v -3 q 0 -2 4 -2 h 30 q 4 0 4 3 v 3 Z" fill="url(#brass)" stroke="#f1c36b" stroke-width=".7"/>
+  <path d="m 14 16.4 4 -8 h 11 l 5 8 Z" fill="#46341f" stroke="#d7a657" stroke-width="1.2"/>
+  <path d="m 19 10.4 2 -1 h 5 l 2 6 h -9 Z" fill="#20282c"/>
+  <rect x="21" y="6.4" width="6" height="2.2" rx=".6" fill="#d9b36f" stroke="#73542e" stroke-width=".5"/>
+  <circle cx="9.5" cy="14.4" r="2.2" fill="#d6a557" stroke="#704e27" stroke-width=".7"/>
+  <rect x="34" y="12.4" width="4" height="3" rx=".7" fill="#f3d78c" stroke="#8a5f2c" stroke-width=".6"/><path d="M 37 10.4 q 3 0 4 4 h -3 Z" fill="#b57b34"/>
+  <circle cx="23" cy="29.4" r="10" fill="#171413" stroke="#dda94f" stroke-width="1.5"/>
+  <circle cx="23" cy="29.4" r="7.7" fill="#332820" stroke="#81705d" stroke-width=".8"/>
+  <circle cx="23" cy="29.4" r="5.5" fill="url(#glass)"/>
+  <path d="M 19.5 26.2 q 2.4 -3 6 -1.8" fill="none" stroke="#f3ad32" stroke-width="1.4" stroke-linecap="round"/><circle cx="20" cy="26.9" r=".8" fill="#fff0b7"/>
 </svg>

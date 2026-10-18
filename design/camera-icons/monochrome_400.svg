@@ -3,17 +3,17 @@
     <linearGradient id="chrome" x2="0" y2="1"><stop stop-color="#f3f4f4"/><stop offset=".45" stop-color="#a9afb2"/><stop offset=".7" stop-color="#e7e9ea"/><stop offset="1" stop-color="#8e969a"/></linearGradient>
     <linearGradient id="glass" x2="1" y2="1"><stop stop-color="#64727a"/><stop offset=".5" stop-color="#151a1e"/><stop offset="1" stop-color="#050607"/></linearGradient>
   </defs>
-  <path d="M4 19q0-4 4-4h32q4 0 4 4v18q0 4-4 4H8q-4 0-4-4Z" fill="#211f1f" stroke="#73797c" stroke-width="1"/>
-  <path d="M4 20v-3q0-3 4-3h32q4 0 4 3v3Z" fill="url(#chrome)" stroke="#899195" stroke-width=".8"/>
-  <path d="M5 36h38v1q0 4-4 4H9q-4 0-4-4Z" fill="url(#chrome)"/>
-  <rect x="8" y="11" width="5" height="3" rx=".7" fill="#d6d9da" stroke="#727a7d" stroke-width=".7"/>
-  <rect x="31" y="11" width="4" height="3" rx=".7" fill="#e1e3e4" stroke="#727a7d" stroke-width=".7"/>
-  <rect x="9" y="15.5" width="4.5" height="3" rx=".5" fill="#17232b" stroke="#d4d8da" stroke-width=".5"/>
-  <rect x="15" y="15.5" width="5" height="3" rx=".5" fill="#b8c0c3"/>
-  <path d="M16.5 16v2m1.5-2v2m1-2v2" stroke="#eef0f1" stroke-width=".4"/>
-  <rect x="22" y="15.5" width="3" height="3" rx=".5" fill="#43525a" stroke="#b8bec1" stroke-width=".5"/>
-  <circle cx="25" cy="28.5" r="10" fill="#252628" stroke="#e1e3e4" stroke-width="1.5"/>
-  <circle cx="25" cy="28.5" r="7.7" fill="#151719" stroke="#868d90" stroke-width=".9"/>
-  <circle cx="25" cy="28.5" r="5.6" fill="url(#glass)"/>
-  <path d="M21.5 25.5q2.5-3 6-2" fill="none" stroke="#f5f6f6" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M 4 16.9 q 0 -4 4 -4 h 32 q 4 0 4 4 v 18 q 0 4 -4 4 H 8 q -4 0 -4 -4 Z" fill="#211f1f" stroke="#73797c" stroke-width="1"/>
+  <path d="M 4 17.9 v -3 q 0 -3 4 -3 h 32 q 4 0 4 3 v 3 Z" fill="url(#chrome)" stroke="#899195" stroke-width=".8"/>
+  <path d="M 5 33.9 h 38 v 1 q 0 4 -4 4 H 9 q -4 0 -4 -4 Z" fill="url(#chrome)"/>
+  <rect x="8" y="8.9" width="5" height="3" rx=".7" fill="#d6d9da" stroke="#727a7d" stroke-width=".7"/>
+  <rect x="31" y="8.9" width="4" height="3" rx=".7" fill="#e1e3e4" stroke="#727a7d" stroke-width=".7"/>
+  <rect x="9" y="13.4" width="4.5" height="3" rx=".5" fill="#17232b" stroke="#d4d8da" stroke-width=".5"/>
+  <rect x="15" y="13.4" width="5" height="3" rx=".5" fill="#b8c0c3"/>
+  <path d="M 16.5 13.9 v 2 m 1.5 -2 v 2 m 1 -2 v 2" stroke="#eef0f1" stroke-width=".4"/>
+  <rect x="22" y="13.4" width="3" height="3" rx=".5" fill="#43525a" stroke="#b8bec1" stroke-width=".5"/>
+  <circle cx="25" cy="26.4" r="10" fill="#252628" stroke="#e1e3e4" stroke-width="1.5"/>
+  <circle cx="25" cy="26.4" r="7.7" fill="#151719" stroke="#868d90" stroke-width=".9"/>
+  <circle cx="25" cy="26.4" r="5.6" fill="url(#glass)"/>
+  <path d="M 21.5 23.4 q 2.5 -3 6 -2" fill="none" stroke="#f5f6f6" stroke-width="1.2" stroke-linecap="round"/>
 </svg>

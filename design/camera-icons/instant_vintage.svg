@@ -3,16 +3,16 @@
     <linearGradient id="plum" x2="0" y2="1"><stop stop-color="#553b58"/><stop offset="1" stop-color="#211923"/></linearGradient>
     <linearGradient id="bellows" x2="1"><stop stop-color="#291d2c"/><stop offset=".5" stop-color="#75547a"/><stop offset="1" stop-color="#261b29"/></linearGradient>
   </defs>
-  <path d="M4 19q0-3 4-3h32q4 0 4 3v17q0 4-4 4H8q-4 0-4-4Z" fill="url(#plum)" stroke="#a68ca7" stroke-width="1.1"/>
-  <rect x="12" y="9" width="24" height="7" rx="1.5" fill="#bdc1c2" stroke="#70797d" stroke-width=".8"/>
-  <rect x="14" y="10.5" width="7" height="4" rx=".7" fill="#19242a"/><rect x="27" y="10.5" width="7" height="4" rx=".7" fill="#312837"/>
-  <path d="M8 19h31v16H8Z" fill="url(#bellows)" stroke="#3a293d" stroke-width=".7"/>
-  <path d="m11 20 4 2v10l-4 2m26-14-4 2v10l4 2M16 20l3 2v10l-3 2m16-14-3 2v10l3 2" fill="none" stroke="#a178a4" stroke-width=".8"/>
-  <rect x="17" y="20" width="14" height="13" rx="1" fill="#211824" stroke="#d0c5d1" stroke-width=".8"/>
-  <circle cx="24" cy="26.5" r="6.5" fill="#29202c" stroke="#d4d9da" stroke-width="1.2"/>
-  <circle cx="24" cy="26.5" r="4.5" fill="#151117" stroke="#87698d" stroke-width=".8"/>
-  <circle cx="24" cy="26.5" r="2.8" fill="#0b090d"/>
-  <path d="M21.5 24.5q1.6-2.2 4.2-1.4" fill="none" stroke="#d0a5d6" stroke-width="1" stroke-linecap="round"/>
-  <circle cx="10" cy="20" r="1.3" fill="#c94742"/>
-  <path d="M13 38h22v1.5H13z" fill="#17131a"/><path d="M16 39.5h16v5H16z" fill="#faf7f1" stroke="#c9c2c2" stroke-width=".6"/>
+  <path d="M 4 16.3 q 0 -3 4 -3 h 32 q 4 0 4 3 v 17 q 0 4 -4 4 H 8 q -4 0 -4 -4 Z" fill="url(#plum)" stroke="#a68ca7" stroke-width="1.1"/>
+  <rect x="12" y="6.3" width="24" height="7" rx="1.5" fill="#bdc1c2" stroke="#70797d" stroke-width=".8"/>
+  <rect x="14" y="7.8" width="7" height="4" rx=".7" fill="#19242a"/><rect x="27" y="7.8" width="7" height="4" rx=".7" fill="#312837"/>
+  <path d="M 8 16.3 h 31 v 16 H 8 Z" fill="url(#bellows)" stroke="#3a293d" stroke-width=".7"/>
+  <path d="m 11 17.3 4 2 v 10 l -4 2 m 26 -14 -4 2 v 10 l 4 2 M 16 17.3 l 3 2 v 10 l -3 2 m 16 -14 -3 2 v 10 l 3 2" fill="none" stroke="#a178a4" stroke-width=".8"/>
+  <rect x="17" y="17.3" width="14" height="13" rx="1" fill="#211824" stroke="#d0c5d1" stroke-width=".8"/>
+  <circle cx="24" cy="23.8" r="6.5" fill="#29202c" stroke="#d4d9da" stroke-width="1.2"/>
+  <circle cx="24" cy="23.8" r="4.5" fill="#151117" stroke="#87698d" stroke-width=".8"/>
+  <circle cx="24" cy="23.8" r="2.8" fill="#0b090d"/>
+  <path d="M 21.5 21.8 q 1.6 -2.2 4.2 -1.4" fill="none" stroke="#d0a5d6" stroke-width="1" stroke-linecap="round"/>
+  <circle cx="10" cy="17.3" r="1.3" fill="#c94742"/>
+  <path d="M 13 35.3 h 22 v 1.5 H 13 z" fill="#17131a"/><path d="M 16 36.8 h 16 v 5 H 16 z" fill="#faf7f1" stroke="#c9c2c2" stroke-width=".6"/>
 </svg>

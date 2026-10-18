@@ -3,12 +3,12 @@
     <linearGradient id="titanium" x2="0" y2="1"><stop stop-color="#e5e1d5"/><stop offset=".35" stop-color="#aeb7b5"/><stop offset="1" stop-color="#d7d9d4"/></linearGradient>
     <linearGradient id="glass" x2="1" y2="1"><stop stop-color="#7fe0ca"/><stop offset=".5" stop-color="#135b5a"/><stop offset="1" stop-color="#101b25"/></linearGradient>
   </defs>
-  <path d="m8 14 32 0 3 4v18l-3 4H8l-3-4V18Z" fill="url(#titanium)" stroke="#657a79" stroke-width="1.1"/>
-  <path d="M6 19h36v2H6Z" fill="#8a9998"/><path d="M8 16h32" stroke="#fbf8ec" stroke-width="1.2"/>
-  <rect x="10" y="16" width="5" height="3" rx=".6" fill="#16252c" stroke="#f0f0e9" stroke-width=".5"/>
-  <circle cx="18" cy="17.5" r="1.2" fill="#9b3934"/><circle cx="21.5" cy="17.5" r="1.2" fill="#343c40"/><circle cx="25" cy="17.5" r=".8" fill="#49aa8e"/>
-  <rect x="32" y="11.5" width="5" height="2.5" rx=".7" fill="#f4f1e7" stroke="#778480" stroke-width=".6"/>
-  <circle cx="25" cy="29" r="10" fill="#71817e" stroke="#e7e8df" stroke-width="1.4"/><circle cx="25" cy="29" r="7.8" fill="#bac1bd" stroke="#76837f" stroke-width=".8"/>
-  <circle cx="25" cy="29" r="5.8" fill="url(#glass)"/><path d="M21.5 25.8q2.4-3 6.3-1.8" fill="none" stroke="#69e4c8" stroke-width="1.4" stroke-linecap="round"/>
-  <path d="M22 32q2.5 2 5.2.4" fill="none" stroke="#4eb3d0" stroke-width=".8" stroke-linecap="round"/><circle cx="22" cy="26.4" r=".8" fill="#fff"/>
+  <path d="m 8 12.1 32 0 3 4 v 18 l -3 4 H 8 l -3 -4 V 16.1 Z" fill="url(#titanium)" stroke="#657a79" stroke-width="1.1"/>
+  <path d="M 6 17.1 h 36 v 2 H 6 Z" fill="#8a9998"/><path d="M 8 14.1 h 32" stroke="#fbf8ec" stroke-width="1.2"/>
+  <rect x="10" y="14.1" width="5" height="3" rx=".6" fill="#16252c" stroke="#f0f0e9" stroke-width=".5"/>
+  <circle cx="18" cy="15.6" r="1.2" fill="#9b3934"/><circle cx="21.5" cy="15.6" r="1.2" fill="#343c40"/><circle cx="25" cy="15.6" r=".8" fill="#49aa8e"/>
+  <rect x="32" y="9.6" width="5" height="2.5" rx=".7" fill="#f4f1e7" stroke="#778480" stroke-width=".6"/>
+  <circle cx="25" cy="27.1" r="10" fill="#71817e" stroke="#e7e8df" stroke-width="1.4"/><circle cx="25" cy="27.1" r="7.8" fill="#bac1bd" stroke="#76837f" stroke-width=".8"/>
+  <circle cx="25" cy="27.1" r="5.8" fill="url(#glass)"/><path d="M 21.5 23.9 q 2.4 -3 6.3 -1.8" fill="none" stroke="#69e4c8" stroke-width="1.4" stroke-linecap="round"/>
+  <path d="M 22 30.1 q 2.5 2 5.2 0.4" fill="none" stroke="#4eb3d0" stroke-width=".8" stroke-linecap="round"/><circle cx="22" cy="24.5" r=".8" fill="#fff"/>
 </svg>

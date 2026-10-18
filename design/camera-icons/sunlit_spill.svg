@@ -3,14 +3,14 @@
     <linearGradient id="shell" x2="0" y2="1"><stop stop-color="#f7e2b0"/><stop offset=".35" stop-color="#c98631"/><stop offset="1" stop-color="#6f451d"/></linearGradient>
     <linearGradient id="glass" x2="1" y2="1"><stop stop-color="#ffd95e"/><stop offset=".5" stop-color="#793c10"/><stop offset="1" stop-color="#211309"/></linearGradient>
   </defs>
-  <path d="M5 18q0-4 4-4h30q4 0 4 4v17q0 4-4 4H9q-4 0-4-4Z" fill="#d7dadd" stroke="#919b9f" stroke-width="1.1"/>
-  <path d="M8 17h32q2 0 2 3v13H8Z" fill="#34393c"/>
-  <circle cx="24" cy="27" r="8.5" fill="#25292c" stroke="#d2a04e" stroke-width="1.2"/>
-  <circle cx="24" cy="27" r="6.4" fill="#9d6727" stroke="#f4cc72" stroke-width=".8"/><circle cx="24" cy="27" r="4.6" fill="url(#glass)"/>
-  <path d="M21 24.5q2-2.7 5-1.7" fill="none" stroke="#ffe77b" stroke-width="1.3" stroke-linecap="round"/>
-  <rect x="10" y="18" width="7" height="3" rx="1.5" fill="#fff6d2" stroke="#aeb7ba" stroke-width=".5"/>
-  <circle cx="34" cy="20" r="1.2" fill="#dd473a"/><circle cx="37.5" cy="20" r="1.2" fill="#28404a"/>
-  <path d="M5 18q2-4 7-4h6v25h-6q-7 0-7-6Z" fill="url(#shell)" stroke="#e6bb6c" stroke-width=".8"/>
-  <path d="M11 18v18" stroke="#f5d38b" stroke-width=".8" opacity=".8"/>
-  <rect x="29" y="11.5" width="7" height="2.8" rx="1.4" fill="#e7eaeb" stroke="#899397" stroke-width=".6"/>
+  <path d="M 4.9 16.6 q 0 -4 4 -4 h 30 q 4 0 4 4 v 17 q 0 4 -4 4 H 8.9 q -4 0 -4 -4 Z" fill="#d7dadd" stroke="#919b9f" stroke-width="1.1"/>
+  <path d="M 7.9 15.6 h 32 q 2 0 2 3 v 13 H 7.9 Z" fill="#34393c"/>
+  <circle cx="23.9" cy="25.6" r="8.5" fill="#25292c" stroke="#d2a04e" stroke-width="1.2"/>
+  <circle cx="23.9" cy="25.6" r="6.4" fill="#9d6727" stroke="#f4cc72" stroke-width=".8"/><circle cx="23.9" cy="25.6" r="4.6" fill="url(#glass)"/>
+  <path d="M 20.9 23.1 q 2 -2.7 5 -1.7" fill="none" stroke="#ffe77b" stroke-width="1.3" stroke-linecap="round"/>
+  <rect x="9.9" y="16.6" width="7" height="3" rx="1.5" fill="#fff6d2" stroke="#aeb7ba" stroke-width=".5"/>
+  <circle cx="33.9" cy="18.6" r="1.2" fill="#dd473a"/><circle cx="37.4" cy="18.6" r="1.2" fill="#28404a"/>
+  <path d="M 4.9 16.6 q 2 -4 7 -4 h 6 v 25 h -6 q -7 0 -7 -6 Z" fill="url(#shell)" stroke="#e6bb6c" stroke-width=".8"/>
+  <path d="M 10.9 16.6 v 18" stroke="#f5d38b" stroke-width=".8" opacity=".8"/>
+  <rect x="28.9" y="10.1" width="7" height="2.8" rx="1.4" fill="#e7eaeb" stroke="#899397" stroke-width=".6"/>
 </svg>
