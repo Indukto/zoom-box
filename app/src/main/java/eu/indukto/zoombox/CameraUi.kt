@@ -202,9 +202,6 @@ import java.io.File
 
 private const val FLASH_BURST_DURATION_MS = 120L
 
-/** How far a look's swatch is washed toward white behind its camera chip. */
-private const val FILM_PRESET_CHIP_WASH = 0.55f
-
 /**
  * Per-pointer state kept by the passive full-screen swipe overlay.
  */
@@ -592,24 +589,6 @@ private fun filmPresetColor(lookId: String): Color = Color(LookSwatch.colorFor(l
  */
 @DrawableRes
 private fun filmPresetIcon(lookId: String): Int = LookSwatch.iconFor(lookId)
-
-/**
- * Backing plate for a camera silhouette chip.
- *
- * Washed toward white rather than used raw: several bundled profiles (Street
- * Mono 400, Moody) are near-black, and a black body on a black swatch is a
- * blank chip. Lightening keeps the hue as the identity cue while guaranteeing
- * every silhouette has something to read against, which a raw swatch does not.
- */
-private fun filmPresetChipColor(lookId: String): Color {
-    val base = filmPresetColor(lookId)
-    return Color(
-        red = base.red + (1f - base.red) * FILM_PRESET_CHIP_WASH,
-        green = base.green + (1f - base.green) * FILM_PRESET_CHIP_WASH,
-        blue = base.blue + (1f - base.blue) * FILM_PRESET_CHIP_WASH,
-        alpha = 1f
-    )
-}
 
 /** Display name for a look id, resolved through the registry catalog. */
 private fun lookDisplayName(viewModel: CameraViewModel, lookId: String): String =
@@ -2548,19 +2527,11 @@ fun CameraActiveScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(RoundedCornerShape(7.dp))
-                            .background(filmPresetChipColor(toastLookId)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Image(
-                            painter = painterResource(filmPresetIcon(toastLookId)),
-                            contentDescription = null,
-                            modifier = Modifier.size(25.dp)
-                        )
-                    }
+                    Image(
+                        painter = painterResource(filmPresetIcon(toastLookId)),
+                        contentDescription = null,
+                        modifier = Modifier.size(26.dp)
+                    )
                     Text(
                         text = toastLookDisplayName,
                         color = Color.White,
@@ -3121,7 +3092,7 @@ fun CameraActiveScreen(
                 }
 
                 // Right: Retro camera preset picker button with liquid-glass
-                // chrome, live swatch.
+                // chrome, live silhouette.
                 Box(
                     modifier = Modifier
                         .align(Alignment.CenterEnd)
@@ -3134,25 +3105,13 @@ fun CameraActiveScreen(
                         .testTag("preset_picker_button"),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(46.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(filmPresetChipColor(activeLookId))
-                                .rotate(animatedControlAngle),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Image(
-                                painter = painterResource(filmPresetIcon(activeLookId)),
-                                contentDescription = null,
-                                modifier = Modifier.size(36.dp)
-                            )
-                        }
-                    }
+                    Image(
+                        painter = painterResource(filmPresetIcon(activeLookId)),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(44.dp)
+                            .rotate(animatedControlAngle)
+                    )
                 }
             }
         }
@@ -3416,27 +3375,19 @@ internal fun FilmLooksPickerSheet(
                             )
                         }
                     }
-                    // The silhouette sits in its own lightened-swatch plate rather
-                    // than straight on the tile gradient: the darkest profiles
-                    // (Street Mono 400, Moody) would vanish into it, and a tile
-                    // needs the camera to be recognisable at a glance, not just
-                    // tinted by it. Top-centred so the bottom scrim keeps the
-                    // name legible where it already was.
-                    Box(
+                    // The silhouette sits straight on the tile gradient — no plate, no
+                    // swatch wash. It is an illustration with its own palette,
+                    // and the camera reads at a glance without a backing
+                    // rectangle competing with it. Top-centred so the bottom
+                    // scrim keeps the name legible where it already was.
+                    Image(
+                        painter = painterResource(filmPresetIcon(look.id)),
+                        contentDescription = null,
                         modifier = Modifier
                             .align(Alignment.TopCenter)
                             .padding(top = 12.dp)
                             .size(64.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(filmPresetChipColor(look.id)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Image(
-                            painter = painterResource(filmPresetIcon(look.id)),
-                            contentDescription = null,
-                            modifier = Modifier.size(52.dp)
-                        )
-                    }
+                    )
                     // Tiles only apply looks now: editing lives in the
                     // full-width button below the grid, so no tile carries a
                     // second tap target in its corner that a thumb can miss.

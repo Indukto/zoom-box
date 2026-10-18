@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zoom Box Camera — Picture Profile Camera Icons</title>
+  <style>
+    :root {
+      --bg: #0C0A08;
+      --card-bg: #151412;
+      --card-border: #2B2723;
+      --text-main: #F4EFE6;
+      --text-muted: #A8A29E;
+      --accent-gold: #E0A54A;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text-main);
+      padding: 40px 24px;
+      line-height: 1.5;
+    }
+    .header {
+      max-width: 1320px;
+      margin: 0 auto 36px;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--text-main);
+      letter-spacing: -0.5px;
+    }
+    .header p {
+      color: var(--text-muted);
+      font-size: 14px;
+      margin-top: 4px;
+    }
+    .badge-bar {
+      display: flex;
+      gap: 10px;
+    }
+    .badge {
+      background: #1C1A17;
+      border: 1px solid #38332E;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent-gold);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+      gap: 20px;
+      max-width: 1320px;
+      margin: 0 auto;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      transition: transform 0.15s ease, border-color 0.15s ease;
+    }
+    .card:hover {
+      border-color: #4A423B;
+      transform: translateY(-2px);
+    }
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .card-title {
+      font-size: 16px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .swatch-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .category-tag {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-muted);
+      background: #221F1C;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+    .icon-showcase {
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      background: #090807;
+      border-radius: 10px;
+      padding: 16px 10px;
+      border: 1px solid #1C1A17;
+    }
+    .icon-large {
+      width: 72px;
+      height: 72px;
+    }
+    .chip-comparison {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .chip-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .in-app-chip {
+      width: 36px;
+      height: 36px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    }
+    .in-app-chip svg {
+      width: 26px;
+      height: 26px;
+    }
+    .emoji-chip {
+      width: 36px;
+      height: 36px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      opacity: 0.85;
+    }
+    .details {
+      font-size: 12px;
+      color: var(--text-muted);
+      border-top: 1px solid #221F1C;
+      padding-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .details strong {
+      color: #D6D3D1;
+    }
+    .code-row {
+      font-family: monospace;
+      font-size: 11px;
+      color: #78716C;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div>
+      <h1>Zoom Box Camera — Picture Profile Camera Icons</h1>
+      <p>Custom vector camera silhouettes replacing emoji placeholders · Shipped in the app via <code>LookSwatch.iconFor(id)</code> (see README)</p>
+    </div>
+    <div class="badge-bar">
+      <span class="badge">14 ICONS</span>
+      <span class="badge">48×48dp GRID</span>
+      <span class="badge">CLEAN SVG</span>
+    </div>
+  </div>
+
+  <div class="grid">
+
+    <!-- 1. Normal -->
+    <div class="card">
+      <div class="card-top">
+        <span class="card-title"><span class="swatch-dot" style="background: #9CA3AF;"></span>Normal</span>
+        <span class="category-tag">pass-through</span>
+      </div>
+      <div class="icon-showcase">
+        <img class="icon-large" src="normal.svg" alt="Normal Camera Icon">
+        <div class="chip-comparison">
+          <span class="chip-label">New 36dp Chip</span>
+          <div class="in-app-chip" style="background: #9CA3AF;">
+            <img src="normal.svg" style="width: 26px; height: 26px;">
+          </div>
+        </div>
+        <div class="chip-comparison">
+          <span class="chip-label">Old Emoji</span>
+          <div class="emoji-chip" style="background: #9CA3AF;">📷</div>
+        </div>
+      </div>
+      <div class="details">
+        <div><strong>Inspiration:</strong> Contemporary Minimalist 35mm Rangefinder (Leica Q2 / X100V)</div>
+        <div class="code-row">ID: normal · #9CA3AF · design/camera-icons/normal.svg</div>
+      </div>
+    </div>
+
+    <!-- 2. Warm Portrait -->
+    <div class="card">
+      <div class="card-top">
+        <span class="card-title"><span class="swatch-dot" style="background: #D4A56A;"></span>Warm Portrait</span>
+        <span class="category-tag">color-negative</span>
+      </div>
+      <div class="icon-showcase">
+        <img class="icon-large" src="warm_portrait.svg" alt="Warm Portrait Camera Icon">
+        <div class="chip-comparison">
+          <span class="chip-label">New 36dp Chip</span>
+          <div class="in-app-chip" style="background: #D4A56A;">
+            <img src="warm_portrait.svg" style="width: 26px; height: 26px;">
+          </div>
+        </div>
+        <div class="chip-comparison">
+          <span class="chip-label">Old Emoji</span>
+          <div class="emoji-chip" style="background: #D4A56A;">🌅</div>
+        </div>
+      </div>
+      <div class="details">
+        <div><strong>Inspiration:</strong> Pentax 67 / Mamiya RZ67 Medium Format Portrait SLR with walnut wood grip</div>
+        <div class="code-row">ID: warm_portrait · #D4A56A · design/camera-icons/warm_portrait.svg</div>
+      </div>
+    </div>
+
+    <!-- 3. Monochrome 400 -->
+    <div class="card">
+      <div class="card-top">
+        <span class="card-title"><span class="swatch-dot" style="background: #6B6B6B;"></span>Monochrome 400</span>
+        <span class="category-tag">black-and-white</span>
+      </div>
+      <div class="icon-showcase">
+        <img class="icon-large" src="monochrome_400.svg" alt="Monochrome 400 Camera Icon">
+        <div class="chip-comparison">
+          <span class="chip-label">New 36dp Chip</span>
+          <div class="in-app-chip" style="background: #6B6B6B;">
+            <img src="monochrome_400.svg" style="width: 26px; height: 26px;">
+          </div>
+        </div>
+        <div class="chip-comparison">
+          <span class="chip-label">Old Emoji</span>
+          <div class="emoji-chip" style="background: #6B6B6B;">🌑</div>
+        </div>
+      </div>
+      <div class="details">
+        <div><strong>Inspiration:</strong> Leica M3 / M2 Mechanical 35mm Rangefinder with triple front windows</div>
+        <div class="code-row">ID: monochrome_400 · #6B6B6B · design/camera-icons/monochrome_400.svg</div>
+      </div>
+    </div>
+
+    <!-- 4. Instant Classic -->
+    <div class="card">
+      <div class="card-top">
+        <span class="card-title"><span class="swatch-dot" style="background: #4A90B0;"></span>Instant Classic</span>
+        <span class="category-tag">instant</span>
+      </div>
+      <div class="icon-showcase">
+        <img class="icon-large" src="instant_classic.svg" alt="Instant Classic Camera Icon">
+        <div class="chip-comparison">
+          <span class="chip-label">New 36dp Chip</span>
+          <div class="in-app-chip" style="background: #4A90B0;">
+            <img src="instant_classic.svg" style="width: 26px; height: 26px;">
+          </div>
+        </div>
+        <div class="chip-comparison">
+          <span class="chip-label">Old Emoji</span>
+          <div class="emoji-chip" style="background: #4A90B0;">📸</div>
+        </div>
+      </div>
+      <div class="details">
+        <div><strong>Inspiration:</strong> Polaroid OneStep 1000 with rainbow stripe, red shutter & emerging print</div>
+        <div class="code-row">ID: instant_classic · #4A90B0 · design/camera-icons/instant_classic.svg</div>
+      </div>
+    </div>
+
+    <!-- 5. Cross Process -->
+    <div class="card">
+      <div class="card-top">
+        <span class="card-title"><span class="swatch-dot" style="background: #C04040;"></span>Cross Process</span>
+        <span class="category-tag">experimental</span>
+      </div>
+      <div class="icon-showcase">
+        <img class="icon-large" src="cross_process.svg" alt="Cross Process Camera Icon">
+        <div class="chip-comparison">
+          <span class="chip-label">New 36dp Chip</span>
+          <div class="in-app-chip" style="background: #C04040;">
+            <img src="cross_process.svg" style="width: 26px; height: 26px;">
+          </div>
+        </div>
+        <div class="chip-comparison">
+          <span class="chip-label">Old Emoji</span>
+          <div class="emoji-chip" style="background: #C04040;">🎞️</div>
+        </div>
+      </div>
+      <div class="details">
+        <div><strong>Inspiration:</strong> Lomo LC-A Automat with split neon-cyan / hot-magenta cross-process color ring & red badge</div>
+        <div class="code-row">ID: cross_process · #C04040 · design/camera-icons/cross_process.svg</div>
+      </div>
+    </div>
+
+    <!-- 6. Instant Vintage -->
+    <div class="card">
+      <div class="card-top">
+        <span class="card-title"><span class="swatch-dot" style="background: #8B5E8B;"></span>Instant Vintage</span>
+        <span class="category-tag">instant</span>
+      </div>
+      <div class="icon-showcase">
+        <img class="icon-large" src="instant_vintage.svg" alt="Instant Vintage Camera Icon">
+        <div class="chip-comparison">
+          <span class="chip-label">New 36dp Chip</span>
+          <div class="in-app-chip" style="background: #8B5E8B;">
+            <img src="instant_vintage.svg" style="width: 26px; height: 26px;">
+          </div>
+        </div>
+        <div class="chip-comparison">
+          <span class="chip-label">Old Emoji</span>
+          <div class="emoji-chip" style="background: #8B5E8B;">🌆</div>
+        </div>
+      </div>
+      <div class="details">
+        <div><strong>Inspiration:</strong> Polaroid Land Camera (Folding Bellows with dual-window rangefinder & emerging print)</div>
+        <div class="code-row">ID: instant_vintage · #8B5E8B · design/camera-icons/instant_vintage.svg</div>
+      </div>
+    </div>
+
+    <!-- 7. Moody -->
+    <div class="card">
+      <div class="card-top">
+        <span class="card-title"><span class="swatch-dot" style="background: #2C3E50;"></span>Moody</span>
+        <span class="category-tag">moody</span>
+      </div>
+      <div class="icon-showcase">
+        <img class="icon-large" src="moody.svg" alt="Moody Camera Icon">
+        <div class="chip-comparison">
+          <span class="chip-label">New 36dp Chip</span>
+          <div class="in-app-chip" style="background: #2C3E50;">
+            <img src="moody.svg" style="width: 26px; height: 26px;">
+          </div>
+        </div>
+        <div class="chip-comparison">
+          <span class="chip-label">Old Emoji</span>
+          <div class="emoji-chip" style="background: #2C3E50;">🌧️</div>
+        </div>
+      </div>
+      <div class="details">
+        <div><strong>Inspiration:</strong> Centered Cinema Matte Box Rig with top handle, side barn doors & horizontal blue anamorphic streak</div>
+        <div class="code-row">ID: moody · #2C3E50 · design/camera-icons/moody.svg</div>
+      </div>
+    </div>
+
+    <!-- 8. Muted Meadow -->
+    <div class="card">
+      <div class="card-top">
+        <span class="card-title"><span class="swatch-dot" style="background: #7DCEA0;"></span>Muted Meadow</span>
+        <span class="category-tag">color-negative</span>
+      </div>
+      <div class="icon-showcase">
+        <img class="icon-large" src="muted_meadow.svg" alt="Muted Meadow Camera Icon">
+        <div class="chip-comparison">
+          <span class="chip-label">New 36dp Chip</span>
+          <div class="in-app-chip" style="background: #7DCEA0;">
+            <img src="muted_meadow.svg" style="width: 26px; height: 26px;">
+          </div>
+        </div>
+        <div class="chip-comparison">
+          <span class="chip-label">Old Emoji</span>
+          <div class="emoji-chip" style="background: #7DCEA0;">🌿</div>
+        </div>
+      </div>
+      <div class="details">
+        <div><strong>Inspiration:</strong> Rolleiflex 2.8F Twin-Lens Reflex (TLR) with dual stacked lenses & waist-level hood</div>
+        <div class="code-row">ID: muted_meadow · #7DCEA0 · design/camera-icons/muted_meadow.svg</div>
+      </div>
+    </div>
+
+    <!-- 9. Sunlit Spill -->
+    <div class="card">
+      <div class="card-top">
+        <span class="card-title"><span class="swatch-dot" style="background: #F39C12;"></span>Sunlit Spill</span>
+        <span class="category-tag">color-negative</span>
+      </div>
+      <div class="icon-showcase">
+        <img class="icon-large" src="sunlit_spill.svg" alt="Sunlit Spill Camera Icon">
+        <div class="chip-comparison">
+          <span class="chip-label">New 36dp Chip</span>
+          <div class="in-app-chip" style="background: #F39C12;">
+            <img src="sunlit_spill.svg" style="width: 26px; height: 26px;">
+          </div>
+        </div>
+        <div class="chip-comparison">
+          <span class="chip-label">Old Emoji</span>
+          <div class="emoji-chip" style="background: #F39C12;">☀️</div>
+        </div>
+      </div>
+      <div class="details">
+        <div><strong>Inspiration:</strong> 1990s Olympus Stylus Epic (Mju II) with curved sliding clamshell cover</div>
+        <div class="code-row">ID: sunlit_spill · #F39C12 · design/camera-icons/sunlit_spill.svg</div>
+      </div>
+    </div>
+
+    <!-- 10. Golden 200 -->
+    <div class="card">
+      <div class="card-top">
+        <span class="card-title"><span class="swatch-dot" style="background: #E0A54A;"></span>Golden 200</span>
+        <span class="category-tag">color-negative</span>
+      </div>
+      <div class="icon-showcase">
+        <img class="icon-large" src="golden_200.svg" alt="Golden 200 Camera Icon">
+        <div class="chip-comparison">
+          <span class="chip-label">New 36dp Chip</span>
+          <div class="in-app-chip" style="background: #E0A54A;">
+            <img src="golden_200.svg" style="width: 26px; height: 26px;">
+          </div>
+        </div>
+        <div class="chip-comparison">
+          <span class="chip-label">Old Emoji</span>
+          <div class="emoji-chip" style="background: #E0A54A;">🌟</div>
+        </div>
+      </div>
+      <div class="details">
+        <div><strong>Inspiration:</strong> Canon AE-1 / Olympus OM-1 35mm Manual SLR with brass top plate & amber glass</div>
+        <div class="code-row">ID: golden_200 · #E0A54A · design/camera-icons/golden_200.svg</div>
+      </div>
+    </div>
+
+    <!-- 11. Street Mono 400 -->
+    <div class="card">
+      <div class="card-top">
+        <span class="card-title"><span class="swatch-dot" style="background: #3B3B3B;"></span>Street Mono 400</span>
+        <span class="category-tag">black-and-white</span>
+      </div>
+      <div class="icon-showcase">
+        <img class="icon-large" src="street_mono_400.svg" alt="Street Mono 400 Camera Icon">
+        <div class="chip-comparison">
+          <span class="chip-label">New 36dp Chip</span>
+          <div class="in-app-chip" style="background: #3B3B3B;">
+            <img src="street_mono_400.svg" style="width: 26px; height: 26px;">
+          </div>
+        </div>
+        <div class="chip-comparison">
+          <span class="chip-label">Old Emoji</span>
+          <div class="emoji-chip" style="background: #3B3B3B;">🖤</div>
+        </div>
+      </div>
+      <div class="details">
+        <div><strong>Inspiration:</strong> Leica M Monochrom Stealth / Ricoh GR III Street Edition all-black rangefinder</div>
+        <div class="code-row">ID: street_mono_400 · #3B3B3B · design/camera-icons/street_mono_400.svg</div>
+      </div>
+    </div>
+
+    <!-- 12. Vivid Cool 400 -->
+    <div class="card">
+      <div class="card-top">
+        <span class="card-title"><span class="swatch-dot" style="background: #2E9E8F;"></span>Vivid Cool 400</span>
+        <span class="category-tag">color-negative</span>
+      </div>
+      <div class="icon-showcase">
+        <img class="icon-large" src="vivid_cool_400.svg" alt="Vivid Cool 400 Camera Icon">
+        <div class="chip-comparison">
+          <span class="chip-label">New 36dp Chip</span>
+          <div class="in-app-chip" style="background: #2E9E8F;">
+            <img src="vivid_cool_400.svg" style="width: 26px; height: 26px;">
+          </div>
+        </div>
+        <div class="chip-comparison">
+          <span class="chip-label">Old Emoji</span>
+          <div class="emoji-chip" style="background: #2E9E8F;">🍃</div>
+        </div>
+      </div>
+      <div class="details">
+        <div><strong>Inspiration:</strong> Contax T2 Champagne-Titanium Japanese Compact with Carl Zeiss Sonnar lens</div>
+        <div class="code-row">ID: vivid_cool_400 · #2E9E8F · design/camera-icons/vivid_cool_400.svg</div>
+      </div>
+    </div>
+
+    <!-- 13. CCD Digicam -->
+    <div class="card">
+      <div class="card-top">
+        <span class="card-title"><span class="swatch-dot" style="background: #5A7D8C;"></span>CCD Digicam</span>
+        <span class="category-tag">digital</span>
+      </div>
+      <div class="icon-showcase">
+        <img class="icon-large" src="ccd_digicam.svg" alt="CCD Digicam Camera Icon">
+        <div class="chip-comparison">
+          <span class="chip-label">New 36dp Chip</span>
+          <div class="in-app-chip" style="background: #5A7D8C;">
+            <img src="ccd_digicam.svg" style="width: 26px; height: 26px;">
+          </div>
+        </div>
+        <div class="chip-comparison">
+          <span class="chip-label">Old Emoji</span>
+          <div class="emoji-chip" style="background: #5A7D8C;">📟</div>
+        </div>
+      </div>
+      <div class="details">
+        <div><strong>Inspiration:</strong> Canon Digital IXUS / PowerShot Y2K Brushed Metallic Pocket Digicam</div>
+        <div class="code-row">ID: ccd_digicam · #5A7D8C · design/camera-icons/ccd_digicam.svg</div>
+      </div>
+    </div>
+
+    <!-- 14. Custom Fallback -->
+    <div class="card">
+      <div class="card-top">
+        <span class="card-title"><span class="swatch-dot" style="background: #E9BE63;"></span>Custom / Fallback</span>
+        <span class="category-tag">custom-looks</span>
+      </div>
+      <div class="icon-showcase">
+        <img class="icon-large" src="custom_fallback.svg" alt="Custom Camera Icon">
+        <div class="chip-comparison">
+          <span class="chip-label">New 36dp Chip</span>
+          <div class="in-app-chip" style="background: #E9BE63;">
+            <img src="custom_fallback.svg" style="width: 26px; height: 26px;">
+          </div>
+        </div>
+        <div class="chip-comparison">
+          <span class="chip-label">Old Emoji</span>
+          <div class="emoji-chip" style="background: #E9BE63;">🎨</div>
+        </div>
+      </div>
+      <div class="details">
+        <div><strong>Inspiration:</strong> Modular Film Craft Camera with 4-Color Spectrum Wheel (Red, Gold, Green, Blue)</div>
+        <div class="code-row">ID: fallback · derived hue · design/camera-icons/custom_fallback.svg</div>
+      </div>
+    </div>
+
+  </div>
+
+</body>
+</html>
