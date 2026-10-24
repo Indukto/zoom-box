@@ -217,7 +217,12 @@ class GpuCaptureProcessor {
         }
     }
 
-    private fun render(source: Bitmap, params: RetroRenderParams, lut: CubeLut?, grainSeed: Int = 0): Bitmap? {
+    private fun render(
+        source: Bitmap,
+        params: RetroRenderParams,
+        lut: CubeLut?,
+        grainSeed: Int = 0
+    ): Bitmap? {
         val w = source.width
         val h = source.height
 
@@ -265,6 +270,79 @@ class GpuCaptureProcessor {
             lutTexture = uploadLut(lut)
         }
 
+        // ── Spatial halation pre-pass ──
+        // Quarter-res gather over the uploaded frame, composited by the effect
+        // shader — the same split the preview uses, built here because a still
+        // has no render loop to reuse it from. Most looks leave the knob at 0,
+        // and an extra full-frame draw on a 24 MP capture is not free, so the
+        // whole pass is skipped then.
+        var halationProgram = 0
+        var halationFbo = 0
+        var halationTexture = 0
+        var halationTargetW = 0
+        var halationTargetH = 0
+        if (params.halationStrength > 0f && params.halationRadius > 0f) {
+            halationProgram = compileProgram(
+                LutPreviewRenderer.EFFECT_VERT_SHADER,
+                LutPreviewRenderer.HALATION_FRAGMENT_SHADER
+            )
+            if (halationProgram != 0) {
+                halationTargetW = (w / 4).coerceAtLeast(1)
+                halationTargetH = (h / 4).coerceAtLeast(1)
+                val haloIds = IntArray(2)
+                GLES20.glGenTextures(1, haloIds, 0)
+                GLES20.glGenFramebuffers(1, haloIds, 1)
+                GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, haloIds[0])
+                GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
+                GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
+                GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE)
+                GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
+                GLES20.glTexImage2D(
+                    GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA,
+                    halationTargetW, halationTargetH, 0,
+                    GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, null
+                )
+                GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, haloIds[1])
+                GLES20.glFramebufferTexture2D(
+                    GLES20.GL_FRAMEBUFFER, GLES20.GL_COLOR_ATTACHMENT0,
+                    GLES20.GL_TEXTURE_2D, haloIds[0], 0
+                )
+                if (GLES20.glCheckFramebufferStatus(GLES20.GL_FRAMEBUFFER) == GLES20.GL_FRAMEBUFFER_COMPLETE) {
+                    halationFbo = haloIds[1]
+                    halationTexture = haloIds[0]
+                    GLES20.glViewport(0, 0, halationTargetW, halationTargetH)
+                    GLES20.glClearColor(0f, 0f, 0f, 0f)
+                    GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
+                    GLES20.glUseProgram(halationProgram)
+                    GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
+                    GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, inputTex[0])
+                    setIntUniform(halationProgram, "uTexture", 0)
+                    val uTexel = GLES20.glGetUniformLocation(halationProgram, "uTexel")
+                    if (uTexel >= 0) {
+                        GLES20.glUniform2f(
+                            uTexel,
+                            1f / halationTargetW.toFloat(),
+                            1f / halationTargetH.toFloat()
+                        )
+                    }
+                    // Radius is authored in 1080p pixels, then converted to
+                    // target texels so the glow keeps its physical size on a
+                    // 24 MP frame instead of shrinking.
+                    val radiusTexels = params.halationRadius * (h.toFloat() / 1080f) / 4f
+                    setFloatUniform(halationProgram, "uRadius", radiusTexels.coerceAtLeast(0.5f))
+                    val haloPosition = GLES20.glGetAttribLocation(halationProgram, "aPosition")
+                    val haloTexCoord = GLES20.glGetAttribLocation(halationProgram, "aTexCoord")
+                    drawQuad(haloPosition, haloTexCoord)
+                } else {
+                    Log.e(TAG, "Halation FBO incomplete; capture renders without halation")
+                    GLES20.glDeleteTextures(1, intArrayOf(haloIds[0]), 0)
+                    GLES20.glDeleteFramebuffers(1, intArrayOf(haloIds[1]), 0)
+                    GLES20.glDeleteProgram(halationProgram)
+                    halationProgram = 0
+                }
+            }
+        }
+
         // ── Output FBO ──
         val fbo = IntArray(1)
         GLES20.glGenFramebuffers(1, fbo, 0)
@@ -292,6 +370,9 @@ class GpuCaptureProcessor {
             GLES20.glDeleteTextures(1, outputTex, 0)
             GLES20.glDeleteTextures(1, inputTex, 0)
             if (lutTexture != 0) GLES20.glDeleteTextures(1, intArrayOf(lutTexture), 0)
+            if (halationFbo != 0) GLES20.glDeleteFramebuffers(1, intArrayOf(halationFbo), 0)
+            if (halationTexture != 0) GLES20.glDeleteTextures(1, intArrayOf(halationTexture), 0)
+            if (halationProgram != 0) GLES20.glDeleteProgram(halationProgram)
             GLES20.glDeleteProgram(program)
         }
 
@@ -336,16 +417,36 @@ class GpuCaptureProcessor {
         setFloatUniform(program, "uGrainStrength", params.grainStrength)
         setFloatUniform(program, "uGrainChroma", params.grainChroma)
         setFloatUniform(program, "uGrainSeed", grainSeed.toFloat())
+        // Base lattice cell, identical formula to RetroFilter's CPU path and
+        // the preview shader so capture, preview and CPU all agree on grain
+        // size. Scales with min(w,h); coerced to ≥1px like imageonline.
+        val grainCell = ((1f + params.grainSize * 9f) * minOf(w, h) / 1800f).coerceAtLeast(1f)
+        setFloatUniform(program, "uGrainCell", grainCell)
         setFloatUniform(program, "uVignette", params.vignette)
         setFloatUniform(program, "uDust", params.dust)
         setFloatUniform(program, "uScratch", params.scratch)
         setFloatUniform(program, "uLightLeak", params.lightLeak)
+
+        // ── Spatial halation composite ──
+        // Unit 4 keeps the LUT slots (1), grain plate (3) and input (0) clear.
+        if (halationTexture != 0) {
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE4)
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, halationTexture)
+            setIntUniform(program, "uHalationTex", 4)
+            setIntUniform(program, "uHalationOn", 1)
+            setFloatUniform(program, "uHalationStrength", params.halationStrength)
+        } else {
+            setIntUniform(program, "uHalationOn", 0)
+        }
 
         if (has3d && lutTexture != 0) {
             GLES20.glActiveTexture(GLES20.GL_TEXTURE1)
             GLES20.glBindTexture(GLES30.GL_TEXTURE_3D, lutTexture)
             if (uLut >= 0) GLES20.glUniform1i(uLut, 1)
             if (uLutEnabled >= 0) GLES20.glUniform1i(uLutEnabled, 1)
+            // Full-strength grade here: the still path has no crossfade, so
+            // slot A is the only LUT bound and uLutMix stays at its default 0.
+            setFloatUniform(program, "uLutStrength", params.lutStrength)
         } else if (uLutEnabled >= 0) {
             GLES20.glUniform1i(uLutEnabled, 0)
         }
@@ -528,6 +629,11 @@ class GpuCaptureProcessor {
             n, n, n, 0, GLES20.GL_RGB, GLES20.GL_UNSIGNED_BYTE, buf
         )
         return id[0]
+    }
+
+    private fun setIntUniform(program: Int, name: String, value: Int) {
+        val location = GLES20.glGetUniformLocation(program, name)
+        if (location >= 0) GLES20.glUniform1i(location, value)
     }
 
     private fun setFloatUniform(program: Int, name: String, value: Float) {

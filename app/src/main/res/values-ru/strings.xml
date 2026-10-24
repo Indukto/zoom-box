@@ -179,12 +179,14 @@
     <string name="look_editor_lut_choose">Загрузить .cube</string>
     <string name="look_editor_lut_clear">Убрать</string>
     <string name="look_editor_lut_error">Не удалось прочитать файл как .cube LUT.</string>
+    <string name="look_slider_lut_strength">Сила LUT</string>
     <string name="look_editor_delete">Удалить этот стиль</string>
     <string name="look_editor_restore">Восстановить оригинал</string>
     <string name="look_editor_restore_title">Восстановить оригинал?</string>
     <string name="look_editor_restore_message">%1$s вернётся к встроенной оригинальной обработке. Ваши изменения будут удалены.</string>
     <string name="look_editor_section_tone">Тон</string>
     <string name="look_editor_section_color">Цвет</string>
+    <string name="look_editor_section_halation">Ореол</string>
     <string name="look_editor_section_split">Сплит-тонирование</string>
     <string name="look_editor_section_artifacts">Зерно &amp; артефакты</string>
     <string name="look_editor_tab_look">Стиль</string>
@@ -200,6 +202,8 @@
     <string name="look_slider_fringing">Хроматизм</string>
     <string name="look_slider_soft_focus">Мягкий фокус</string>
     <string name="look_slider_milky">Молочная дымка</string>
+    <string name="look_slider_halation">Сила</string>
+    <string name="look_slider_halation_radius">Радиус</string>
     <string name="look_slider_shadow_strength">Сила теней</string>
     <string name="look_slider_highlight_strength">Сила светов</string>
     <string name="look_slider_red">Красный</string>
@@ -207,6 +211,7 @@
     <string name="look_slider_blue">Синий</string>
     <string name="look_slider_grain">Зерно</string>
     <string name="look_slider_grain_chroma">Цвет зерна</string>
+    <string name="look_slider_grain_size">Размер зерна</string>
     <string name="look_slider_dust">Пыль</string>
     <string name="look_slider_scratch">Царапины</string>
     <string name="look_slider_light_leak">Засветка</string>

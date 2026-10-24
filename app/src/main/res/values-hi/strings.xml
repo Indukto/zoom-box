@@ -179,12 +179,14 @@
     <string name="look_editor_lut_choose">.cube लोड करें</string>
     <string name="look_editor_lut_clear">हटाएं</string>
     <string name="look_editor_lut_error">फ़ाइल .cube LUT के रूप में पढ़ी नहीं जा सकी।</string>
+    <string name="look_slider_lut_strength">LUT तीव्रता</string>
     <string name="look_editor_delete">यह लुक हटाएं</string>
     <string name="look_editor_restore">मूल पुनर्स्थापित करें</string>
     <string name="look_editor_restore_title">मूल पुनर्स्थापित करें?</string>
     <string name="look_editor_restore_message">%1$s पैकेज्ड मूल ग्रेड पर वापस आएगा। आपके बदलाव हटा दिए जाएंगे।</string>
     <string name="look_editor_section_tone">टोन</string>
     <string name="look_editor_section_color">रंग</string>
+    <string name="look_editor_section_halation">हैलेशन</string>
     <string name="look_editor_section_split">विभाजित टोनिंग</string>
     <string name="look_editor_section_artifacts">ग्रेन &amp; दोष</string>
     <string name="look_editor_tab_look">लुक</string>
@@ -200,6 +202,8 @@
     <string name="look_slider_fringing">रंग दोष</string>
     <string name="look_slider_soft_focus">कोमल फ़ोकस</string>
     <string name="look_slider_milky">दूधिया धुंध</string>
+    <string name="look_slider_halation">तीव्रता</string>
+    <string name="look_slider_halation_radius">त्रिज्या</string>
     <string name="look_slider_shadow_strength">छाया शक्ति</string>
     <string name="look_slider_highlight_strength">हाइलाइट शक्ति</string>
     <string name="look_slider_red">लाल</string>
@@ -207,6 +211,7 @@
     <string name="look_slider_blue">नीला</string>
     <string name="look_slider_grain">ग्रेन</string>
     <string name="look_slider_grain_chroma">ग्रेन रंग</string>
+    <string name="look_slider_grain_size">ग्रेन का आकार</string>
     <string name="look_slider_dust">धूल</string>
     <string name="look_slider_scratch">खरोंचें</string>
     <string name="look_slider_light_leak">प्रकाश रिसाव</string>

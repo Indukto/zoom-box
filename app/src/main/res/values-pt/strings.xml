@@ -179,12 +179,14 @@
     <string name="look_editor_lut_choose">Carregar .cube</string>
     <string name="look_editor_lut_clear">Remover</string>
     <string name="look_editor_lut_error">Não foi possível ler o arquivo como LUT .cube.</string>
+    <string name="look_slider_lut_strength">Intensidade do LUT</string>
     <string name="look_editor_delete">Excluir este look</string>
     <string name="look_editor_restore">Restaurar original</string>
     <string name="look_editor_restore_title">Restaurar original?</string>
     <string name="look_editor_restore_message">%1$s voltará à gradação original incluída. Suas alterações serão removidas.</string>
     <string name="look_editor_section_tone">Tom</string>
     <string name="look_editor_section_color">Cor</string>
+    <string name="look_editor_section_halation">Halação</string>
     <string name="look_editor_section_split">Tom dividido</string>
     <string name="look_editor_section_artifacts">Grão &amp; artefatos</string>
     <string name="look_editor_tab_look">Look</string>
@@ -200,6 +202,8 @@
     <string name="look_slider_fringing">Aberração cromática</string>
     <string name="look_slider_soft_focus">Foco suave</string>
     <string name="look_slider_milky">Véu leitoso</string>
+    <string name="look_slider_halation">Intensidade</string>
+    <string name="look_slider_halation_radius">Raio</string>
     <string name="look_slider_shadow_strength">Intensidade das sombras</string>
     <string name="look_slider_highlight_strength">Intensidade dos realces</string>
     <string name="look_slider_red">Vermelho</string>
@@ -207,6 +211,7 @@
     <string name="look_slider_blue">Azul</string>
     <string name="look_slider_grain">Grão</string>
     <string name="look_slider_grain_chroma">Cor do grão</string>
+    <string name="look_slider_grain_size">Tamanho do grão</string>
     <string name="look_slider_dust">Poeira</string>
     <string name="look_slider_scratch">Arranhões</string>
     <string name="look_slider_light_leak">Vazamento de luz</string>

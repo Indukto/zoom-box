@@ -179,12 +179,14 @@
     <string name="look_editor_lut_choose">.cubeを読み込む</string>
     <string name="look_editor_lut_clear">削除</string>
     <string name="look_editor_lut_error">ファイルを.cube LUTとして読み込めませんでした。</string>
+    <string name="look_slider_lut_strength">LUTの強さ</string>
     <string name="look_editor_delete">このルックを削除</string>
     <string name="look_editor_restore">オリジナルに戻す</string>
     <string name="look_editor_restore_title">オリジナルに戻しますか？</string>
     <string name="look_editor_restore_message">%1$sは内蔵のオリジナルグレードに戻ります。変更内容は削除されます。</string>
     <string name="look_editor_section_tone">トーン</string>
     <string name="look_editor_section_color">カラー</string>
+    <string name="look_editor_section_halation">ハレーション</string>
     <string name="look_editor_section_split">スプリットトーニング</string>
     <string name="look_editor_section_artifacts">グレイン &amp; アーティファクト</string>
     <string name="look_editor_tab_look">ルック</string>
@@ -200,6 +202,8 @@
     <string name="look_slider_fringing">色収差</string>
     <string name="look_slider_soft_focus">ソフトフォーカス</string>
     <string name="look_slider_milky">ミルキーヘイズ</string>
+    <string name="look_slider_halation">強さ</string>
+    <string name="look_slider_halation_radius">半径</string>
     <string name="look_slider_shadow_strength">シャドウの強さ</string>
     <string name="look_slider_highlight_strength">ハイライトの強さ</string>
     <string name="look_slider_red">赤</string>
@@ -207,6 +211,7 @@
     <string name="look_slider_blue">青</string>
     <string name="look_slider_grain">グレイン</string>
     <string name="look_slider_grain_chroma">グレインの色</string>
+    <string name="look_slider_grain_size">グレインの大きさ</string>
     <string name="look_slider_dust">ダスト</string>
     <string name="look_slider_scratch">スクラッチ</string>
     <string name="look_slider_light_leak">光漏れ</string>

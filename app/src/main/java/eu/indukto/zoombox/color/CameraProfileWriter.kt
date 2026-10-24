@@ -29,6 +29,7 @@ object CameraProfileWriter {
     /** The `look` object on its own — the shared grading snapshot, nothing else. */
     fun toJsonObject(look: RetroRenderParams): JSONObject = JSONObject().apply {
         put("lutPath", look.lutPath)
+        put("lutStrength", look.lutStrength.toDouble())
         put("temperature", look.temperature.toDouble())
         put("tint", look.tint.toDouble())
         put("exposure", look.exposure.toDouble())
@@ -37,6 +38,8 @@ object CameraProfileWriter {
         put("saturation", look.saturation.toDouble())
         put("bloom", look.bloom.toDouble())
         put("fringing", look.fringing.toDouble())
+        put("halationStrength", look.halationStrength.toDouble())
+        put("halationRadius", look.halationRadius.toDouble())
         put("shadowTintR", look.shadowTintR.toDouble())
         put("shadowTintG", look.shadowTintG.toDouble())
         put("shadowTintB", look.shadowTintB.toDouble())
@@ -52,6 +55,7 @@ object CameraProfileWriter {
         put("milkyTintB", look.milkyTintB.toDouble())
         put("grainStrength", look.grainStrength.toDouble())
         put("grainChroma", look.grainChroma.toDouble())
+        put("grainSize", look.grainSize.toDouble())
         put("highlightRolloff", look.highlightRolloff.toDouble())
         put("fade", look.fade.toDouble())
         put("vignette", look.vignette.toDouble())

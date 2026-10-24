@@ -23,13 +23,15 @@ import org.json.JSONObject
  *     "contrast": 1.05,
  *     "saturation": 1.0,
  *     "bloom": 0.18,
+ *     "halationStrength": 0.0, "halationRadius": 8.0,
  *     "shadowTintR": 0.0, "shadowTintG": 0.0, "shadowTintB": 0.025,
  *     "shadowTintStrength": 0.06,
  *     "highlightTintR": 0.04, "highlightTintG": 0.02, "highlightTintB": 0.0,
  *     "highlightTintStrength": 0.08,
- *     "grainStrength": 0.05, "grainChroma": 0.3,
+ *     "grainStrength": 0.05, "grainChroma": 0.3, "grainSize": 0.25,
  *     "highlightRolloff": 0.0, "fade": 0.0,
- *     "vignette": 1.0, "dust": 0.0, "scratch": 0.0, "lightLeak": 0.0
+ *     "vignette": 1.0, "dust": 0.0, "scratch": 0.0, "lightLeak": 0.0,
+ *     "lutStrength": 1.0
  *   }
  * }
  * ```
@@ -49,6 +51,7 @@ object CameraProfileLoader {
         if (look == null) return RetroRenderParams()
         return RetroRenderParams(
             lutPath = look.optString("lutPath", ""),
+            lutStrength = look.optDouble("lutStrength", 1.0).toFloat(),
             temperature = look.optDouble("temperature", 0.0).toFloat(),
             tint = look.optDouble("tint", 0.0).toFloat(),
             exposure = look.optDouble("exposure", 0.0).toFloat(),
@@ -57,6 +60,8 @@ object CameraProfileLoader {
             saturation = look.optDouble("saturation", 1.0).toFloat(),
             bloom = look.optDouble("bloom", 0.0).toFloat(),
             fringing = look.optDouble("fringing", 0.0).toFloat(),
+            halationStrength = look.optDouble("halationStrength", 0.0).toFloat(),
+            halationRadius = look.optDouble("halationRadius", 8.0).toFloat(),
             shadowTintR = look.optDouble("shadowTintR", 0.0).toFloat(),
             shadowTintG = look.optDouble("shadowTintG", 0.0).toFloat(),
             shadowTintB = look.optDouble("shadowTintB", 0.0).toFloat(),
@@ -72,6 +77,7 @@ object CameraProfileLoader {
             milkyTintB = look.optDouble("milkyTintB", 0.0).toFloat(),
             grainStrength = look.optDouble("grainStrength", 0.0).toFloat(),
             grainChroma = look.optDouble("grainChroma", 0.0).toFloat(),
+            grainSize = look.optDouble("grainSize", 0.25).toFloat(),
             highlightRolloff = look.optDouble("highlightRolloff", 0.0).toFloat(),
             fade = look.optDouble("fade", 0.0).toFloat(),
             vignette = look.optDouble("vignette", 1.0).toFloat(),

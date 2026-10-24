@@ -358,6 +358,21 @@ internal fun LookEditorPanel(
                         title = stringResource(R.string.look_editor_section_tone),
                         testTag = "look_section_tone"
                     ) {
+                        // The LUT row above can pick a table but not dial it
+                        // back, so its strength lives here, first in the tab
+                        // and only while a table is bound — an inert control
+                        // never takes a row. Part of the scrollable deck, not
+                        // the fixed header, so a small screen keeps its
+                        // viewport for the sliders.
+                        if (look.lutPath.isNotBlank()) {
+                            LookSliderRow(
+                                label = stringResource(R.string.look_slider_lut_strength),
+                                value = look.lutStrength,
+                                range = 0f..1f,
+                                testTag = "look_slider_lut_strength",
+                                onValueChange = { onLookChange(look.copy(lutStrength = it)) }
+                            )
+                        }
                         LookSliderRow(
                             label = stringResource(R.string.look_slider_film_curve),
                             value = look.filmCurve,
@@ -436,6 +451,32 @@ internal fun LookEditorPanel(
                             testTag = "look_slider_milky",
                             onValueChange = { onLookChange(look.copy(milkyMix = it)) }
                         )
+                    }
+
+                    LookSection(
+                        title = stringResource(R.string.look_editor_section_halation),
+                        testTag = "look_section_halation"
+                    ) {
+                        LookSliderRow(
+                            label = stringResource(R.string.look_slider_halation),
+                            value = look.halationStrength,
+                            range = 0f..1f,
+                            testTag = "look_slider_halation",
+                            onValueChange = { onLookChange(look.copy(halationStrength = it)) }
+                        )
+                        // Radius only means something once there is a glow to
+                        // spread, so it appears with strength — the same rule
+                        // the LUT strength row follows, and the reason an
+                        // inert control never takes a row.
+                        if (look.halationStrength > 0f) {
+                            LookSliderRow(
+                                label = stringResource(R.string.look_slider_halation_radius),
+                                value = look.halationRadius,
+                                range = 0f..24f,
+                                testTag = "look_slider_halation_radius",
+                                onValueChange = { onLookChange(look.copy(halationRadius = it)) }
+                            )
+                        }
                     }
 
                     LookSection(
@@ -518,6 +559,13 @@ internal fun LookEditorPanel(
                             range = 0f..1f,
                             testTag = "look_slider_grain_chroma",
                             onValueChange = { onLookChange(look.copy(grainChroma = it)) }
+                        )
+                        LookSliderRow(
+                            label = stringResource(R.string.look_slider_grain_size),
+                            value = look.grainSize,
+                            range = 0f..1f,
+                            testTag = "look_slider_grain_size",
+                            onValueChange = { onLookChange(look.copy(grainSize = it)) }
                         )
                         LookSliderRow(
                             label = stringResource(R.string.look_slider_dust),

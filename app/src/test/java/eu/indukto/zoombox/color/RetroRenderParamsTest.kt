@@ -30,16 +30,26 @@ class RetroRenderParamsTest {
         assertEquals(1.0f, p.saturation, 0f)
         assertEquals(0f, p.bloom, 0f)
         assertEquals(0f, p.fringing, 0f)
+        // Halation stays off unless a look asks for it, so the default
+        // snapshot never allocates a blur target on any back-end.
+        assertEquals(0f, p.halationStrength, 0f)
+        assertEquals(8f, p.halationRadius, 0f)
         assertEquals(0f, p.shadowTintStrength, 0f)
         assertEquals(0f, p.highlightTintStrength, 0f)
         assertEquals(0f, p.softFocus, 0f)
         assertEquals(0f, p.milkyMix, 0f)
         assertEquals(0f, p.grainStrength, 0f)
         assertEquals(0f, p.grainChroma, 0f)
+        // Grain cell size defaults to the mid (0.25 → ~3px) even when
+        // strength is 0; the cell only matters once the stage switches on.
+        assertEquals(0.25f, p.grainSize, 0f)
         assertEquals(1f, p.vignette, 0f)
         assertEquals(0f, p.dust, 0f)
         assertEquals(0f, p.scratch, 0f)
         assertEquals(0f, p.lightLeak, 0f)
+        // A preset that ships a LUT still grades at full strength; the knob is
+        // opt-out, so every existing look keeps its historical rendering.
+        assertEquals(1f, p.lutStrength, 0f)
         assertFalse(p.needsProcessing)
     }
 
@@ -69,6 +79,7 @@ class RetroRenderParamsTest {
         assertEquals(preset.milkyTintB, p.milkyTintB, 0f)
         assertEquals(preset.defaultGrainStrength, p.grainStrength, 0f)
         assertEquals(preset.defaultGrainChroma, p.grainChroma, 0f)
+        assertEquals(preset.defaultGrainSize, p.grainSize, 0f)
         assertEquals(preset.defaultVignette, p.vignette, 0f)
         assertEquals(preset.defaultDust, p.dust, 0f)
         assertEquals(preset.defaultScratch, p.scratch, 0f)
@@ -105,6 +116,9 @@ class RetroRenderParamsTest {
         assertTrue(RetroRenderParams(milkyMix = 0.01f).needsProcessing)
         assertTrue(RetroRenderParams(filmCurve = 0.01f).needsProcessing)
         assertTrue(RetroRenderParams(bloom = 0.01f).needsProcessing)
+        assertTrue(RetroRenderParams(halationStrength = 0.01f).needsProcessing)
+        // A radius on its own grades nothing: strength 0 keeps the blur off.
+        assertFalse(RetroRenderParams(halationRadius = 20f).needsProcessing)
         assertTrue(RetroRenderParams(temperature = 0.01f).needsProcessing)
         assertTrue(RetroRenderParams(tint = 0.01f).needsProcessing)
         assertTrue(RetroRenderParams(exposure = 0.01f).needsProcessing)
@@ -136,6 +150,7 @@ class RetroRenderParamsTest {
             assertEquals("${preset.name} saturation", preset.defaultSaturation, p.saturation, 0f)
             assertEquals("${preset.name} grain", preset.defaultGrainStrength, p.grainStrength, 0f)
             assertEquals("${preset.name} grainChroma", preset.defaultGrainChroma, p.grainChroma, 0f)
+            assertEquals("${preset.name} grainSize", preset.defaultGrainSize, p.grainSize, 0f)
             assertEquals("${preset.name} temperature", 0.1f, p.temperature, 0f)
             assertEquals("${preset.name} tint", 0.2f, p.tint, 0f)
             assertEquals("${preset.name} exposure", 0.3f, p.exposure, 0f)

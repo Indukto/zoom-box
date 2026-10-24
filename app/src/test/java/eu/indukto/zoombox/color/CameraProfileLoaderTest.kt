@@ -56,6 +56,17 @@ class CameraProfileLoaderTest {
         assertEquals("Warm Portrait", profile.displayName)
         assertEquals("color-negative", profile.category)
         assertEquals("luts/warm_portrait.cube", profile.look.lutPath)
+        // Absent key keeps the historical full-strength grade, so every
+        // profile authored before the knob existed parses unchanged.
+        assertEquals(1f, profile.look.lutStrength, 0f)
+        // Grain size defaults to 0.25 (~3px) when absent, so profiles that
+        // predate the knob pick up the standard cell size automatically.
+        assertEquals(0.25f, profile.look.grainSize, 0f)
+        // Halation is opt-in: absent keys mean no blur pass on any back-end,
+        // so the twelve profiles written before the stage existed render
+        // exactly as they did.
+        assertEquals(0f, profile.look.halationStrength, 0f)
+        assertEquals(8f, profile.look.halationRadius, 0f)
         assertEquals(0.20f, profile.look.filmCurve, 0f)
         assertEquals(1.05f, profile.look.contrast, 0f)
         assertEquals(0.18f, profile.look.bloom, 0f)
@@ -63,6 +74,34 @@ class CameraProfileLoaderTest {
         assertEquals(0.06f, profile.look.shadowTintStrength, 0f)
         assertEquals(0.05f, profile.look.grainStrength, 0f)
         assertEquals(0.3f, profile.look.grainChroma, 0f)
+    }
+
+    @Test
+    fun `lut strength is read when the profile carries one`() {
+        val profile = CameraProfileLoader.parse(
+            """{"id": "dialled_back", "look": {"lutPath": "luts/a.cube", "lutStrength": 0.35}}"""
+        )
+
+        assertEquals(0.35f, profile.look.lutStrength, 0f)
+    }
+
+    @Test
+    fun `halation keys are read when the profile carries them`() {
+        val profile = CameraProfileLoader.parse(
+            """{"id": "glowing", "look": {"halationStrength": 0.4, "halationRadius": 14.5}}"""
+        )
+
+        assertEquals(0.4f, profile.look.halationStrength, 0f)
+        assertEquals(14.5f, profile.look.halationRadius, 0f)
+    }
+
+    @Test
+    fun `grain size is read when the profile carries one`() {
+        val profile = CameraProfileLoader.parse(
+            """{"id": "coarse", "look": {"grainStrength": 0.2, "grainSize": 0.8}}"""
+        )
+
+        assertEquals(0.8f, profile.look.grainSize, 0f)
     }
 
     @Test

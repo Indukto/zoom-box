@@ -179,12 +179,14 @@
     <string name="look_editor_lut_choose">Cargar .cube</string>
     <string name="look_editor_lut_clear">Quitar</string>
     <string name="look_editor_lut_error">Ese archivo no se pudo leer como LUT .cube.</string>
+    <string name="look_slider_lut_strength">Intensidad del LUT</string>
     <string name="look_editor_delete">Eliminar este look</string>
     <string name="look_editor_restore">Restaurar original</string>
     <string name="look_editor_restore_title">¿Restaurar original?</string>
     <string name="look_editor_restore_message">%1$s volverá a su ajuste original incluido. Tus cambios se eliminarán.</string>
     <string name="look_editor_section_tone">Tono</string>
     <string name="look_editor_section_color">Color</string>
+    <string name="look_editor_section_halation">Halación</string>
     <string name="look_editor_section_split">Tono dividido</string>
     <string name="look_editor_section_artifacts">Grano &amp; artefactos</string>
     <string name="look_editor_tab_look">Look</string>
@@ -200,6 +202,8 @@
     <string name="look_slider_fringing">Halos de color</string>
     <string name="look_slider_soft_focus">Enfoque suave</string>
     <string name="look_slider_milky">Velo lechoso</string>
+    <string name="look_slider_halation">Intensidad</string>
+    <string name="look_slider_halation_radius">Radio</string>
     <string name="look_slider_shadow_strength">Intensidad de sombras</string>
     <string name="look_slider_highlight_strength">Intensidad de altas luces</string>
     <string name="look_slider_red">Rojo</string>
@@ -207,6 +211,7 @@
     <string name="look_slider_blue">Azul</string>
     <string name="look_slider_grain">Grano</string>
     <string name="look_slider_grain_chroma">Color del grano</string>
+    <string name="look_slider_grain_size">Tamaño del grano</string>
     <string name="look_slider_dust">Polvo</string>
     <string name="look_slider_scratch">Arañazos</string>
     <string name="look_slider_light_leak">Fuga de luz</string>

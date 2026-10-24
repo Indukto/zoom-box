@@ -46,6 +46,12 @@ enum class FilmPreset(
      * useful if a future color stock preset wants a warm-toned organic grain.
      */
     val defaultGrainChroma: Float = 0f,
+    /**
+     * Grain clump size in [0, 1] driving the procedural fBm grain field's
+     * base cell. Higher = coarser clumps; 0 = finest. Consumed identically
+     * by the live GL shader and the CPU capture filter.
+     */
+    val defaultGrainSize: Float = 0.25f,
     // ── New per-preset tonal & creative parameters ──────────────────────
     /**
      * Film S-curve strength in [0, 1]. Applies a characteristic S-shaped

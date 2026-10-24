@@ -29,6 +29,7 @@ object LookDraftValidator {
     private const val MAX_TINT = 0.2f
     private const val MAX_TINT_STRENGTH = 0.5f
     private const val MAX_FRINGING = 0.05f
+    private const val MAX_HALATION_RADIUS = 24f
     private const val MAX_VIGNETTE = 2f
     private const val MIN_CONTRAST = 0.5f
     private const val MAX_CONTRAST = 2f
@@ -70,7 +71,8 @@ object LookDraftValidator {
      *
      * [RetroRenderParams.lutPath] is intentionally untouched: it is an
      * identity, not a value, and an edited look must keep pointing at the
-     * LUT it started from.
+     * LUT it started from. Its [RetroRenderParams.lutStrength] companion is a
+     * value, so it is clamped like every other stage.
      */
     fun clampLook(params: RetroRenderParams): RetroRenderParams = params.copy(
         temperature = params.temperature.coerceIn(-MAX_TEMPERATURE, MAX_TEMPERATURE),
@@ -81,6 +83,8 @@ object LookDraftValidator {
         saturation = params.saturation.coerceIn(0f, MAX_SATURATION),
         bloom = params.bloom.coerceIn(0f, 1f),
         fringing = params.fringing.coerceIn(0f, MAX_FRINGING),
+        halationStrength = params.halationStrength.coerceIn(0f, 1f),
+        halationRadius = params.halationRadius.coerceIn(0f, MAX_HALATION_RADIUS),
         shadowTintR = params.shadowTintR.coerceIn(-MAX_TINT, MAX_TINT),
         shadowTintG = params.shadowTintG.coerceIn(-MAX_TINT, MAX_TINT),
         shadowTintB = params.shadowTintB.coerceIn(-MAX_TINT, MAX_TINT),
@@ -96,12 +100,14 @@ object LookDraftValidator {
         milkyTintB = params.milkyTintB.coerceIn(0f, 1f),
         grainStrength = params.grainStrength.coerceIn(0f, 1f),
         grainChroma = params.grainChroma.coerceIn(0f, 1f),
+        grainSize = params.grainSize.coerceIn(0f, 1f),
         highlightRolloff = params.highlightRolloff.coerceIn(0f, 1f),
         fade = params.fade.coerceIn(0f, 1f),
         vignette = params.vignette.coerceIn(0f, MAX_VIGNETTE),
         dust = params.dust.coerceIn(0f, 1f),
         scratch = params.scratch.coerceIn(0f, 1f),
-        lightLeak = params.lightLeak.coerceIn(0f, 1f)
+        lightLeak = params.lightLeak.coerceIn(0f, 1f),
+        lutStrength = params.lutStrength.coerceIn(0f, 1f)
     )
 }
 

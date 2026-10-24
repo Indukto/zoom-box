@@ -179,12 +179,14 @@
     <string name="look_editor_lut_choose">.cube laden</string>
     <string name="look_editor_lut_clear">Verwijderen</string>
     <string name="look_editor_lut_error">Dat bestand kon niet als .cube-LUT worden gelezen.</string>
+    <string name="look_slider_lut_strength">LUT-sterkte</string>
     <string name="look_editor_delete">Deze look verwijderen</string>
     <string name="look_editor_restore">Origineel herstellen</string>
     <string name="look_editor_restore_title">Origineel herstellen?</string>
     <string name="look_editor_restore_message">%1$s keert terug naar de meegeleverde originele gradatie. Je wijzigingen worden verwijderd.</string>
     <string name="look_editor_section_tone">Toon</string>
     <string name="look_editor_section_color">Kleur</string>
+    <string name="look_editor_section_halation">Halo</string>
     <string name="look_editor_section_split">Split-toning</string>
     <string name="look_editor_section_artifacts">Korrel &amp; artefacten</string>
     <string name="look_editor_tab_look">Look</string>
@@ -200,6 +202,8 @@
     <string name="look_slider_fringing">Kleurafwijking</string>
     <string name="look_slider_soft_focus">Zachte focus</string>
     <string name="look_slider_milky">Melkachtige waas</string>
+    <string name="look_slider_halation">Sterkte</string>
+    <string name="look_slider_halation_radius">Straal</string>
     <string name="look_slider_shadow_strength">Schaduwsterkte</string>
     <string name="look_slider_highlight_strength">Hooglichtsterkte</string>
     <string name="look_slider_red">Rood</string>
@@ -207,6 +211,7 @@
     <string name="look_slider_blue">Blauw</string>
     <string name="look_slider_grain">Korrel</string>
     <string name="look_slider_grain_chroma">Korrelkleur</string>
+    <string name="look_slider_grain_size">Korrelgrootte</string>
     <string name="look_slider_dust">Stof</string>
     <string name="look_slider_scratch">Krassen</string>
     <string name="look_slider_light_leak">Lichtlek</string>

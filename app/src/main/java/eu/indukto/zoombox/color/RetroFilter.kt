@@ -66,6 +66,7 @@ suspend fun Bitmap.applyRetroFilter(
     val expVal = params.exposure
     val grainStrength = params.grainStrength
     val grainChroma = params.grainChroma
+    val grainSize = params.grainSize
     val filmCurve = params.filmCurve
     val contrast = params.contrast
     val saturation = params.saturation
@@ -90,10 +91,26 @@ suspend fun Bitmap.applyRetroFilter(
     val dust = params.dust
     val scratch = params.scratch
     val lightLeak = params.lightLeak
+    val lutStrength = params.lutStrength
+    val halationStrength = params.halationStrength
+    val halationRadius = params.halationRadius
 
     val w = this.width
     val h = this.height
     if (w <= 0 || h <= 0) return this
+
+    // ── Procedural fBm grain setup ──
+    // The base lattice cell scales with min(w,h) so grain keeps a constant
+    // apparent size across sensors: a 12 MP capture gets coarser cells than
+    // the 1080p preview, matching their pixel densities (the same intent the
+    // old plate's 1080f/h scale had). grainSize [0,1] maps to imageonline's
+    // slider range [1,10] so the 0.25 default ≈ its default size of 3.
+    // Coerced to ≥1px like imageonline; the finer octaves below (cell/2,
+    // cell/4) are allowed to go sub-pixel as the speckle layer.
+    val grainCell = ((1f + grainSize * 9f) * minOf(w, h) / 1800f).coerceAtLeast(1f)
+    // imageonline salts the field as 4*seed + channel; channel 0 is the
+    // shared mono field, 1/2/3 the independent R/G/B dye-cloud fields.
+    val grainSeed4 = grainSeed * 4
 
     val target = if (this.isMutable) this else this.copy(this.config ?: Bitmap.Config.ARGB_8888, true)
 
@@ -160,6 +177,17 @@ suspend fun Bitmap.applyRetroFilter(
             }
         }
         target.getPixels(pixels, 0, w, 0, 0, w, h)
+
+        // ── Spatial halation field ──
+        // Built from the ungraded input, before the soft-focus pass rewrites
+        // `pixels` in place — the GL paths gather from the copied camera frame
+        // for the same reason. Null when the look leaves halation off, so
+        // every existing preset pays nothing.
+        val halation = if (halationStrength > 0f && halationRadius > 0f) {
+            HalationField.from(pixels, w, h, halationRadius)
+        } else {
+            null
+        }
 
         // Precompute LUT params so each parallel chunk can do its
         // trilinear blend inline (one pixel pass total) instead of relying
@@ -512,45 +540,41 @@ suspend fun Bitmap.applyRetroFilter(
                         g8 = (gf * 255f + 0.5f).toInt().coerceIn(0, 255)
                         b8 = (bf * 255f + 0.5f).toInt().coerceIn(0, 255)
 
-                        // ── 9. Film Grain ──
+                        // ── 9. Film Grain (procedural 3-octave fBm) ──
                         if (grainStrength > 0f) {
-                            // ── Pure white silver-halide grain ────────────
-                            // One uncorrelated per-pixel hash tap, nothing
-                            // interpolated: an earlier value-noise octave
-                            // terraced into a visible ~3px lattice once
-                            // quantized to bytes, which read as a repetitive
-                            // grid. White noise has no lattice by
-                            // construction, so it cannot tile or band.
+                            // Tent mid-tone weighting (imageonline midWeights):
+                            // grain peaks at mid-gray and floors at 0.35 in the
+                            // deep shadows and blown highlights, because emulsion
+                            // density variations read strongest where the response
+                            // curve is steepest, not at the extremes. Weight comes
+                            // from the *source* luma, not the grain value.
                             val lum = (r8 * 0.299f + g8 * 0.587f + b8 * 0.114f) / 255f
-                            val midMask = 1f - 4f * (lum - 0.5f) * (lum - 0.5f) // [0, 1]
-                            val midMaskClamped = midMask.coerceAtLeast(0.4f)
+                            val weight = 0.35f + 0.65f * (1f - kotlin.math.abs(2f * lum - 1f))
+                            // Amplitude = strength scaled to bytes (imageonline: amount/100·255·0.3).
+                            val amp = grainStrength * 255f * 0.3f * weight
 
-                            val white = hashPixel(x, y, grainSeed) - 0.5f
+                            val xf = x.toFloat()
+                            val yf = y.toFloat()
+                            // Shared monochrome field added to all three channels.
+                            val monoDelta = fbmGrain(xf, yf, grainCell, grainSeed4) * amp
 
-                            val amp = grainStrength * (1.2f + 2.0f * midMaskClamped) * 11f
-                            // Round (never truncate): truncation thins faint
-                            // grain into sparse speckle and terraces smooth
-                            // gradients into bands.
-                            val monoDelta = java.lang.Math.round(white * amp)
-
-                            var chromaR = 0
-                            var chromaG = 0
-                            var chromaB = 0
+                            var chromaR = 0f
+                            var chromaG = 0f
+                            var chromaB = 0f
                             if (grainChroma > 0f) {
-                                // Per-channel white speckle (CCD/dye speckle is
-                                // pixel-scale). Salts mirror the GPU shader so
-                                // both back-ends decorrelate R/G/B the same way.
-                                val cr = hashPixel(x, y, grainSeed + 101)
-                                val cg = hashPixel(x, y, grainSeed + 917)
-                                val cb = hashPixel(x, y, grainSeed + 1543)
-                                chromaR = java.lang.Math.round((cr - 0.5f) * amp * grainChroma)
-                                chromaG = java.lang.Math.round((cg - 0.5f) * amp * grainChroma)
-                                chromaB = java.lang.Math.round((cb - 0.5f) * amp * grainChroma)
+                                // Independent per-channel fBm fields (dye-cloud /
+                                // sensor speckle), salted (channels 1/2/3) to match
+                                // the shader so both back-ends decorrelate R/G/B
+                                // identically. Mixed into the monochrome delta by
+                                // grainChroma so existing per-look tuning holds.
+                                chromaR = fbmGrain(xf, yf, grainCell, grainSeed4 + 1) * amp * grainChroma
+                                chromaG = fbmGrain(xf, yf, grainCell, grainSeed4 + 2) * amp * grainChroma
+                                chromaB = fbmGrain(xf, yf, grainCell, grainSeed4 + 3) * amp * grainChroma
                             }
 
-                            r8 = (r8 + monoDelta + chromaR).coerceIn(0, 255)
-                            g8 = (g8 + monoDelta + chromaG).coerceIn(0, 255)
-                            b8 = (b8 + monoDelta + chromaB).coerceIn(0, 255)
+                            r8 = (r8 + monoDelta + chromaR + 0.5f).toInt().coerceIn(0, 255)
+                            g8 = (g8 + monoDelta + chromaG + 0.5f).toInt().coerceIn(0, 255)
+                            b8 = (b8 + monoDelta + chromaB + 0.5f).toInt().coerceIn(0, 255)
                         }
 
                         if (lutActive) {
@@ -608,9 +632,20 @@ suspend fun Bitmap.applyRetroFilter(
                             val bUp  = (c001b * dR1 + c101b * dR) * dG1 + (c011b * dR1 + c111b * dR) * dG
                             val outB = bLow * dB1 + bUp * dB
 
-                            val or8 = (outR * 255f + 0.5f).toInt().coerceIn(0, 255)
-                            val og8 = (outG * 255f + 0.5f).toInt().coerceIn(0, 255)
-                            val ob8 = (outB * 255f + 0.5f).toInt().coerceIn(0, 255)
+                            // Look strength, matching the shader's uLutStrength:
+                            // the table's full grade blended back toward the
+                            // pre-LUT pixel. Strength 1 keeps the exact old
+                            // expression (no extra multiply), so existing
+                            // profiles stay pixel-identical.
+                            val lutR = outR * 255f
+                            val lutG = outG * 255f
+                            val lutB = outB * 255f
+                            val strengthR = if (lutStrength >= 1f) lutR else r8 + (lutR - r8) * lutStrength
+                            val strengthG = if (lutStrength >= 1f) lutG else g8 + (lutG - g8) * lutStrength
+                            val strengthB = if (lutStrength >= 1f) lutB else b8 + (lutB - b8) * lutStrength
+                            val or8 = (strengthR + 0.5f).toInt().coerceIn(0, 255)
+                            val og8 = (strengthG + 0.5f).toInt().coerceIn(0, 255)
+                            val ob8 = (strengthB + 0.5f).toInt().coerceIn(0, 255)
 
                             // ── 10. Milky pastel haze overlay (dreamcore) ──
                             // Final stage (after LUT): blend toward the cream
@@ -662,6 +697,59 @@ suspend fun Bitmap.applyRetroFilter(
                     }
                 }
             }.awaitAll()
+        }
+
+        // ── Spatial halation composite pass ──
+        // Its own sweep for the same reason the overlays have one: the blurred
+        // field is independent of `pixels`, so reading it while rewriting
+        // pixels in place is safe, and the main loop keeps its single-purpose
+        // body. Stage order mirrors the shader — after the LUT and the milky
+        // wash, before the position-only artifacts.
+        if (halation != null) {
+            val strength = halationStrength
+            coroutineScope {
+                (0 until numChunks).map { chunk ->
+                    val start = chunk * chunkSize
+                    val end = (start + chunkSize).coerceAtMost(total)
+                    async(Dispatchers.Default) {
+                        val halo = FloatArray(3)
+                        var p = start
+                        var x = start % w
+                        var y = start / w
+                        while (p < end) {
+                            val c = pixels[p]
+                            halation.sample((x + 0.5f) / w, (y + 0.5f) / h, halo)
+                            val hR = halo[0]
+                            val hG = halo[1]
+                            val hB = halo[2]
+                            // The field already carries the highlight mask
+                            // from before its blur, so this only has to fade
+                            // the glow in: no second threshold, or the bleed
+                            // into dark neighbours would be cut off.
+                            if (hR > 0f || hG > 0f || hB > 0f) {
+                                // Screen blend with the warm film-base tint:
+                                // c += glow * (1 - c), exactly the shader's
+                                // stage 10.5 so a saved JPEG matches the
+                                // viewfinder pixel for pixel at strength 0..1.
+                                val k = strength * 0.9f
+                                val r = ((c ushr 16) and 0xFF) / 255f
+                                val g = ((c ushr 8) and 0xFF) / 255f
+                                val b = (c and 0xFF) / 255f
+                                val nR = r + hR * k * (1f - r)
+                                val nG = g + hG * 0.52f * k * (1f - g)
+                                val nB = b + hB * 0.38f * k * (1f - b)
+                                val oR = (nR.coerceIn(0f, 1f) * 255f + 0.5f).toInt().coerceIn(0, 255)
+                                val oG = (nG.coerceIn(0f, 1f) * 255f + 0.5f).toInt().coerceIn(0, 255)
+                                val oB = (nB.coerceIn(0f, 1f) * 255f + 0.5f).toInt().coerceIn(0, 255)
+                                pixels[p] = (c and -0x1000000) or (oR shl 16) or (oG shl 8) or oB
+                            }
+                            p++
+                            x++
+                            if (x == w) { x = 0; y++ }
+                        }
+                    }
+                }.awaitAll()
+            }
         }
 
         // ── Procedural overlay pass (dust / scratches / light leak) ──
@@ -794,8 +882,8 @@ private fun fract(x: Float): Float = x - kotlin.math.floor(x.toDouble()).toFloat
  * precision `sin` cost 8–20 transcendental calls per grain pixel (~100 M
  * per 12 MP capture). The fract-multiply form is only multiplies and adds.
  * It keys dust and scratches (both back-ends share this field and match
- * within float precision); grain uses the seeded integer hashPixel instead
- * so every capture gets a fresh per-pixel-white field.
+ * within float precision); grain uses the seeded integer cellHash / fbmGrain
+ * instead so every capture gets a fresh value-noise field.
  */
 private fun hashF(x: Float, y: Float): Float {
     // vec3(p.xyx): the z component mirrors x.
@@ -819,24 +907,63 @@ private fun smoothstep3(edge0: Float, edge1: Float, x: Float): Float {
 const val MAX_GRAIN_SEED = 256
 
 /**
- * Uncorrelated per-pixel white hash in [0, 1) for film grain.
+ * One lattice-cell hash in [-1, 1] for the procedural fBm grain.
  *
- * Integer avalanche (xorshift + multiply finalizer) instead of the
- * fract-multiply [hashF]: every input pixel maps independently, so there is
- * no lattice interpolation and no repeating blotch period. Int arithmetic
- * wraps on overflow, which is the desired modulo-2^32 mixing. The [seed]
- * re-keys the whole field per capture (capture seeds stay below
- * MAX_GRAIN_SEED so the GPU float path survives them); the per-channel
- * chroma salts mirror the shader offsets so both back-ends decorrelate
- * R/G/B the same way.
- *
- * Per-call cost: a few integer ops — cheaper than the value-noise
- * lookups it replaces.
+ * Integer avalanche (xorshift + multiply finalizer — the same mixing
+ * imageonline's cellHash uses) mapped to a signed range. Each lattice point
+ * is one hash; value-noise interpolation below turns the lattice into the
+ * smooth clumps film grain needs. Top 24 bits feed the float so the full
+ * mantissa is used (a 32-bit int loses low bits on conversion).
  */
-private fun hashPixel(x: Int, y: Int, seed: Int): Float {
-    var h = seed + x * 374761393 + y * 668265263
-    h = (h xor (h ushr 13)) * 1274126177
-    h = h xor (h ushr 16)
-    return (h ushr 8) * (1f / 16777216f)
+private fun cellHash(x: Int, y: Int, seed: Int): Float {
+    var r = x * 374761393 + y * 668265263 + seed * 1442695041
+    r = (r xor (r ushr 13)) * 1274126177
+    r = r xor (r ushr 16)
+    // (r>>>0)/2^32*2 - 1 == (r>>>8)/2^23 - 1, done in 24-bit float space.
+    return (r ushr 8) * (1f / 8388608f) - 1f
+}
+
+/**
+ * One octave of smoothstep-faded bilinear value noise in [-1, 1].
+ * [cell] is the lattice spacing in pixels; finer = smaller structure.
+ */
+private fun valueOctave(px: Float, py: Float, cell: Float, seed: Int): Float {
+    val fx = px / cell
+    val fy = py / cell
+    val ix = kotlin.math.floor(fx)
+    val iy = kotlin.math.floor(fy)
+    val tx = fx - ix
+    val ty = fy - iy
+    // Smoothstep fade t^2*(3-2t) on both axes: eases each cell into its
+    // neighbour so the lattice has no seams or byte-quantization terracing.
+    val sx = tx * tx * (3f - 2f * tx)
+    val sy = ty * ty * (3f - 2f * ty)
+    val x0 = ix.toInt()
+    val y0 = iy.toInt()
+    val v00 = cellHash(x0, y0, seed)
+    val v10 = cellHash(x0 + 1, y0, seed)
+    val v01 = cellHash(x0, y0 + 1, seed)
+    val v11 = cellHash(x0 + 1, y0 + 1, seed)
+    val top = v00 + (v10 - v00) * sx
+    val bot = v01 + (v11 - v01) * sx
+    return top + (bot - top) * sy
+}
+
+/**
+ * 3-octave fBm grain field at one pixel: lattice cells [cell], [cell]/2,
+ * [cell]/4 weighted 1.0, 0.5, 0.3 (imageonline's grainField). The finer
+ * octaves add speckle atop the coarse clumps; the per-octave seed offsets
+ * (+97, +193) decorrelate them so they don't stack into a lattice. [seed]
+ * already folds in the grain seed and channel salt. Matches the GLSL copy
+ * in LutPreviewRenderer so live preview and capture agree.
+ */
+private fun fbmGrain(px: Float, py: Float, cell: Float, seed: Int): Float {
+    // Fade each octave out as its lattice approaches the pixel Nyquist limit
+    // (see the GLSL octaveFade). Below ~2px a value-noise octave aliases into
+    // large low-frequency Moire blocks; dropping it keeps only resolvable
+    // detail. The base octave is always >=1px so it stays at full weight.
+    return valueOctave(px, py, cell, seed) +
+        0.5f * smoothstep3(1f, 2f, cell * 0.5f) * valueOctave(px, py, cell * 0.5f, seed + 97) +
+        0.3f * smoothstep3(1f, 2f, cell * 0.25f) * valueOctave(px, py, cell * 0.25f, seed + 193)
 }
 

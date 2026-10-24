@@ -408,6 +408,134 @@ class RetroFilterTest {
         }
     }
 
+    // ── 12b. Procedural fBm grain (size, clumping) ──────────────────
+
+    @Test
+    fun `grain - a coarser grainSize clumps neighbours together`() {
+        // At a coarse cell (grainSize 1.0 on a >=181px frame) the fBm base
+        // octave spans multiple pixels, so adjacent pixels correlate — the
+        // smooth clumps that distinguish value noise from per-pixel white.
+        // At the fine end the cell clamps to ~1px, which is per-pixel white.
+        // So the coarse field must vary LESS pixel-to-pixel than the fine
+        // one; a relative check avoids depending on the exact amplitude.
+        val w = 256
+        val h = 256
+        val src = solid(w, h, 0xFF808080.toInt())
+        fun meanNeighborDiff(grainSize: Float): Float {
+            val params = RetroRenderParams(grainStrength = 0.5f, grainChroma = 0f, vignette = 0f, grainSize = grainSize)
+            val out = pixelsOf(runBlocking { bitmapOf(w, h, src).applyRetroFilter(params, grainSeed = 5) })
+            var sum = 0L
+            var count = 0
+            for (y in 0 until h) for (x in 0 until w - 1) {
+                val a = out[y * w + x] and 0xFF
+                val b = out[y * w + x + 1] and 0xFF
+                sum += kotlin.math.abs(a - b)
+                count++
+            }
+            return sum / count.toFloat()
+        }
+        val fine = meanNeighborDiff(0f)
+        val coarse = meanNeighborDiff(1f)
+        assertTrue("coarse grain must clump (fine $fine, coarse $coarse)", coarse < fine)
+    }
+
+    @Test
+    fun `grain - grainSize changes the rendered field`() {
+        // Two cell sizes over the same frame must produce different speckle;
+        // locks the grainSize knob is actually wired into the field.
+        val w = 256
+        val h = 256
+        val src = solid(w, h, 0xFF808080.toInt())
+        val fine = RetroRenderParams(grainStrength = 0.5f, grainChroma = 0f, vignette = 0f, grainSize = 0.0f)
+        val coarse = RetroRenderParams(grainStrength = 0.5f, grainChroma = 0f, vignette = 0f, grainSize = 1.0f)
+        val a = pixelsOf(runBlocking { bitmapOf(w, h, src).applyRetroFilter(fine, grainSeed = 9) })
+        val b = pixelsOf(runBlocking { bitmapOf(w, h, src).applyRetroFilter(coarse, grainSeed = 9) })
+        assertFalse("different grainSize must move the cell", a.contentEquals(b))
+    }
+
+    // ── 11b. Spatial halation ────────────────────────────────────────────
+
+    @Test
+    fun `halation - bright regions bleed warm light into dark neighbours`() {
+        val w = 64
+        val h = 64
+        val src = solid(w, h, 0xFF000000.toInt())
+        // 16x16 white block on cell boundaries (SCALE = 4), so the quarter-res
+        // gather sees an unambiguous bright step to spread from.
+        for (y in 24 until 40) for (x in 24 until 40) src[y * w + x] = 0xFFFFFFFF.toInt()
+
+        val plain = runBlocking {
+            bitmapOf(w, h, src).applyRetroFilter(RetroRenderParams(vignette = 0f))
+        }
+        val haloed = runBlocking {
+            bitmapOf(w, h, src).applyRetroFilter(
+                RetroRenderParams(vignette = 0f, halationStrength = 1f, halationRadius = 24f)
+            )
+        }
+
+        // Two pixels outside the block: nothing but halation reads neighbours,
+        // so light here can only have come from the blur.
+        val plainPixel = plain.getPixel(22, 32)
+        val haloPixel = haloed.getPixel(22, 32)
+        assertEquals(0xFF000000.toInt(), plainPixel)
+        val r = (haloPixel ushr 16) and 0xFF
+        val g = (haloPixel ushr 8) and 0xFF
+        val b = haloPixel and 0xFF
+        assertTrue("the glow must reach past the highlight's edge", r > 10)
+        assertTrue("halation is warm: red leads green ($r/$g)", r > g)
+        assertTrue("halation is warm: green leads blue ($g/$b)", g > b)
+    }
+
+    @Test
+    fun `halation - every back-end carries the stage and thresholds before blurring`() {
+        // The preview and the GPU still share this source verbatim; the CPU
+        // composite is matched to it, and the gather's threshold-before-blur
+        // order is what makes the glow bleed outward instead of only
+        // brightening pixels that were already bright.
+        assertTrue(LutPreviewRenderer.FRAG_SHADER.contains("uHalationStrength"))
+        assertTrue(LutPreviewRenderer.FRAG_SHADER_NO_3D.contains("uHalationStrength"))
+        assertTrue(
+            LutPreviewRenderer.HALATION_FRAGMENT_SHADER.contains("smoothstep(0.45, 0.95, luma)")
+        )
+    }
+
+    @Test
+    fun `halation - zero strength leaves the image byte-identical`() {
+        val w = 48
+        val h = 48
+        val src = solid(w, h, 0xFF804020.toInt())
+
+        val off = pixelsOf(runBlocking { bitmapOf(w, h, src).applyRetroFilter(RetroRenderParams()) })
+        val zero = pixelsOf(
+            runBlocking {
+                bitmapOf(w, h, src).applyRetroFilter(
+                    RetroRenderParams(halationStrength = 0f, halationRadius = 24f)
+                )
+            }
+        )
+
+        assertArrayEquals(off, zero)
+    }
+
+    @Test
+    fun `halation - a dark frame stays dark`() {
+        val w = 32
+        val h = 32
+        val src = solid(w, h, 0xFF101010.toInt())
+
+        val out = pixelsOf(
+            runBlocking {
+                bitmapOf(w, h, src).applyRetroFilter(
+                    RetroRenderParams(vignette = 0f, halationStrength = 1f, halationRadius = 24f)
+                )
+            }
+        )
+
+        // Below the highlight knee there is nothing to scatter, so the stage
+        // must not lift shadows into a grey wash.
+        assertArrayEquals(src, out)
+    }
+
     // ── 12. Organic grain (white + clump, seeded) ───────────────────────
 
     @Test
@@ -484,16 +612,25 @@ class RetroFilterTest {
     }
 
     @Test
-    fun `grain - GPU shaders carry the seeded pure-white stage`() {
+    fun `grain - GPU shaders carry the seeded fBm stage`() {
         for (shader in listOf(LutPreviewRenderer.FRAG_SHADER, LutPreviewRenderer.FRAG_SHADER_NO_3D)) {
             assertTrue("shader must declare uGrainSeed", shader.contains("uGrainSeed"))
-            assertTrue("shader must hash white grain per pixel", shader.contains("grainHash(gl_FragCoord.xy"))
-            // Regression for the visible grid: no interpolated octave may
-            // remain in the grain stage, and the hash must wrap into
-            // mediump-clean magnitudes.
-            assertFalse("shader must not interpolate a grain octave", shader.contains("grainNoise("))
-            assertTrue("shader must wrap uGrainSeed into float-safe range", shader.contains("mod(seed, 256.0)"))
-            assertTrue("shader must hash in mediump-clean range", shader.contains("mod(p + s, 256.0)"))
+            assertTrue("shader must declare uGrainCell", shader.contains("uGrainCell"))
+            // The grain field is a 3-octave fBm value-noise stack, salted as
+            // 4*seed+channel; the cell hash must wrap into mediump-clean range.
+            assertTrue("shader must build the fBm field", shader.contains("fbmGrain(grainPos"))
+            assertTrue("shader must derive grain pos from a highp varying", shader.contains("vTexCoord * uViewSize"))
+            assertTrue("shader must declare the lattice-cell hash", shader.contains("float cellHash(vec2"))
+            assertTrue("shader must wrap the seed into float-safe range", shader.contains("mod(seed, 256.0)"))
+            assertTrue("shader must hash in mediump-clean range", shader.contains("mod(i + s, 256.0)"))
+            // Regression for the visible large-scale blocking: sub-pixel
+            // octaves must be faded out near the pixel Nyquist limit, and the
+            // grain math must run in highp so gl_FragCoord keeps its fraction.
+            assertTrue("shader must fade aliasing octaves", shader.contains("octaveFade"))
+            assertTrue("shader must ask for fragment highp", shader.contains("GL_FRAGMENT_PRECISION_HIGH"))
+            // Regression for the visible grid: the hash must not take the old
+            // single-tap white path or an unseeded interpolated octave name.
+            assertFalse("shader must not use the old white hash name", shader.contains("grainHash("))
         }
     }
 

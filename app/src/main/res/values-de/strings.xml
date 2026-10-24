@@ -190,12 +190,14 @@
     <string name="look_editor_lut_choose">.cube laden</string>
     <string name="look_editor_lut_clear">Entfernen</string>
     <string name="look_editor_lut_error">Diese Datei konnte nicht als .cube-LUT gelesen werden.</string>
+    <string name="look_slider_lut_strength">LUT-Stärke</string>
     <string name="look_editor_delete">Diesen Look löschen</string>
     <string name="look_editor_restore">Original wiederherstellen</string>
     <string name="look_editor_restore_title">Original wiederherstellen?</string>
     <string name="look_editor_restore_message">%1$s wird auf die mitgelieferte Original-Abstimmung zurückgesetzt. Ihre Änderungen daran werden entfernt.</string>
     <string name="look_editor_section_tone">Tonwert</string>
     <string name="look_editor_section_color">Farbe</string>
+    <string name="look_editor_section_halation">Lichthof</string>
     <string name="look_editor_section_split">Split-Toning</string>
     <string name="look_editor_section_artifacts">Korn &amp; Artefakte</string>
     <string name="look_editor_tab_look">Look</string>
@@ -211,6 +213,8 @@
     <string name="look_slider_fringing">Farbsäume</string>
     <string name="look_slider_soft_focus">Weichzeichner</string>
     <string name="look_slider_milky">Milchiger Dunst</string>
+    <string name="look_slider_halation">Stärke</string>
+    <string name="look_slider_halation_radius">Radius</string>
     <string name="look_slider_shadow_strength">Schattenstärke</string>
     <string name="look_slider_highlight_strength">Lichterstärke</string>
     <string name="look_slider_red">Rot</string>
@@ -218,6 +222,7 @@
     <string name="look_slider_blue">Blau</string>
     <string name="look_slider_grain">Korn</string>
     <string name="look_slider_grain_chroma">Korn-Farbe</string>
+    <string name="look_slider_grain_size">Korngröße</string>
     <string name="look_slider_dust">Staub</string>
     <string name="look_slider_scratch">Kratzer</string>
     <string name="look_slider_light_leak">Lichteinfall</string>

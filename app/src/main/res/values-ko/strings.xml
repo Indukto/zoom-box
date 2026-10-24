@@ -179,12 +179,14 @@
     <string name="look_editor_lut_choose">.cube 불러오기</string>
     <string name="look_editor_lut_clear">제거</string>
     <string name="look_editor_lut_error">파일을 .cube LUT로 읽을 수 없습니다.</string>
+    <string name="look_slider_lut_strength">LUT 강도</string>
     <string name="look_editor_delete">이 룩 삭제</string>
     <string name="look_editor_restore">원본 복원</string>
     <string name="look_editor_restore_title">원본을 복원할까요?</string>
     <string name="look_editor_restore_message">%1$s이(가) 내장된 원본 그레이드로 돌아갑니다. 변경 내용은 삭제됩니다.</string>
     <string name="look_editor_section_tone">톤</string>
     <string name="look_editor_section_color">컬러</string>
+    <string name="look_editor_section_halation">할레이션</string>
     <string name="look_editor_section_split">스플릿 토닝</string>
     <string name="look_editor_section_artifacts">그레인 &amp; 아티팩트</string>
     <string name="look_editor_tab_look">룩</string>
@@ -200,6 +202,8 @@
     <string name="look_slider_fringing">색수차</string>
     <string name="look_slider_soft_focus">소프트 포커스</string>
     <string name="look_slider_milky">밀키 헤이즈</string>
+    <string name="look_slider_halation">강도</string>
+    <string name="look_slider_halation_radius">반경</string>
     <string name="look_slider_shadow_strength">섀도 강도</string>
     <string name="look_slider_highlight_strength">하이라이트 강도</string>
     <string name="look_slider_red">빨강</string>
@@ -207,6 +211,7 @@
     <string name="look_slider_blue">파랑</string>
     <string name="look_slider_grain">그레인</string>
     <string name="look_slider_grain_chroma">그레인 색상</string>
+    <string name="look_slider_grain_size">그레인 크기</string>
     <string name="look_slider_dust">먼지</string>
     <string name="look_slider_scratch">스크래치</string>
     <string name="look_slider_light_leak">빛샘</string>

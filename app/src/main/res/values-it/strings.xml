@@ -179,12 +179,14 @@
     <string name="look_editor_lut_choose">Carica .cube</string>
     <string name="look_editor_lut_clear">Rimuovi</string>
     <string name="look_editor_lut_error">Impossibile leggere il file come LUT .cube.</string>
+    <string name="look_slider_lut_strength">Intensità LUT</string>
     <string name="look_editor_delete">Elimina questo look</string>
     <string name="look_editor_restore">Ripristina originale</string>
     <string name="look_editor_restore_title">Ripristinare l’originale?</string>
     <string name="look_editor_restore_message">%1$s tornerà alla gradazione originale inclusa. Le tue modifiche verranno rimosse.</string>
     <string name="look_editor_section_tone">Toni</string>
     <string name="look_editor_section_color">Colore</string>
+    <string name="look_editor_section_halation">Alone</string>
     <string name="look_editor_section_split">Viraggio parziale</string>
     <string name="look_editor_section_artifacts">Grana &amp; artefatti</string>
     <string name="look_editor_tab_look">Look</string>
@@ -200,6 +202,8 @@
     <string name="look_slider_fringing">Aberrazione cromatica</string>
     <string name="look_slider_soft_focus">Fuoco morbido</string>
     <string name="look_slider_milky">Velo latteo</string>
+    <string name="look_slider_halation">Intensità</string>
+    <string name="look_slider_halation_radius">Raggio</string>
     <string name="look_slider_shadow_strength">Intensità ombre</string>
     <string name="look_slider_highlight_strength">Intensità alte luci</string>
     <string name="look_slider_red">Rosso</string>
@@ -207,6 +211,7 @@
     <string name="look_slider_blue">Blu</string>
     <string name="look_slider_grain">Grana</string>
     <string name="look_slider_grain_chroma">Colore della grana</string>
+    <string name="look_slider_grain_size">Dimensione della grana</string>
     <string name="look_slider_dust">Polvere</string>
     <string name="look_slider_scratch">Graffi</string>
     <string name="look_slider_light_leak">Infiltrazione di luce</string>

@@ -179,12 +179,14 @@
     <string name="look_editor_lut_choose">Načíst .cube</string>
     <string name="look_editor_lut_clear">Odebrat</string>
     <string name="look_editor_lut_error">Soubor se nepodařilo přečíst jako .cube LUT.</string>
+    <string name="look_slider_lut_strength">Síla LUT</string>
     <string name="look_editor_delete">Smazat tento vzhled</string>
     <string name="look_editor_restore">Obnovit originál</string>
     <string name="look_editor_restore_title">Obnovit originál?</string>
     <string name="look_editor_restore_message">%1$s se vrátí k přibalenému originálnímu vzhledu. Vaše změny budou odstraněny.</string>
     <string name="look_editor_section_tone">Tón</string>
     <string name="look_editor_section_color">Barva</string>
+    <string name="look_editor_section_halation">Halace</string>
     <string name="look_editor_section_split">Dělené tónování</string>
     <string name="look_editor_section_artifacts">Zrno &amp; artefakty</string>
     <string name="look_editor_tab_look">Vzhled</string>
@@ -200,6 +202,8 @@
     <string name="look_slider_fringing">Chromatická vada</string>
     <string name="look_slider_soft_focus">Změkčení</string>
     <string name="look_slider_milky">Mléčný opar</string>
+    <string name="look_slider_halation">Síla</string>
+    <string name="look_slider_halation_radius">Poloměr</string>
     <string name="look_slider_shadow_strength">Síla stínů</string>
     <string name="look_slider_highlight_strength">Síla světel</string>
     <string name="look_slider_red">Červená</string>
@@ -207,6 +211,7 @@
     <string name="look_slider_blue">Modrá</string>
     <string name="look_slider_grain">Zrno</string>
     <string name="look_slider_grain_chroma">Barva zrna</string>
+    <string name="look_slider_grain_size">Velikost zrna</string>
     <string name="look_slider_dust">Prach</string>
     <string name="look_slider_scratch">Škrábance</string>
     <string name="look_slider_light_leak">Průnik světla</string>

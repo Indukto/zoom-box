@@ -21,6 +21,7 @@
     "milkyMix": 0.0,
     "grainStrength": 0.32,
     "grainChroma": 0.0,
+    "grainSize": 0.25,
     "highlightRolloff": 0.0,
     "fade": 0.0,
     "vignette": 1.0,

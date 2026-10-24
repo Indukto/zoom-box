@@ -179,12 +179,14 @@
     <string name="look_editor_lut_choose">.cube yükle</string>
     <string name="look_editor_lut_clear">Kaldır</string>
     <string name="look_editor_lut_error">Dosya .cube LUT olarak okunamadı.</string>
+    <string name="look_slider_lut_strength">LUT gücü</string>
     <string name="look_editor_delete">Bu görünümü sil</string>
     <string name="look_editor_restore">Orijinali geri yükle</string>
     <string name="look_editor_restore_title">Orijinal geri yüklensin mi?</string>
     <string name="look_editor_restore_message">%1$s paketli orijinal işlemeye dönecek. Değişiklikleriniz kaldırılacak.</string>
     <string name="look_editor_section_tone">Ton</string>
     <string name="look_editor_section_color">Renk</string>
+    <string name="look_editor_section_halation">Hale</string>
     <string name="look_editor_section_split">Bölünmüş Tonlama</string>
     <string name="look_editor_section_artifacts">Gren &amp; Yapaylıklar</string>
     <string name="look_editor_tab_look">Görünüm</string>
@@ -200,6 +202,8 @@
     <string name="look_slider_fringing">Renk sapması</string>
     <string name="look_slider_soft_focus">Yumuşak odak</string>
     <string name="look_slider_milky">Sütümsü pus</string>
+    <string name="look_slider_halation">Güç</string>
+    <string name="look_slider_halation_radius">Yarıçap</string>
     <string name="look_slider_shadow_strength">Gölge gücü</string>
     <string name="look_slider_highlight_strength">Vurgu gücü</string>
     <string name="look_slider_red">Kırmızı</string>
@@ -207,6 +211,7 @@
     <string name="look_slider_blue">Mavi</string>
     <string name="look_slider_grain">Gren</string>
     <string name="look_slider_grain_chroma">Gren rengi</string>
+    <string name="look_slider_grain_size">Gren boyutu</string>
     <string name="look_slider_dust">Toz</string>
     <string name="look_slider_scratch">Çizikler</string>
     <string name="look_slider_light_leak">Işık sızıntısı</string>

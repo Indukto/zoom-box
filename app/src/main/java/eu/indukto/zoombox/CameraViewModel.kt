@@ -1943,14 +1943,27 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
                 // failure, in which case the well-tested CPU pipeline
                 // below still produces the saved JPEG.
                 val gpu = try {
-                    gpuCaptureProcessor.process(finalBitmap, renderParams, lut = currentLut, grainSeed = grainSeed)
+                    gpuCaptureProcessor.process(
+                        finalBitmap,
+                        renderParams,
+                        lut = currentLut,
+                        grainSeed = grainSeed
+                    )
                 } catch (e: Exception) {
                     Log.e("CameraViewModel", "GPU capture threw; using CPU filter", e)
                     null
                 }
-                gpu ?: finalBitmap.applyRetroFilter(renderParams, lut = currentLut, grainSeed = grainSeed)
+                gpu ?: finalBitmap.applyRetroFilter(
+                    renderParams,
+                    lut = currentLut,
+                    grainSeed = grainSeed
+                )
             } else {
-                finalBitmap.applyRetroFilter(renderParams, lut = currentLut, grainSeed = grainSeed)
+                finalBitmap.applyRetroFilter(
+                    renderParams,
+                    lut = currentLut,
+                    grainSeed = grainSeed
+                )
             }
             if (filtered !== finalBitmap) {
                 finalBitmap.recycle()

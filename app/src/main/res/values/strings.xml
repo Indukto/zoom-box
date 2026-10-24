@@ -194,12 +194,14 @@
     <string name="look_editor_lut_choose">Load .cube</string>
     <string name="look_editor_lut_clear">Remove</string>
     <string name="look_editor_lut_error">That file could not be read as a .cube LUT.</string>
+    <string name="look_slider_lut_strength">LUT strength</string>
     <string name="look_editor_delete">Delete this look</string>
     <string name="look_editor_restore">Restore original</string>
     <string name="look_editor_restore_title">Restore original?</string>
     <string name="look_editor_restore_message">%1$s will return to its original bundled grade. Your changes to it will be removed.</string>
     <string name="look_editor_section_tone">Tone</string>
     <string name="look_editor_section_color">Color</string>
+    <string name="look_editor_section_halation">Halation</string>
     <string name="look_editor_section_split">Split Toning</string>
     <string name="look_editor_section_artifacts">Grain &amp; Artifacts</string>
     <string name="look_editor_tab_look">Look</string>
@@ -215,6 +217,8 @@
     <string name="look_slider_fringing">Fringing</string>
     <string name="look_slider_soft_focus">Soft focus</string>
     <string name="look_slider_milky">Milky haze</string>
+    <string name="look_slider_halation">Strength</string>
+    <string name="look_slider_halation_radius">Radius</string>
     <string name="look_slider_shadow_strength">Shadow strength</string>
     <string name="look_slider_highlight_strength">Highlight strength</string>
     <string name="look_slider_red">Red</string>
@@ -222,6 +226,7 @@
     <string name="look_slider_blue">Blue</string>
     <string name="look_slider_grain">Grain</string>
     <string name="look_slider_grain_chroma">Grain color</string>
+    <string name="look_slider_grain_size">Grain size</string>
     <string name="look_slider_dust">Dust</string>
     <string name="look_slider_scratch">Scratches</string>
     <string name="look_slider_light_leak">Light leak</string>

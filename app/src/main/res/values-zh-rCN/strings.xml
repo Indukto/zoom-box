@@ -179,12 +179,14 @@
     <string name="look_editor_lut_choose">载入 .cube</string>
     <string name="look_editor_lut_clear">移除</string>
     <string name="look_editor_lut_error">该文件无法作为 .cube LUT 读取。</string>
+    <string name="look_slider_lut_strength">LUT 强度</string>
     <string name="look_editor_delete">删除此风格</string>
     <string name="look_editor_restore">恢复原版</string>
     <string name="look_editor_restore_title">恢复原版？</string>
     <string name="look_editor_restore_message">%1$s将恢复为内置的原始效果。你所做的更改将被移除。</string>
     <string name="look_editor_section_tone">色调</string>
     <string name="look_editor_section_color">色彩</string>
+    <string name="look_editor_section_halation">光晕</string>
     <string name="look_editor_section_split">分离色调</string>
     <string name="look_editor_section_artifacts">颗粒 &amp; 伪影</string>
     <string name="look_editor_tab_look">风格</string>
@@ -200,6 +202,8 @@
     <string name="look_slider_fringing">色散</string>
     <string name="look_slider_soft_focus">柔焦</string>
     <string name="look_slider_milky">乳白雾化</string>
+    <string name="look_slider_halation">强度</string>
+    <string name="look_slider_halation_radius">半径</string>
     <string name="look_slider_shadow_strength">阴影强度</string>
     <string name="look_slider_highlight_strength">高光强度</string>
     <string name="look_slider_red">红色</string>
@@ -207,6 +211,7 @@
     <string name="look_slider_blue">蓝色</string>
     <string name="look_slider_grain">颗粒</string>
     <string name="look_slider_grain_chroma">颗粒颜色</string>
+    <string name="look_slider_grain_size">颗粒大小</string>
     <string name="look_slider_dust">灰尘</string>
     <string name="look_slider_scratch">划痕</string>
     <string name="look_slider_light_leak">漏光</string>

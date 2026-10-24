@@ -187,12 +187,14 @@
     <string name="look_editor_lut_choose">Charger un .cube</string>
     <string name="look_editor_lut_clear">Retirer</string>
     <string name="look_editor_lut_error">Ce fichier n’a pas pu être lu comme LUT .cube.</string>
+    <string name="look_slider_lut_strength">Intensité du LUT</string>
     <string name="look_editor_delete">Supprimer ce look</string>
     <string name="look_editor_restore">Restaurer l’original</string>
     <string name="look_editor_restore_title">Restaurer l’original ?</string>
     <string name="look_editor_restore_message">%1$s retrouvera son réglage d’origine inclus. Vos modifications seront supprimées.</string>
     <string name="look_editor_section_tone">Tons</string>
     <string name="look_editor_section_color">Couleur</string>
+    <string name="look_editor_section_halation">Halation</string>
     <string name="look_editor_section_split">Virage partiel</string>
     <string name="look_editor_section_artifacts">Grain &amp; artefacts</string>
     <string name="look_editor_tab_look">Look</string>
@@ -208,6 +210,8 @@
     <string name="look_slider_fringing">Aberrations chromatiques</string>
     <string name="look_slider_soft_focus">Flou doux</string>
     <string name="look_slider_milky">Voile laiteux</string>
+    <string name="look_slider_halation">Intensité</string>
+    <string name="look_slider_halation_radius">Rayon</string>
     <string name="look_slider_shadow_strength">Intensité des ombres</string>
     <string name="look_slider_highlight_strength">Intensité des hautes lumières</string>
     <string name="look_slider_red">Rouge</string>
@@ -215,6 +219,7 @@
     <string name="look_slider_blue">Bleu</string>
     <string name="look_slider_grain">Grain</string>
     <string name="look_slider_grain_chroma">Couleur du grain</string>
+    <string name="look_slider_grain_size">Taille du grain</string>
     <string name="look_slider_dust">Poussière</string>
     <string name="look_slider_scratch">Rayures</string>
     <string name="look_slider_light_leak">Fuite de lumière</string>

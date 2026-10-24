@@ -64,6 +64,7 @@ class LutPreviewRenderer(
     private var uLut2Loc = 0
     private var uLut2EnabledLoc = 0
     private var uLutMixLoc = 0
+    private var uLutStrengthLoc = 0
     private var uViewSizeLoc = 0
 
     // ── New effect uniforms ──
@@ -94,10 +95,28 @@ class LutPreviewRenderer(
     private var uGrainStrengthLoc = 0
     private var uGrainChromaLoc = 0
     private var uGrainSeedLoc = 0
+    private var uGrainCellLoc = 0
     private var uVignetteLoc = 0
     private var uDustLoc = 0
     private var uScratchLoc = 0
     private var uLightLeakLoc = 0
+
+    // ── Spatial halation (quarter-res blur target + composite) ──
+    private var uHalationTexLoc = 0
+    private var uHalationOnLoc = 0
+    private var uHalationStrengthLoc = 0
+    private var halationProgram = 0
+    private var halationAPositionLoc = 0
+    private var halationATexCoordLoc = 0
+    private var halationUTextureLoc = 0
+    private var halationUTexelLoc = 0
+    private var halationURadiusLoc = 0
+    private var halationFbo = 0
+    private var halationTexture = 0
+    private var halationWidth = 0
+    private var halationHeight = 0
+    @Volatile private var halationStrength = 0f
+    @Volatile private var halationRadius = 8f
 
     private var inputTexture = 0
     private var lutTexture = 0
@@ -163,6 +182,7 @@ class LutPreviewRenderer(
     @Volatile private var lightLeak = 0f
     @Volatile private var grainStrength = 0f
     @Volatile private var grainChroma = 0f
+    @Volatile private var grainSize = 0f
     @Volatile private var grainSeed = 0f
 
     // The active LUT is retained so it can be re-uploaded after an EGL
@@ -177,6 +197,10 @@ class LutPreviewRenderer(
     @Volatile private var activeLutB: CubeLut? = null
     @Volatile private var pendingLutB: CubeLut? = null
     @Volatile private var lutMix = 0f
+    // Per-look LUT strength: how much of the table's grade reaches the pixel.
+    // Lives beside the mix rather than in the effect uniforms because it only
+    // means anything while a LUT slot is bound.
+    @Volatile private var lutStrength = 1f
     @Volatile private var lutRevision = 0
     private var lastAppliedRevision = -1
     private var lutDirty = true
@@ -227,6 +251,10 @@ class LutPreviewRenderer(
         lightLeak = params.lightLeak
         grainStrength = params.grainStrength
         grainChroma = params.grainChroma
+        grainSize = params.grainSize
+        halationStrength = params.halationStrength
+        halationRadius = params.halationRadius
+        lutStrength = params.lutStrength
         this.grainSeed = grainSeed.toFloat()
         onRequestRender()
     }
@@ -321,6 +349,21 @@ class LutPreviewRenderer(
         copyProgram = createProgram(VERT_SHADER, COPY_FRAGMENT_SHADER)
         require(copyProgram != 0) { "Failed to compile camera copy program" }
 
+        // Optional, so a driver that rejects the shader only loses halation.
+        // EFFECT_VERT_SHADER, not VERT_SHADER: the gather reads an already-
+        // oriented 2D texture, so it must not go through the OES transform
+        // and crop uniforms the copy pass owns.
+        halationProgram = createProgram(EFFECT_VERT_SHADER, HALATION_FRAGMENT_SHADER)
+        if (halationProgram != 0) {
+            halationAPositionLoc = GLES20.glGetAttribLocation(halationProgram, "aPosition")
+            halationATexCoordLoc = GLES20.glGetAttribLocation(halationProgram, "aTexCoord")
+            halationUTextureLoc = GLES20.glGetUniformLocation(halationProgram, "uTexture")
+            halationUTexelLoc = GLES20.glGetUniformLocation(halationProgram, "uTexel")
+            halationURadiusLoc = GLES20.glGetUniformLocation(halationProgram, "uRadius")
+        } else {
+            Log.w(TAG, "Halation blur program failed to compile; halation stays off")
+        }
+
         // Pass 2: effect shader samples sampler2D only. If the device cannot
         // compile the 3D-LUT variant, keep the same two-pass architecture and
         // fall back to the no-LUT effect shader.
@@ -349,6 +392,7 @@ class LutPreviewRenderer(
         uLut2Loc = GLES20.glGetUniformLocation(program, "uLut2")
         uLut2EnabledLoc = GLES20.glGetUniformLocation(program, "uLut2Enabled")
         uLutMixLoc = GLES20.glGetUniformLocation(program, "uLutMix")
+        uLutStrengthLoc = GLES20.glGetUniformLocation(program, "uLutStrength")
         uViewSizeLoc = GLES20.glGetUniformLocation(program, "uViewSize")
 
         // ── New effect uniform locations ──
@@ -379,10 +423,14 @@ class LutPreviewRenderer(
         uGrainStrengthLoc = GLES20.glGetUniformLocation(program, "uGrainStrength")
         uGrainChromaLoc = GLES20.glGetUniformLocation(program, "uGrainChroma")
         uGrainSeedLoc = GLES20.glGetUniformLocation(program, "uGrainSeed")
+        uGrainCellLoc = GLES20.glGetUniformLocation(program, "uGrainCell")
         uVignetteLoc = GLES20.glGetUniformLocation(program, "uVignette")
         uDustLoc = GLES20.glGetUniformLocation(program, "uDust")
         uScratchLoc = GLES20.glGetUniformLocation(program, "uScratch")
         uLightLeakLoc = GLES20.glGetUniformLocation(program, "uLightLeak")
+        uHalationTexLoc = GLES20.glGetUniformLocation(program, "uHalationTex")
+        uHalationOnLoc = GLES20.glGetUniformLocation(program, "uHalationOn")
+        uHalationStrengthLoc = GLES20.glGetUniformLocation(program, "uHalationStrength")
 
         // Drain any stale GL errors from EGL-context creation or the program
         // link above. GL errors are sticky flags that survive across bind
@@ -437,6 +485,7 @@ class LutPreviewRenderer(
         viewHeight = height
         GLES20.glViewport(0, 0, width, height)
         ensureIntermediateTarget(width, height)
+        destroyHalationTarget()
     }
 
     fun drawFrame() {
@@ -475,7 +524,44 @@ class LutPreviewRenderer(
         }
 
         drawCopyPass()
+        drawHalationPass()
         drawEffectPass()
+    }
+
+    /**
+     * Renders the quarter-resolution halation gather from the copied frame.
+     *
+     * No-ops unless a look actually asks for halation: the composite stage is
+     * the only consumer, and an always-on pass would burn bandwidth on every
+     * look that leaves the knob at 0.
+     */
+    private fun drawHalationPass() {
+        if (halationProgram == 0 || halationStrength <= 0f || halationRadius <= 0f) return
+        if (intermediateTexture == 0) return
+        val w = (viewWidth / 4).coerceAtLeast(1)
+        val h = (viewHeight / 4).coerceAtLeast(1)
+        ensureHalationTarget(w, h)
+        if (halationFbo == 0) return
+
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, halationFbo)
+        GLES20.glViewport(0, 0, halationWidth, halationHeight)
+        GLES20.glClearColor(0f, 0f, 0f, 0f)
+        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
+        GLES20.glUseProgram(halationProgram)
+
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, intermediateTexture)
+        GLES20.glUniform1i(halationUTextureLoc, 0)
+        GLES20.glUniform2f(
+            halationUTexelLoc,
+            1f / halationWidth.toFloat(),
+            1f / halationHeight.toFloat()
+        )
+        // Radius is authored in 1080p pixels; convert to target texels so the
+        // glow keeps its physical size on a 1440p or 4K frame.
+        val radiusTexels = halationRadius * (viewHeight.toFloat() / 1080f) / 4f
+        GLES20.glUniform1f(halationURadiusLoc, radiusTexels.coerceAtLeast(0.5f))
+        drawQuad(halationAPositionLoc, halationATexCoordLoc, quadTexCoordBuf(false))
     }
 
     /** Copies one camera frame from the external OES texture into the stable 2D FBO texture. */
@@ -544,6 +630,29 @@ class LutPreviewRenderer(
         GLES20.glUniform1f(uGrainStrengthLoc, grainStrength)
         GLES20.glUniform1f(uGrainChromaLoc, grainChroma)
         GLES20.glUniform1f(uGrainSeedLoc, grainSeed)
+        // Base lattice cell, identical formula to RetroFilter's CPU path so
+        // the live viewfinder and saved capture agree on grain size. Scales
+        // with min(viewport) so grain keeps a constant apparent size; coerced
+        // to ≥1px like imageonline.
+        val grainCell = if (viewWidth > 0 && viewHeight > 0) {
+            ((1f + grainSize * 9f) * minOf(viewWidth, viewHeight) / 1800f).coerceAtLeast(1f)
+        } else {
+            1f
+        }
+        GLES20.glUniform1f(uGrainCellLoc, grainCell)
+
+        // ── Halation ──
+        // The blur pass ran earlier this frame; bind its target when the look
+        // asked for it and the target came up. Unit 4 keeps the LUT slots (1,
+        // 2) and the grain plate (3) untouched.
+        val halationOn = halationStrength > 0f && halationFbo != 0 && halationTexture != 0
+        GLES20.glUniform1i(uHalationOnLoc, if (halationOn) 1 else 0)
+        GLES20.glUniform1f(uHalationStrengthLoc, halationStrength)
+        if (halationOn) {
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE4)
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, halationTexture)
+            GLES20.glUniform1i(uHalationTexLoc, 4)
+        }
         GLES20.glUniform1f(uVignetteLoc, vignette)
         GLES20.glUniform1f(uDustLoc, dust)
         GLES20.glUniform1f(uScratchLoc, scratch)
@@ -568,6 +677,7 @@ class LutPreviewRenderer(
         GLES20.glUniform1i(uLutEnabledLoc, if (aOn) 1 else 0)
         GLES20.glUniform1i(uLut2EnabledLoc, if (bOn) 1 else 0)
         GLES20.glUniform1f(uLutMixLoc, lutMix)
+        GLES20.glUniform1f(uLutStrengthLoc, lutStrength)
 
         // The copy pass owns the camera transform, crop, and front-camera
         // mirror. The effect pass reads a full, already-oriented 2D texture.
@@ -675,6 +785,66 @@ class LutPreviewRenderer(
         Log.d(TAG, "Intermediate preview FBO ready: ${width}x${height}")
     }
 
+    private fun ensureHalationTarget(width: Int, height: Int) {
+        if (width <= 0 || height <= 0) return
+        if (halationFbo != 0 && halationWidth == width && halationHeight == height) return
+        destroyHalationTarget()
+
+        val textureIds = IntArray(1)
+        GLES20.glGenTextures(1, textureIds, 0)
+        halationTexture = textureIds[0]
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, halationTexture)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE)
+        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
+        GLES20.glTexImage2D(
+            GLES20.GL_TEXTURE_2D,
+            0,
+            GLES20.GL_RGBA,
+            width,
+            height,
+            0,
+            GLES20.GL_RGBA,
+            GLES20.GL_UNSIGNED_BYTE,
+            null
+        )
+
+        val fboIds = IntArray(1)
+        GLES20.glGenFramebuffers(1, fboIds, 0)
+        halationFbo = fboIds[0]
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, halationFbo)
+        GLES20.glFramebufferTexture2D(
+            GLES20.GL_FRAMEBUFFER,
+            GLES20.GL_COLOR_ATTACHMENT0,
+            GLES20.GL_TEXTURE_2D,
+            halationTexture,
+            0
+        )
+        val status = GLES20.glCheckFramebufferStatus(GLES20.GL_FRAMEBUFFER)
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
+        if (status != GLES20.GL_FRAMEBUFFER_COMPLETE) {
+            Log.e(TAG, "Halation FBO is incomplete: 0x${Integer.toHexString(status)}")
+            destroyHalationTarget()
+            return
+        }
+        halationWidth = width
+        halationHeight = height
+    }
+
+    private fun destroyHalationTarget() {
+        if (halationFbo != 0) {
+            GLES20.glDeleteFramebuffers(1, intArrayOf(halationFbo), 0)
+        }
+        if (halationTexture != 0) {
+            GLES20.glDeleteTextures(1, intArrayOf(halationTexture), 0)
+        }
+        halationFbo = 0
+        halationTexture = 0
+        halationWidth = 0
+        halationHeight = 0
+    }
+
     private fun destroyIntermediateTarget() {
         if (intermediateFbo != 0) {
             GLES20.glDeleteFramebuffers(1, intArrayOf(intermediateFbo), 0)
@@ -691,6 +861,7 @@ class LutPreviewRenderer(
     /** Deletes resources owned by the current GL context. Must run on the GL thread. */
     private fun destroyGlResources() {
         destroyIntermediateTarget()
+        destroyHalationTarget()
         if (inputTexture != 0) {
             GLES20.glDeleteTextures(1, intArrayOf(inputTexture), 0)
         }
@@ -701,7 +872,10 @@ class LutPreviewRenderer(
             GLES20.glDeleteTextures(1, intArrayOf(lutTextureB), 0)
         }
         if (copyProgram != 0) GLES20.glDeleteProgram(copyProgram)
+        if (halationProgram != 0) GLES20.glDeleteProgram(halationProgram)
         if (program != 0) GLES20.glDeleteProgram(program)
+        halationProgram = 0
+        copyProgram = 0
         inputTexture = 0
         lutTexture = 0
         lutTextureB = 0
@@ -941,6 +1115,44 @@ class LutPreviewRenderer(
             }
         """
 
+        /**
+         * Quarter-resolution halation gather: a 17-tap two-ring blur over the
+         * copied frame. One pass is enough because the target is already a
+         * quarter of the frame — a separable pair would cost more draws for a
+         * glow that is deliberately soft.
+         *
+         * Each tap is highlight-thresholded *before* it enters the sum. That
+         * order is the whole effect: masking the blurred result would only
+         * brighten pixels that were already bright, while thresholding first
+         * lets a bright region's light bleed out into its dark neighbours —
+         * the orange fringe a bright edge gets inside the film base. Weights
+         * sum to 1, so a uniformly bright frame keeps its own level.
+         */
+        internal const val HALATION_FRAGMENT_SHADER = """
+            precision mediump float;
+            uniform sampler2D uTexture;
+            uniform vec2 uTexel;
+            uniform float uRadius;
+            varying vec2 vTexCoord;
+
+            vec3 highlight(vec2 uv) {
+                vec3 c = texture2D(uTexture, uv).rgb;
+                float luma = dot(c, vec3(0.299, 0.587, 0.114));
+                return c * smoothstep(0.45, 0.95, luma);
+            }
+
+            void main() {
+                vec3 sum = highlight(vTexCoord) * 0.18;
+                for (int i = 0; i < 8; i++) {
+                    float a = float(i) * 0.7853981634;
+                    vec2 dir = vec2(cos(a), sin(a));
+                    sum += highlight(vTexCoord + dir * uRadius * uTexel) * 0.07;
+                    sum += highlight(vTexCoord + dir * uRadius * 0.55 * uTexel) * 0.0325;
+                }
+                gl_FragColor = vec4(sum, 1.0);
+            }
+        """
+
         // Fragment shader: sample camera → apply WB + exposure + film effects
         // + vignette + optional LUT.
         // Uses GL_OES_EGL_image_external for the camera texture and
@@ -948,7 +1160,16 @@ class LutPreviewRenderer(
         // applyRetroFilter RadialGradient.
         internal const val FRAG_SHADER = """
             #extension GL_OES_texture_3D : enable
+            // highp matters for the grain stage: gl_FragCoord up to ~1080 at
+            // mediump loses its fractional part (10-bit mantissa steps by 1
+            // at 1024), quantizing the noise lattice phase into visible
+            // blocks. highp keeps sub-pixel positions exact. Fall back only
+            // where the GPU truly lacks fragment highp.
+            #ifdef GL_FRAGMENT_PRECISION_HIGH
+            precision highp float;
+            #else
             precision mediump float;
+            #endif
             precision mediump sampler3D;
             uniform sampler2D uTexture;
             uniform mediump sampler3D uLut;
@@ -959,6 +1180,7 @@ class LutPreviewRenderer(
             uniform int uLutEnabled;
             uniform int uLut2Enabled;
             uniform float uLutMix;
+            uniform float uLutStrength;
             uniform vec2 uViewSize;
 
             // ── New effect uniforms ──
@@ -989,6 +1211,10 @@ class LutPreviewRenderer(
             uniform float uGrainStrength;
             uniform float uGrainChroma;
             uniform float uGrainSeed;
+            uniform float uGrainCell;
+            uniform sampler2D uHalationTex;
+            uniform int uHalationOn;
+            uniform float uHalationStrength;
             uniform float uVignette;
             uniform float uDust;
             uniform float uScratch;
@@ -1020,9 +1246,9 @@ class LutPreviewRenderer(
             // ── Portable float hash + value noise ──
             // Sin-free fract-multiply hash (hash12); stays in lock-step
             // with hashF() in RetroFilter.kt for dust and scratches. Grain
-            // uses the seeded grainHash below so each capture re-keys its
-            // field; the CPU pairs integer hashPixel with the same weights,
-            // giving statistical (not bit-exact) parity.
+            // uses the seeded cellHash/fbmGrain below so each capture re-keys
+            // its field; the CPU pairs an integer cellHash with the same
+            // octaves and weights, giving statistical (not bit-exact) parity.
             float hash(vec2 p) {
                 vec3 p3 = fract(vec3(p.xyx) * 0.1031);
                 p3 += dot(p3, p3.yzx + 33.33);
@@ -1043,22 +1269,67 @@ class LutPreviewRenderer(
                 float nx1 = mix(n01, n11, s.x);
                 return mix(nx0, nx1, s.y);
             }
-            // ── Pure-white grain hash (matches the CPU hashPixel) ──
-            // Small mod() wraps keep every multiply in mediump-clean
-            // magnitudes (q * 0.1031 stays below ~27, where mediump steps
-            // are ~0.002) so low-precision GPUs cannot quantize the hash
-            // into visible structure; the wrapped seed re-keys and shifts
-            // the field per capture. A 256px repeat in white noise is
-            // invisible, unlike lattice interpolation at pixel scale.
-            float grainHash(vec2 p, float seed) {
-                // Wrap the seed first: it arrives as a float uniform and a
-                // large magnitude would quantize the lattice into repeating
-                // blocks (even highp loses integer steps past 2^24).
+            // ── Seeded lattice-cell hash for the fBm grain ──
+            // GPU cousin of RetroFilter's integer cellHash: same signed
+            // [-1,1] range and per-lattice-point sampling, but a float
+            // fract-multiply mix (integer hashing is not portable/reliable
+            // in GLES2). Back-ends are statistically, not bit-exact, parity
+            // — matching the established grain contract. Under the highp
+            // precision declared above the hash keeps full resolution, so
+            // the interpolated lattice never quantizes into visible
+            // terraces; the modulo bounds the lattice and the wrapped seed
+            // re-keys the field each capture.
+            float cellHash(vec2 i, float seed) {
                 float s = mod(seed, 256.0);
-                vec2 q = mod(p + s, 256.0);
+                vec2 q = mod(i + s, 256.0);
                 vec3 p3 = fract(vec3(q.xyx) * vec3(0.1031, 0.1030, 0.0973) + s * 0.000091);
                 p3 += dot(p3, p3.yzx + 33.33);
-                return fract((p3.x + p3.y) * p3.z);
+                return fract((p3.x + p3.y) * p3.z) * 2.0 - 1.0;
+            }
+            // One octave of smoothstep-faded bilinear value noise in
+            // [-1,1]. The 3rd-order fade t*t*(3-2t) matches the CPU's
+            // valueOctave exactly so both back-ends ease cells into their
+            // neighbours the same way (no seams / byte terracing).
+            float valueOctave(vec2 p, float cell, float seed) {
+                vec2 f = p / cell;
+                vec2 i = floor(f);
+                vec2 u = f - i;
+                vec2 s = vec2(u.x * u.x * (3.0 - 2.0 * u.x),
+                             u.y * u.y * (3.0 - 2.0 * u.y));
+                float n00 = cellHash(i, seed);
+                float n10 = cellHash(i + vec2(1.0, 0.0), seed);
+                float n01 = cellHash(i + vec2(0.0, 1.0), seed);
+                float n11 = cellHash(i + vec2(1.0, 1.0), seed);
+                float nx0 = mix(n00, n10, s.x);
+                float nx1 = mix(n01, n11, s.x);
+                return mix(nx0, nx1, s.y);
+            }
+            // 3-octave fBm grain field at one fragment (matches the CPU's
+            // fbmGrain): lattice cells cell, cell/2, cell/4 weighted 1.0,
+            // 0.5, 0.3 (imageonline's grainField). Per-octave seed offsets
+            // (+97, +193) decorrelate the octaves so they don't stack into
+            // a lattice; the seed already folds in 4*grainSeed + channel.
+            // Value noise aliases once its lattice drops below ~2px: a 0.5px
+            // lattice sampled at 1px beats at ~24px, which is the large
+            // low-frequency Moire blocking this stage showed on-screen.
+            // Fading each octave out as it nears the pixel Nyquist limit
+            // keeps only resolvable detail — the procedural equivalent of
+            // mip-filtering. The base octave is always >=1px (grainCell is
+            // clamped), so it stays at full weight.
+            float octaveFade(float cell) {
+                return smoothstep(1.0, 2.0, cell);
+            }
+            float fbmGrain(vec2 p, float cell, float seed) {
+                float total = valueOctave(p, cell, seed);
+                // Skip octaves that are fully faded out: on a low-res live
+                // preview their cells are sub-pixel, so this drops the three
+                // taps to one and cuts the per-fragment hash cost ~3x. cell
+                // is a uniform, so the branch is coherent across the draw.
+                float f2 = octaveFade(cell * 0.5);
+                if (f2 > 0.0) total += 0.5 * f2 * valueOctave(p, cell * 0.5, seed + 97.0);
+                float f3 = octaveFade(cell * 0.25);
+                if (f3 > 0.0) total += 0.3 * f3 * valueOctave(p, cell * 0.25, seed + 193.0);
+                return total;
             }
             // ── Procedural overlays: dust, scratches, light leak ──
             float dustAmount(vec2 p) {
@@ -1224,26 +1495,40 @@ class LutPreviewRenderer(
                     c = clamp(c, 0.0, 1.0);
                 }
 
-                // ── 8.7. Film grain: pure per-pixel white ──
-                // Single hash tap, nothing interpolated: an interpolated
-                // octave terraced into a visible lattice once quantized,
-                // which read as a repetitive grid. Rounding (not truncation)
-                // matches the CPU so faint grain keeps its density.
+                // ── 8.7. Film grain (procedural 3-octave fBm) ──
+                // Tent mid-tone weighting + imageonline amplitude, matching
+                // RetroFilter's CPU path byte-for-byte in formulation. The
+                // field is interpolated value noise (smooth clumps) rather
+                // than per-pixel white, and rounds to bytes like the CPU so
+                // faint grain keeps an even density without terracing.
                 if (uGrainStrength > 0.0) {
                     float lum = dot(c.rgb, vec3(0.299, 0.587, 0.114));
-                    float midMask = 1.0 - 4.0 * (lum - 0.5) * (lum - 0.5);
-                    float midMaskClamped = max(midMask, 0.4);
-                    float white = grainHash(gl_FragCoord.xy, uGrainSeed) - 0.5;
-                    float amp = uGrainStrength * (1.2 + 2.0 * midMaskClamped) * 11.0;
-                    c.rgb += vec3(floor(white * amp + 0.5) / 255.0);
+                    float weight = 0.35 + 0.65 * (1.0 - abs(2.0 * lum - 1.0));
+                    // Normalised amplitude (CPU works in bytes: amount/100·255·0.3,
+                    // so /255 here).
+                    float amp = uGrainStrength * 0.3 * weight;
+                    float seed0 = uGrainSeed * 4.0;
+                    // Derive the position from the highp vTexCoord varying, not
+                    // gl_FragCoord (which is mediump in GLSL ES 1.00 and loses
+                    // its fraction past ~1024 — that quantized the noise lattice
+                    // into visible blocks). vTexCoord*uViewSize is the fragment's
+                    // pixel position in the copied frame.
+                    vec2 grainPos = vTexCoord * uViewSize;
+                    float mono = fbmGrain(grainPos, uGrainCell, seed0);
+                    float dr = mono * amp;
+                    float dg = mono * amp;
+                    float db = mono * amp;
                     if (uGrainChroma > 0.0) {
-                        float nr = grainHash(gl_FragCoord.xy, uGrainSeed + 101.0);
-                        float ng = grainHash(gl_FragCoord.xy, uGrainSeed + 917.0);
-                        float nb = grainHash(gl_FragCoord.xy, uGrainSeed + 1543.0);
-                        c.r += floor((nr - 0.5) * amp * uGrainChroma + 0.5) / 255.0;
-                        c.g += floor((ng - 0.5) * amp * uGrainChroma + 0.5) / 255.0;
-                        c.b += floor((nb - 0.5) * amp * uGrainChroma + 0.5) / 255.0;
+                        // Independent per-channel fBm fields (dye-cloud / sensor
+                        // speckle), salted to match the CPU so both back-ends
+                        // decorrelate R/G/B identically.
+                        dr += fbmGrain(grainPos, uGrainCell, seed0 + 1.0) * amp * uGrainChroma;
+                        dg += fbmGrain(grainPos, uGrainCell, seed0 + 2.0) * amp * uGrainChroma;
+                        db += fbmGrain(grainPos, uGrainCell, seed0 + 3.0) * amp * uGrainChroma;
                     }
+                    c.r += floor(dr * 255.0 + 0.5) / 255.0;
+                    c.g += floor(dg * 255.0 + 0.5) / 255.0;
+                    c.b += floor(db * 255.0 + 0.5) / 255.0;
                     c = clamp(c, 0.0, 1.0);
                 }
 
@@ -1254,10 +1539,16 @@ class LutPreviewRenderer(
                 // pass-through look dissolve the grade instead of popping.
                 // mix = 0 with only slot A present is the legacy path, which
                 // is also what still captures use (they never bind slot B).
+                // uLutStrength then blends the whole graded result back toward
+                // the ungraded color, which is the knob Dazz exposes as the
+                // lookup's `intensity`: 1 = full grade, 0 = table bound but
+                // inert. Applied after the crossfade so a fade never doubles
+                // as a strength ramp.
                 if (uLutEnabled == 1 || uLut2Enabled == 1) {
                     vec3 gradedA = (uLutEnabled == 1) ? texture3D(uLut, c).rgb : c;
                     vec3 gradedB = (uLut2Enabled == 1) ? texture3D(uLut2, c).rgb : c;
-                    c = mix(gradedA, gradedB, clamp(uLutMix, 0.0, 1.0));
+                    vec3 graded = mix(gradedA, gradedB, clamp(uLutMix, 0.0, 1.0));
+                    c = mix(c, graded, clamp(uLutStrength, 0.0, 1.0));
                 }
                 // ── 10. Milky pastel haze overlay (dreamcore) ──
                 // Last stage: blend toward the milky tint, weighted toward
@@ -1272,6 +1563,21 @@ class LutPreviewRenderer(
                     float milkyLuma = dot(c, vec3(0.299, 0.587, 0.114));
                     float milkyStrength = (1.0 - milkyLuma) * uMilkyMix * 1.2 + uMilkyMix * 0.25;
                     c = mix(c, milkyColor, clamp(milkyStrength, 0.0, 1.0));
+                }
+
+                // ── 10.5. Spatial halation ──
+                // A blurred copy of the frame's highlights, warm-tinted and
+                // screen-blended back: light scattered in the film base
+                // spreads into *neighbours*, which no per-pixel stage can do.
+                // Runs after the wash rather than before it so the glow keeps
+                // its own colour instead of being tinted by the milky haze,
+                // and so the CPU filter (which composites it at its pixel
+                // write) lands on the same result.
+                if (uHalationOn == 1 && uHalationStrength > 0.0) {
+                    vec3 halo = texture2D(uHalationTex, vTexCoord).rgb;
+                    vec3 glow = halo * vec3(1.0, 0.52, 0.38) * (uHalationStrength * 0.9);
+                    c += glow * (1.0 - c);
+                    c = clamp(c, 0.0, 1.0);
                 }
 
                 // ── 11. Procedural overlays (dust, scratches, light leak) ──
@@ -1299,7 +1605,11 @@ class LutPreviewRenderer(
         // camera frame is still sampled from the copied 2D texture because
         // the OES-to-2D copy remains active on this fallback path.
         internal const val FRAG_SHADER_NO_3D = """
+            #ifdef GL_FRAGMENT_PRECISION_HIGH
+            precision highp float;
+            #else
             precision mediump float;
+            #endif
             uniform sampler2D uTexture;
             uniform float uTemperature;
             uniform float uTint;
@@ -1334,6 +1644,10 @@ class LutPreviewRenderer(
             uniform float uGrainStrength;
             uniform float uGrainChroma;
             uniform float uGrainSeed;
+            uniform float uGrainCell;
+            uniform sampler2D uHalationTex;
+            uniform int uHalationOn;
+            uniform float uHalationStrength;
             uniform float uVignette;
             uniform float uDust;
             uniform float uScratch;
@@ -1365,9 +1679,9 @@ class LutPreviewRenderer(
             // ── Portable float hash + value noise ──
             // Sin-free fract-multiply hash (hash12); stays in lock-step
             // with hashF() in RetroFilter.kt for dust and scratches. Grain
-            // uses the seeded grainHash below so each capture re-keys its
-            // field; the CPU pairs integer hashPixel with the same weights,
-            // giving statistical (not bit-exact) parity.
+            // uses the seeded cellHash/fbmGrain below so each capture re-keys
+            // its field; the CPU pairs an integer cellHash with the same
+            // octaves and weights, giving statistical (not bit-exact) parity.
             float hash(vec2 p) {
                 vec3 p3 = fract(vec3(p.xyx) * 0.1031);
                 p3 += dot(p3, p3.yzx + 33.33);
@@ -1388,22 +1702,67 @@ class LutPreviewRenderer(
                 float nx1 = mix(n01, n11, s.x);
                 return mix(nx0, nx1, s.y);
             }
-            // ── Pure-white grain hash (matches the CPU hashPixel) ──
-            // Small mod() wraps keep every multiply in mediump-clean
-            // magnitudes (q * 0.1031 stays below ~27, where mediump steps
-            // are ~0.002) so low-precision GPUs cannot quantize the hash
-            // into visible structure; the wrapped seed re-keys and shifts
-            // the field per capture. A 256px repeat in white noise is
-            // invisible, unlike lattice interpolation at pixel scale.
-            float grainHash(vec2 p, float seed) {
-                // Wrap the seed first: it arrives as a float uniform and a
-                // large magnitude would quantize the lattice into repeating
-                // blocks (even highp loses integer steps past 2^24).
+            // ── Seeded lattice-cell hash for the fBm grain ──
+            // GPU cousin of RetroFilter's integer cellHash: same signed
+            // [-1,1] range and per-lattice-point sampling, but a float
+            // fract-multiply mix (integer hashing is not portable/reliable
+            // in GLES2). Back-ends are statistically, not bit-exact, parity
+            // — matching the established grain contract. Under the highp
+            // precision declared above the hash keeps full resolution, so
+            // the interpolated lattice never quantizes into visible
+            // terraces; the modulo bounds the lattice and the wrapped seed
+            // re-keys the field each capture.
+            float cellHash(vec2 i, float seed) {
                 float s = mod(seed, 256.0);
-                vec2 q = mod(p + s, 256.0);
+                vec2 q = mod(i + s, 256.0);
                 vec3 p3 = fract(vec3(q.xyx) * vec3(0.1031, 0.1030, 0.0973) + s * 0.000091);
                 p3 += dot(p3, p3.yzx + 33.33);
-                return fract((p3.x + p3.y) * p3.z);
+                return fract((p3.x + p3.y) * p3.z) * 2.0 - 1.0;
+            }
+            // One octave of smoothstep-faded bilinear value noise in
+            // [-1,1]. The 3rd-order fade t*t*(3-2t) matches the CPU's
+            // valueOctave exactly so both back-ends ease cells into their
+            // neighbours the same way (no seams / byte terracing).
+            float valueOctave(vec2 p, float cell, float seed) {
+                vec2 f = p / cell;
+                vec2 i = floor(f);
+                vec2 u = f - i;
+                vec2 s = vec2(u.x * u.x * (3.0 - 2.0 * u.x),
+                             u.y * u.y * (3.0 - 2.0 * u.y));
+                float n00 = cellHash(i, seed);
+                float n10 = cellHash(i + vec2(1.0, 0.0), seed);
+                float n01 = cellHash(i + vec2(0.0, 1.0), seed);
+                float n11 = cellHash(i + vec2(1.0, 1.0), seed);
+                float nx0 = mix(n00, n10, s.x);
+                float nx1 = mix(n01, n11, s.x);
+                return mix(nx0, nx1, s.y);
+            }
+            // 3-octave fBm grain field at one fragment (matches the CPU's
+            // fbmGrain): lattice cells cell, cell/2, cell/4 weighted 1.0,
+            // 0.5, 0.3 (imageonline's grainField). Per-octave seed offsets
+            // (+97, +193) decorrelate the octaves so they don't stack into
+            // a lattice; the seed already folds in 4*grainSeed + channel.
+            // Value noise aliases once its lattice drops below ~2px: a 0.5px
+            // lattice sampled at 1px beats at ~24px, which is the large
+            // low-frequency Moire blocking this stage showed on-screen.
+            // Fading each octave out as it nears the pixel Nyquist limit
+            // keeps only resolvable detail — the procedural equivalent of
+            // mip-filtering. The base octave is always >=1px (grainCell is
+            // clamped), so it stays at full weight.
+            float octaveFade(float cell) {
+                return smoothstep(1.0, 2.0, cell);
+            }
+            float fbmGrain(vec2 p, float cell, float seed) {
+                float total = valueOctave(p, cell, seed);
+                // Skip octaves that are fully faded out: on a low-res live
+                // preview their cells are sub-pixel, so this drops the three
+                // taps to one and cuts the per-fragment hash cost ~3x. cell
+                // is a uniform, so the branch is coherent across the draw.
+                float f2 = octaveFade(cell * 0.5);
+                if (f2 > 0.0) total += 0.5 * f2 * valueOctave(p, cell * 0.5, seed + 97.0);
+                float f3 = octaveFade(cell * 0.25);
+                if (f3 > 0.0) total += 0.3 * f3 * valueOctave(p, cell * 0.25, seed + 193.0);
+                return total;
             }
             // ── Procedural overlays: dust, scratches, light leak ──
             float dustAmount(vec2 p) {
@@ -1565,26 +1924,40 @@ class LutPreviewRenderer(
                     c = clamp(c, 0.0, 1.0);
                 }
 
-                // ── 8.7. Film grain: pure per-pixel white ──
-                // Single hash tap, nothing interpolated: an interpolated
-                // octave terraced into a visible lattice once quantized,
-                // which read as a repetitive grid. Rounding (not truncation)
-                // matches the CPU so faint grain keeps its density.
+                // ── 8.7. Film grain (procedural 3-octave fBm) ──
+                // Tent mid-tone weighting + imageonline amplitude, matching
+                // RetroFilter's CPU path byte-for-byte in formulation. The
+                // field is interpolated value noise (smooth clumps) rather
+                // than per-pixel white, and rounds to bytes like the CPU so
+                // faint grain keeps an even density without terracing.
                 if (uGrainStrength > 0.0) {
                     float lum = dot(c.rgb, vec3(0.299, 0.587, 0.114));
-                    float midMask = 1.0 - 4.0 * (lum - 0.5) * (lum - 0.5);
-                    float midMaskClamped = max(midMask, 0.4);
-                    float white = grainHash(gl_FragCoord.xy, uGrainSeed) - 0.5;
-                    float amp = uGrainStrength * (1.2 + 2.0 * midMaskClamped) * 11.0;
-                    c.rgb += vec3(floor(white * amp + 0.5) / 255.0);
+                    float weight = 0.35 + 0.65 * (1.0 - abs(2.0 * lum - 1.0));
+                    // Normalised amplitude (CPU works in bytes: amount/100·255·0.3,
+                    // so /255 here).
+                    float amp = uGrainStrength * 0.3 * weight;
+                    float seed0 = uGrainSeed * 4.0;
+                    // Derive the position from the highp vTexCoord varying, not
+                    // gl_FragCoord (which is mediump in GLSL ES 1.00 and loses
+                    // its fraction past ~1024 — that quantized the noise lattice
+                    // into visible blocks). vTexCoord*uViewSize is the fragment's
+                    // pixel position in the copied frame.
+                    vec2 grainPos = vTexCoord * uViewSize;
+                    float mono = fbmGrain(grainPos, uGrainCell, seed0);
+                    float dr = mono * amp;
+                    float dg = mono * amp;
+                    float db = mono * amp;
                     if (uGrainChroma > 0.0) {
-                        float nr = grainHash(gl_FragCoord.xy, uGrainSeed + 101.0);
-                        float ng = grainHash(gl_FragCoord.xy, uGrainSeed + 917.0);
-                        float nb = grainHash(gl_FragCoord.xy, uGrainSeed + 1543.0);
-                        c.r += floor((nr - 0.5) * amp * uGrainChroma + 0.5) / 255.0;
-                        c.g += floor((ng - 0.5) * amp * uGrainChroma + 0.5) / 255.0;
-                        c.b += floor((nb - 0.5) * amp * uGrainChroma + 0.5) / 255.0;
+                        // Independent per-channel fBm fields (dye-cloud / sensor
+                        // speckle), salted to match the CPU so both back-ends
+                        // decorrelate R/G/B identically.
+                        dr += fbmGrain(grainPos, uGrainCell, seed0 + 1.0) * amp * uGrainChroma;
+                        dg += fbmGrain(grainPos, uGrainCell, seed0 + 2.0) * amp * uGrainChroma;
+                        db += fbmGrain(grainPos, uGrainCell, seed0 + 3.0) * amp * uGrainChroma;
                     }
+                    c.r += floor(dr * 255.0 + 0.5) / 255.0;
+                    c.g += floor(dg * 255.0 + 0.5) / 255.0;
+                    c.b += floor(db * 255.0 + 0.5) / 255.0;
                     c = clamp(c, 0.0, 1.0);
                 }
 
@@ -1601,6 +1974,21 @@ class LutPreviewRenderer(
                     float milkyLuma = dot(c, vec3(0.299, 0.587, 0.114));
                     float milkyStrength = (1.0 - milkyLuma) * uMilkyMix * 1.2 + uMilkyMix * 0.25;
                     c = mix(c, milkyColor, clamp(milkyStrength, 0.0, 1.0));
+                }
+
+                // ── 10.5. Spatial halation ──
+                // A blurred copy of the frame's highlights, warm-tinted and
+                // screen-blended back: light scattered in the film base
+                // spreads into *neighbours*, which no per-pixel stage can do.
+                // Runs after the wash rather than before it so the glow keeps
+                // its own colour instead of being tinted by the milky haze,
+                // and so the CPU filter (which composites it at its pixel
+                // write) lands on the same result.
+                if (uHalationOn == 1 && uHalationStrength > 0.0) {
+                    vec3 halo = texture2D(uHalationTex, vTexCoord).rgb;
+                    vec3 glow = halo * vec3(1.0, 0.52, 0.38) * (uHalationStrength * 0.9);
+                    c += glow * (1.0 - c);
+                    c = clamp(c, 0.0, 1.0);
                 }
 
                 // ── 11. Procedural overlays (dust, scratches, light leak) ──

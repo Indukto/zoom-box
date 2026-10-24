@@ -179,12 +179,14 @@
     <string name="look_editor_lut_choose">Wczytaj .cube</string>
     <string name="look_editor_lut_clear">Usuń</string>
     <string name="look_editor_lut_error">Nie udało się odczytać pliku jako LUT .cube.</string>
+    <string name="look_slider_lut_strength">Siła LUT</string>
     <string name="look_editor_delete">Usuń ten styl</string>
     <string name="look_editor_restore">Przywróć oryginał</string>
     <string name="look_editor_restore_title">Przywrócić oryginał?</string>
     <string name="look_editor_restore_message">%1$s powróci do wbudowanego oryginalnego wyglądu. Twoje zmiany zostaną usunięte.</string>
     <string name="look_editor_section_tone">Ton</string>
     <string name="look_editor_section_color">Kolor</string>
+    <string name="look_editor_section_halation">Halacja</string>
     <string name="look_editor_section_split">Tonowanie dzielone</string>
     <string name="look_editor_section_artifacts">Ziarno &amp; artefakty</string>
     <string name="look_editor_tab_look">Styl</string>
@@ -200,6 +202,8 @@
     <string name="look_slider_fringing">Aberracja chromatyczna</string>
     <string name="look_slider_soft_focus">Miękki fokus</string>
     <string name="look_slider_milky">Mleczna mgiełka</string>
+    <string name="look_slider_halation">Siła</string>
+    <string name="look_slider_halation_radius">Promień</string>
     <string name="look_slider_shadow_strength">Siła cieni</string>
     <string name="look_slider_highlight_strength">Siła świateł</string>
     <string name="look_slider_red">Czerwony</string>
@@ -207,6 +211,7 @@
     <string name="look_slider_blue">Niebieski</string>
     <string name="look_slider_grain">Ziarno</string>
     <string name="look_slider_grain_chroma">Kolor ziarna</string>
+    <string name="look_slider_grain_size">Rozmiar ziarna</string>
     <string name="look_slider_dust">Kurz</string>
     <string name="look_slider_scratch">Zadrapania</string>
     <string name="look_slider_light_leak">Przeciek światła</string>

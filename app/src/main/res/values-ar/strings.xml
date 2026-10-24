@@ -179,12 +179,14 @@
     <string name="look_editor_lut_choose">تحميل .cube</string>
     <string name="look_editor_lut_clear">إزالة</string>
     <string name="look_editor_lut_error">تعذّرت قراءة الملف كجدول LUT من نوع .cube.</string>
+    <string name="look_slider_lut_strength">قوة LUT</string>
     <string name="look_editor_delete">حذف هذا المظهر</string>
     <string name="look_editor_restore">استعادة الأصل</string>
     <string name="look_editor_restore_title">استعادة الأصل؟</string>
     <string name="look_editor_restore_message">سيعود %1$s إلى الدرجة المضمّنة الأصلية. ستتم إزالة تغييراتك.</string>
     <string name="look_editor_section_tone">الدرجة اللونية</string>
     <string name="look_editor_section_color">اللون</string>
+    <string name="look_editor_section_halation">الهالة</string>
     <string name="look_editor_section_split">تقسيم الدرجات</string>
     <string name="look_editor_section_artifacts">الحبيبات &amp; الشوائب</string>
     <string name="look_editor_tab_look">المظهر</string>
@@ -200,6 +202,8 @@
     <string name="look_slider_fringing">التهديب اللوني</string>
     <string name="look_slider_soft_focus">التركيز الناعم</string>
     <string name="look_slider_milky">الضباب الحليبي</string>
+    <string name="look_slider_halation">القوة</string>
+    <string name="look_slider_halation_radius">نصف القطر</string>
     <string name="look_slider_shadow_strength">قوة الظلال</string>
     <string name="look_slider_highlight_strength">قوة الإبرازات</string>
     <string name="look_slider_red">الأحمر</string>
@@ -207,6 +211,7 @@
     <string name="look_slider_blue">الأزرق</string>
     <string name="look_slider_grain">الحبيبات</string>
     <string name="look_slider_grain_chroma">لون الحبيبات</string>
+    <string name="look_slider_grain_size">حجم الحبيبات</string>
     <string name="look_slider_dust">الغبار</string>
     <string name="look_slider_scratch">الخدوش</string>
     <string name="look_slider_light_leak">تسرّب الضوء</string>

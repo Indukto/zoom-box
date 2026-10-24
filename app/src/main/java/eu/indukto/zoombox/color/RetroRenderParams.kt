@@ -16,8 +16,9 @@ import eu.indukto.zoombox.FilmPreset
  * This is a pure Kotlin value type (no Android dependencies) so the mapping
  * can be unit-tested on the JVM. It intentionally only carries parameters the
  * render back-ends actually consume today; DAZZ-style fields ZoomBox does not
- * implement yet (lens distortion, skin protection, halation, ...) should be
- * added here as opt-in zero-default fields when their render stages land.
+ * implement yet (lens distortion, skin protection, spatial halation, ...)
+ * should be added here as opt-in zero-default fields when their render stages
+ * land.
  * Every field listed below — grain, dust, scratches and light leaks included
  * — is consumed by the GL shader, the CPU filter and the GPU capture path.
  */
@@ -32,6 +33,22 @@ data class RetroRenderParams(
     val saturation: Float = 1.0f,
     val bloom: Float = 0f,
     val fringing: Float = 0f,
+    /**
+     * Spatial halation strength in [0,1]: a blurred copy of the frame's
+     * highlights, warm-tinted and screen-blended back over the grade.
+     *
+     * Unlike [bloom], which lifts a pixel from its own luma in the same pass,
+     * halation spreads light into *neighbours*: it is the red-orange fringe
+     * film gets where a bright edge scatters inside the base. DAZZ builds the
+     * same effect from `LTHalationBlurFilter` + `LTHalationFilter`. `0` skips
+     * the blur pass entirely on every back-end, so disabled looks pay nothing.
+     */
+    val halationStrength: Float = 0f,
+    /**
+     * Halation blur radius in pixels at a 1080p frame; scales with the frame
+     * so the glow keeps a constant physical size on bigger sensors.
+     */
+    val halationRadius: Float = 8f,
     // ── Split toning ──
     val shadowTintR: Float = 0f,
     val shadowTintG: Float = 0f,
@@ -51,6 +68,22 @@ data class RetroRenderParams(
     //    matches the saved JPEG's film texture) ──
     val grainStrength: Float = 0f,
     val grainChroma: Float = 0f,
+    /**
+     * Grain clump size in [0, 1]; drives the base cell of the procedural
+     * fBm value-noise field. Grain is generated per-pixel from a 3-octave
+     * value-noise field (cell, cell/2, cell/4) rather than sampled from a
+     * plate, so the cell is scaled relative to the frame
+     * (`size * min(w,h) / 1800`, where `size = 1 + grainSize * 9`) to keep a
+     * constant apparent grain size across sensors. Higher = coarser clumps;
+     * `0` yields the finest (~1px) grain.
+     *
+     * This replaces the earlier scanned-plate + hash model. The plates
+     * (`grainPlate`) carried clumping a per-pixel hash cannot, but were fixed
+     * assets; the fBm field is seedable, resolution-independent and needs no
+     * bundled texture. The tent mid-tone weighting applied on top (see the
+     * render back-ends) is what makes it read as emulsion rather than dither.
+     */
+    val grainSize: Float = 0.25f,
     // ── Opt-in artifacts (zero defaults keep existing presets pixel-identical) ──
     /** Filmic highlight roll-off in [0,1]; soft shoulder above a ~0.7 knee. */
     val highlightRolloff: Float = 0f,
@@ -66,7 +99,17 @@ data class RetroRenderParams(
     val lightLeak: Float = 0f,
     // ── LUT identity ──
     /** Asset path of the `.cube` LUT; empty string = pass-through (no LUT). */
-    val lutPath: String = ""
+    val lutPath: String = "",
+    /**
+     * How much of the LUT's grade reaches the pixel, `0..1`.
+     *
+     * DAZZ exposes the same knob per look (its GPU lookups carry an
+     * `intensity` uniform). It is what makes a table reusable: two looks can
+     * share one `.cube` and differ only by strength, and the look editor can
+     * dial a heavy grade back without replacing the table. `1` is the full
+     * grade — the historical behaviour, so existing profiles are unchanged.
+     */
+    val lutStrength: Float = 1f
 ) {
     /**
      * True when this snapshot grades nothing at all: no LUT to sample and no
@@ -89,7 +132,7 @@ data class RetroRenderParams(
             temperature != 0f || tint != 0f || exposure != 0f ||
                 filmCurve > 0f ||
                 contrast != 1.0f || saturation != 1.0f ||
-                bloom > 0f || fringing > 0f ||
+                bloom > 0f || fringing > 0f || halationStrength > 0f ||
                 shadowTintStrength > 0f || highlightTintStrength > 0f ||
                 softFocus > 0f || milkyMix > 0f ||
                 grainStrength > 0f ||
@@ -137,6 +180,8 @@ fun RetroRenderParams.lerp(to: RetroRenderParams, t: Float): RetroRenderParams {
         saturation = lerpFloat(saturation, to.saturation, k),
         bloom = lerpFloat(bloom, to.bloom, k),
         fringing = lerpFloat(fringing, to.fringing, k),
+        halationStrength = lerpFloat(halationStrength, to.halationStrength, k),
+        halationRadius = lerpFloat(halationRadius, to.halationRadius, k),
         shadowTintR = lerpFloat(shadowTintR, to.shadowTintR, k),
         shadowTintG = lerpFloat(shadowTintG, to.shadowTintG, k),
         shadowTintB = lerpFloat(shadowTintB, to.shadowTintB, k),
@@ -152,13 +197,15 @@ fun RetroRenderParams.lerp(to: RetroRenderParams, t: Float): RetroRenderParams {
         milkyTintB = lerpFloat(milkyTintB, to.milkyTintB, k),
         grainStrength = lerpFloat(grainStrength, to.grainStrength, k),
         grainChroma = lerpFloat(grainChroma, to.grainChroma, k),
+        grainSize = lerpFloat(grainSize, to.grainSize, k),
         highlightRolloff = lerpFloat(highlightRolloff, to.highlightRolloff, k),
         fade = lerpFloat(fade, to.fade, k),
         vignette = lerpFloat(vignette, to.vignette, k),
         dust = lerpFloat(dust, to.dust, k),
         scratch = lerpFloat(scratch, to.scratch, k),
         lightLeak = lerpFloat(lightLeak, to.lightLeak, k),
-        lutPath = if (k >= 1f) to.lutPath else lutPath
+        lutPath = if (k >= 1f) to.lutPath else lutPath,
+        lutStrength = lerpFloat(lutStrength, to.lutStrength, k)
     )
 }
 
@@ -195,6 +242,7 @@ fun FilmPreset.toRetroRenderParams(
     milkyTintB = this.milkyTintB,
     grainStrength = defaultGrainStrength,
     grainChroma = defaultGrainChroma,
+    grainSize = defaultGrainSize,
     highlightRolloff = defaultHighlightRolloff,
     fade = defaultFade,
     vignette = defaultVignette,
