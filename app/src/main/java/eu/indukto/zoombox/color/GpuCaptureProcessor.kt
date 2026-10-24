@@ -22,8 +22,10 @@ import java.util.concurrent.Executors
  * This is the GPU still-capture counterpart to [LutPreviewRenderer]. It reuses
  * the exact shader sources ([LutPreviewRenderer.FRAG_SHADER] /
  * [LutPreviewRenderer.FRAG_SHADER_NO_3D] / [LutPreviewRenderer.EFFECT_VERT_SHADER])
- * so preview and capture can never drift apart, and it applies film grain (a
- * capture-time finish the live viewfinder intentionally omits).
+ * so preview and capture can never drift apart. Grain runs in both, but a
+ * still is one instant of it: capture keeps the authored strength and seed,
+ * while the viewfinder re-keys the field on a film cadence and runs it a
+ * little lighter (see [LutPreviewRenderer.drawEffectPass]).
  *
  * EGL setup is amortised across captures: all GL work runs on one dedicated
  * thread ([glThread]) and the EGL display/context are created once and reused,
@@ -413,10 +415,13 @@ class GpuCaptureProcessor {
         setFloatUniform(program, "uMilkyTintB", params.milkyTintB)
         setFloatUniform(program, "uHighlightRolloff", params.highlightRolloff)
         setFloatUniform(program, "uFade", params.fade)
-        // Grain is a capture-time finish; the live preview leaves it at 0.
+        // A capture is one instant of grain: full authored strength, the
+        // deterministic capture seed and no temporal salt (the live preview
+        // re-keys uGrainTime on a film cadence; see LutPreviewRenderer).
         setFloatUniform(program, "uGrainStrength", params.grainStrength)
         setFloatUniform(program, "uGrainChroma", params.grainChroma)
         setFloatUniform(program, "uGrainSeed", grainSeed.toFloat())
+        setFloatUniform(program, "uGrainTime", 0f)
         // Base lattice cell, identical formula to RetroFilter's CPU path and
         // the preview shader so capture, preview and CPU all agree on grain
         // size. Scales with min(w,h); coerced to ≥1px like imageonline.
@@ -428,7 +433,7 @@ class GpuCaptureProcessor {
         setFloatUniform(program, "uLightLeak", params.lightLeak)
 
         // ── Spatial halation composite ──
-        // Unit 4 keeps the LUT slots (1), grain plate (3) and input (0) clear.
+        // Unit 4 keeps the LUT slots (1, 2) and the input (0) clear.
         if (halationTexture != 0) {
             GLES20.glActiveTexture(GLES20.GL_TEXTURE4)
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, halationTexture)

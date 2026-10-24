@@ -332,7 +332,7 @@ enum class FilmPreset(
         highlightTintR = 0.02f, highlightTintG = 0.03f, highlightTintB = 0.04f,  // cool highlights
         highlightTintStrength = 0.05f,
         defaultVignette = 1.12f,
-        defaultDust = 0.20f,
+        defaultDust = 0.10f,
         defaultLightLeak = 0.08f
     ),
 

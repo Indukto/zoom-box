@@ -628,6 +628,12 @@ class RetroFilterTest {
             // grain math must run in highp so gl_FragCoord keeps its fraction.
             assertTrue("shader must fade aliasing octaves", shader.contains("octaveFade"))
             assertTrue("shader must ask for fragment highp", shader.contains("GL_FRAGMENT_PRECISION_HIGH"))
+            // The live preview re-keys the field every film frame with a
+            // fractional salt added inside the hash. It must stay inside fract()
+            // and out of the seed: folding it into the seed shifts the lattice
+            // indices, which slides the whole field instead of regenerating it.
+            assertTrue("shader must carry the preview grain salt", shader.contains("uGrainTime"))
+            assertTrue("grain salt must be added before fract", shader.contains("+ uGrainTime)"))
             // Regression for the visible grid: the hash must not take the old
             // single-tap white path or an unseeded interpolated octave name.
             assertFalse("shader must not use the old white hash name", shader.contains("grainHash("))

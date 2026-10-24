@@ -164,7 +164,7 @@ class RetroRenderParamsTest {
     @Test
     fun `new film styles carry their artifact and tone knobs`() {
         val ccd = FilmPreset.CCD_DIGICAM.toRetroRenderParams()
-        assertEquals(0.20f, ccd.dust, 0f)
+        assertEquals(0.10f, ccd.dust, 0f)
         assertEquals(0.08f, ccd.lightLeak, 0f)
         assertEquals(1.12f, ccd.vignette, 0f)
 

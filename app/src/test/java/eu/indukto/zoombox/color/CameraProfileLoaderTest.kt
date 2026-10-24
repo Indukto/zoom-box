@@ -183,7 +183,7 @@ class CameraProfileLoaderTest {
                 "grainStrength": 0.04,
                 "grainChroma": 0.35,
                 "vignette": 1.12,
-                "dust": 0.20,
+                "dust": 0.10,
                 "scratch": 0.0,
                 "lightLeak": 0.08
               }
@@ -194,7 +194,7 @@ class CameraProfileLoaderTest {
 
         assertEquals(fromEnum, fromJson)
         assertEquals(1.12f, fromJson.vignette, 0f)
-        assertEquals(0.20f, fromJson.dust, 0f)
+        assertEquals(0.10f, fromJson.dust, 0f)
         assertEquals(0.08f, fromJson.lightLeak, 0f)
     }
 

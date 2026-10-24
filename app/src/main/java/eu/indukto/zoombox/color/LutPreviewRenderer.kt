@@ -95,6 +95,7 @@ class LutPreviewRenderer(
     private var uGrainStrengthLoc = 0
     private var uGrainChromaLoc = 0
     private var uGrainSeedLoc = 0
+    private var uGrainTimeLoc = 0
     private var uGrainCellLoc = 0
     private var uVignetteLoc = 0
     private var uDustLoc = 0
@@ -423,6 +424,7 @@ class LutPreviewRenderer(
         uGrainStrengthLoc = GLES20.glGetUniformLocation(program, "uGrainStrength")
         uGrainChromaLoc = GLES20.glGetUniformLocation(program, "uGrainChroma")
         uGrainSeedLoc = GLES20.glGetUniformLocation(program, "uGrainSeed")
+        uGrainTimeLoc = GLES20.glGetUniformLocation(program, "uGrainTime")
         uGrainCellLoc = GLES20.glGetUniformLocation(program, "uGrainCell")
         uVignetteLoc = GLES20.glGetUniformLocation(program, "uVignette")
         uDustLoc = GLES20.glGetUniformLocation(program, "uDust")
@@ -624,10 +626,30 @@ class LutPreviewRenderer(
         //    snapshot drives all back-ends (see invariant #3 in AGENTS.md).
         //    Dust/scratch/light-leak used to be forced to 0 here as
         //    "capture-only" overlays, which made ccd_digicam's saved photos
-        //    visibly differ from the viewfinder. ──
+        //    visibly differ from the viewfinder.
+        //    Grain is the one deliberate exception, and only in how it is
+        //    *presented*: the field is re-keyed on a 24fps cadence and run at
+        //    PREVIEW_GRAIN_GAIN. A frozen field on a live image reads as a
+        //    dirty lens, not as film, and once it moves a reshuffle draws far
+        //    more attention than the same density held still — so the
+        //    viewfinder runs slightly lighter than the capture, which keeps
+        //    the authored strength. Capture keeps both the seed and the
+        //    authored amount. ──
         GLES20.glUniform1f(uHighlightRolloffLoc, highlightRolloff)
         GLES20.glUniform1f(uFadeLoc, fade)
-        GLES20.glUniform1f(uGrainStrengthLoc, grainStrength)
+        // Re-key the field on a film's cadence rather than once per draw: a
+        // 60fps viewfinder would otherwise reshuffle at 60Hz and strobe. Clock
+        // time instead of a draw counter keeps the grain speed identical on
+        // 24/30/60fps devices and while a slider drag forces extra redraws.
+        // The phase is scaled by the golden ratio and wrapped to [0,1) so each
+        // step lands far from the last one and the salt always stays
+        // fractional (the shader adds it inside fract(); a whole number there
+        // would do nothing). Captures never see this — a still is one instant
+        // of grain and keeps the deterministic seed from the params.
+        val grainStep = (System.nanoTime() / GRAIN_STEP_NANOS) % 251L
+        val grainTime = (grainStep * 0.6180339887f) % 1f
+        GLES20.glUniform1f(uGrainTimeLoc, grainTime)
+        GLES20.glUniform1f(uGrainStrengthLoc, grainStrength * PREVIEW_GRAIN_GAIN)
         GLES20.glUniform1f(uGrainChromaLoc, grainChroma)
         GLES20.glUniform1f(uGrainSeedLoc, grainSeed)
         // Base lattice cell, identical formula to RetroFilter's CPU path so
@@ -1073,6 +1095,15 @@ class LutPreviewRenderer(
     companion object {
         private const val TAG = "LutPreviewRenderer"
 
+        // Viewfinder grain runs slightly lighter than the capture: the field
+        // is re-keyed continuously (see drawEffectPass), and a moving field of
+        // the same amplitude reads much stronger than a still one.
+        private const val PREVIEW_GRAIN_GAIN = 0.6f
+
+        // One grain step per 24fps film frame. Nanoseconds rather than a draw
+        // counter so the cadence does not ride the viewfinder's frame rate.
+        private const val GRAIN_STEP_NANOS = 41_666_667L
+
         // Pass 1 fragment shader: sample the camera's external OES texture
         // exactly once and write a stable RGBA frame into the intermediate FBO.
         private const val COPY_FRAGMENT_SHADER = """
@@ -1211,6 +1242,7 @@ class LutPreviewRenderer(
             uniform float uGrainStrength;
             uniform float uGrainChroma;
             uniform float uGrainSeed;
+            uniform float uGrainTime;
             uniform float uGrainCell;
             uniform sampler2D uHalationTex;
             uniform int uHalationOn;
@@ -1282,7 +1314,13 @@ class LutPreviewRenderer(
             float cellHash(vec2 i, float seed) {
                 float s = mod(seed, 256.0);
                 vec2 q = mod(i + s, 256.0);
-                vec3 p3 = fract(vec3(q.xyx) * vec3(0.1031, 0.1030, 0.0973) + s * 0.000091);
+                // uGrainTime re-keys every lattice value for the live preview
+                // without touching the authored seed, which keeps meaning
+                // "which look/capture" while time rides its own uniform. It
+                // must stay fractional: fract(x + n) == fract(x), so a whole
+                // number added here would do nothing at all. Captures pass 0
+                // and stay deterministic.
+                vec3 p3 = fract(vec3(q.xyx) * vec3(0.1031, 0.1030, 0.0973) + s * 0.000091 + uGrainTime);
                 p3 += dot(p3, p3.yzx + 33.33);
                 return fract((p3.x + p3.y) * p3.z) * 2.0 - 1.0;
             }
@@ -1581,8 +1619,10 @@ class LutPreviewRenderer(
                 }
 
                 // ── 11. Procedural overlays (dust, scratches, light leak) ──
-                // Applied on top of the graded image as a capture-time finish;
-                // the live preview pins these uniforms to 0.
+                // Subtractive, on top of the graded image, in both preview and
+                // capture — a look that ships dust must show it while framing.
+                // The mask is sparse (most lattice cells carry no speck), so the
+                // strength knob is what makes the dirt read heavier or lighter.
                 if (uDust > 0.0) {
                     c.rgb -= vec3(dustAmount(gl_FragCoord.xy) * uDust * 0.45);
                 }
@@ -1644,6 +1684,7 @@ class LutPreviewRenderer(
             uniform float uGrainStrength;
             uniform float uGrainChroma;
             uniform float uGrainSeed;
+            uniform float uGrainTime;
             uniform float uGrainCell;
             uniform sampler2D uHalationTex;
             uniform int uHalationOn;
@@ -1715,7 +1756,13 @@ class LutPreviewRenderer(
             float cellHash(vec2 i, float seed) {
                 float s = mod(seed, 256.0);
                 vec2 q = mod(i + s, 256.0);
-                vec3 p3 = fract(vec3(q.xyx) * vec3(0.1031, 0.1030, 0.0973) + s * 0.000091);
+                // uGrainTime re-keys every lattice value for the live preview
+                // without touching the authored seed, which keeps meaning
+                // "which look/capture" while time rides its own uniform. It
+                // must stay fractional: fract(x + n) == fract(x), so a whole
+                // number added here would do nothing at all. Captures pass 0
+                // and stay deterministic.
+                vec3 p3 = fract(vec3(q.xyx) * vec3(0.1031, 0.1030, 0.0973) + s * 0.000091 + uGrainTime);
                 p3 += dot(p3, p3.yzx + 33.33);
                 return fract((p3.x + p3.y) * p3.z) * 2.0 - 1.0;
             }
@@ -1992,8 +2039,10 @@ class LutPreviewRenderer(
                 }
 
                 // ── 11. Procedural overlays (dust, scratches, light leak) ──
-                // Applied on top of the graded image as a capture-time finish;
-                // the live preview pins these uniforms to 0.
+                // Subtractive, on top of the graded image, in both preview and
+                // capture — a look that ships dust must show it while framing.
+                // The mask is sparse (most lattice cells carry no speck), so the
+                // strength knob is what makes the dirt read heavier or lighter.
                 if (uDust > 0.0) {
                     c.rgb -= vec3(dustAmount(gl_FragCoord.xy) * uDust * 0.45);
                 }
