@@ -24,7 +24,7 @@
     <img alt="Get it on Google Play" height="80" src="assets/googleplay.png"/>
   </a>
 
-  <p><strong>1.</strong> Join the <a href="https://groups.google.com/g/zoom-box-camera">Google Group</a> &nbsp;•&nbsp; <strong>2.</strong> Opt in on the <a href="https://play.google.com/apps/testing/eu.indukto.zoombox">web</a> with the same account &nbsp;•&nbsp; <strong>3.</strong> Install on <a href="https://play.google.com/store/apps/details?id=eu.indukto.zoombox">Google Play</a></p>
+  <p><strong>1.</strong> Join the <a href="https://groups.google.com/g/zoom-box-camera">Google Group</a> &nbsp;•&nbsp; <strong>2.</strong> Opt in on the <a href="https://play.google.com/apps/testing/eu.indukto.zoombox">web</a> with the same account (takes some minutes) &nbsp;•&nbsp; <strong>3.</strong> Install on <a href="https://play.google.com/store/apps/details?id=eu.indukto.zoombox">Google Play</a></p>
 
 </div>
 
